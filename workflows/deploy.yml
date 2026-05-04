@@ -1,0 +1,46 @@
+name: Auto Deploy to ANS
+
+on:
+  push:
+    branches: [ production ] 
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22 
+          script: |
+            echo "--- Memulai proses Deployment di Server ---"
+            
+            echo "1. Mengambil kepemilikan folder ke adzka172..."
+            sudo chown -R adzka172:adzka172 /www/wwwroot/ansradius.id
+            
+            cd /www/wwwroot/ansradius.id
+            
+            echo "2. Membersihkan file yang tidak terlacak (git clean)..."
+            git clean -fd
+            
+            echo "3. Reset ke HEAD terbaru..."
+            git reset --hard HEAD
+            
+            echo "4. Menarik kode terbaru dari branch production..."
+            sudo git pull adzka production
+            
+            echo "5. Mengembalikan permission ke www:www untuk aaPanel/Web..."
+            sudo chown -R www:www /www/wwwroot/ansradius.id
+            sudo chmod -R 755 /www/wwwroot/ansradius.id
+            
+            echo "6. Memastikan folder logs dapat ditulis..."
+            sudo chmod -R 775 /www/wwwroot/ansradius.id/logs
+            
+            echo "--- Deployment Berhasil Selesai! ---"

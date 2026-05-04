@@ -1,0 +1,1 @@
+bug print at generate massal (admin/hotspot user)
