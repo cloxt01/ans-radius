@@ -113,7 +113,7 @@ function paymentFallbackEmailFromPhone($phone)
     // Remove invalid characters from host (only keep alphanumeric and dots/hyphens)
     $host = preg_replace('/[^a-zA-Z0-9.-]/', '', $host);
     if ($host === '') {
-        $host = 'local.gembok';
+        $host = 'ansradius.id';
     }
     
     if ($digits !== '' && strlen($digits) >= 7) {
