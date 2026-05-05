@@ -1104,13 +1104,13 @@ if (isset($_GET['switch_router'])) {
                     <span>Invoice</span>
                 </a>
 
-                <div class="menu-item <?php echo (strpos(basename($_SERVER['PHP_SELF']), 'sales') !== false) ? 'active' : ''; ?>"
+                <!-- <div class="menu-item <?php echo (strpos(basename($_SERVER['PHP_SELF']), 'sales') !== false) ? 'active' : ''; ?>"
                     onclick="toggleSubmenu(this)">
                     <i class="fas fa-user-tie"></i>
                     <span>Sales / Agen</span>
                     <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.7rem;"></i>
-                </div>
-                <div class="submenu"
+                </div> -->
+                <!-- <div class="submenu"
                     style="<?php echo (strpos(basename($_SERVER['PHP_SELF']), 'sales') !== false) ? 'display: block;' : 'display: none;'; ?> background: var(--bg-submenu);">
                     <a href="<?php echo APP_URL; ?>/admin/sales-users.php"
                         class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'sales-users.php' ? 'active' : ''; ?>"
@@ -1127,7 +1127,7 @@ if (isset($_GET['switch_router'])) {
                         style="padding-left: 45px; font-size: 0.9rem;">
                         <i class="fas fa-history"></i> <span>Riwayat Transaksi</span>
                     </a>
-                </div>
+                </div> -->
 
                 <div class="menu-item <?php echo (basename($_SERVER['PHP_SELF']) === 'mikrotik.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php') ? 'active' : ''; ?>"
                     onclick="toggleSubmenu(this)">
@@ -1149,7 +1149,7 @@ if (isset($_GET['switch_router'])) {
                     </a>
                 </div>
 
-                <div class="menu-item <?php echo strpos(basename($_SERVER['PHP_SELF']), 'hotspot') !== false ? 'active' : ''; ?>"
+                <!-- <div class="menu-item <?php echo strpos(basename($_SERVER['PHP_SELF']), 'hotspot') !== false ? 'active' : ''; ?>"
                     onclick="toggleSubmenu(this)">
                     <i class="fas fa-wifi"></i>
                     <span>Hotspot</span>
@@ -1192,9 +1192,9 @@ if (isset($_GET['switch_router'])) {
                         style="padding-left: 45px; font-size: 0.9rem;">
                         <i class="fas fa-file-export"></i> <span>Export RSC</span>
                     </a>
-                </div>
+                </div> -->
 
-                <div class="menu-item <?php echo strpos(basename($_SERVER['PHP_SELF']), 'voucher') !== false ? 'active' : ''; ?>"
+                <!-- <div class="menu-item <?php echo strpos(basename($_SERVER['PHP_SELF']), 'voucher') !== false ? 'active' : ''; ?>"
                     onclick="toggleSubmenu(this)">
                     <i class="fas fa-ticket-alt"></i>
                     <span>Voucher</span>
@@ -1223,7 +1223,7 @@ if (isset($_GET['switch_router'])) {
                         <span>Template Voucher</span>
                     </a>
                 
-                </div>
+                </div> -->
 
                 <a href="<?php echo APP_URL; ?>/admin/genieacs.php"
                     class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'genieacs.php' ? 'active' : ''; ?>">

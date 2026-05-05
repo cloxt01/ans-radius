@@ -8,68 +8,105 @@ requireAdminLogin();
 
 $pageTitle = 'PPPoE Profiles';
 
+function pppoeProfileBuildPayloadFromPost()
+{
+    $name = sanitize($_POST['name'] ?? '');
+    $rate = sanitize($_POST['rate_limit'] ?? '');
+    $local = sanitize($_POST['local_address'] ?? '');
+    $pool = sanitize($_POST['remote_pool'] ?? 'none');
+    $dns = sanitize($_POST['dns_server'] ?? '');
+
+    $payload = [
+        'name' => $name,
+    ];
+
+    if ($rate !== '') {
+        $payload['rate-limit'] = $rate;
+    }
+    if ($local !== '') {
+        $payload['local-address'] = $local;
+    }
+    if ($pool !== '' && $pool !== 'none') {
+        $payload['remote-address'] = $pool;
+    }
+    if ($dns !== '') {
+        $payload['dns-server'] = $dns;
+    }
+
+    return $payload;
+}
+
+function pppoeProfileResolveIdFromPost()
+{
+    $id = sanitize($_POST['id'] ?? '');
+    if ($id !== '') {
+        return $id;
+    }
+
+    return sanitize($_POST['name'] ?? '');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    if ($action === 'add' || $action === 'edit') {
-        $name = sanitize($_POST['name'] ?? '');
-        $rate = sanitize($_POST['rate_limit'] ?? '');
-        $local = sanitize($_POST['local_address'] ?? '');
-        $pool = sanitize($_POST['remote_pool'] ?? 'none');
-        $dns = sanitize($_POST['dns_server'] ?? '');
+    switch ($action) {
+        case 'add':
+        case 'edit':
+            $data = pppoeProfileBuildPayloadFromPost();
+            $name = $data['name'] ?? '';
 
-        $data = [
-            'name' => $name
-        ];
-        if ($rate !== '') {
-            $data['rate-limit'] = $rate;
-        }
-        if ($local !== '') {
-            $data['local-address'] = $local;
-        }
-        if ($pool !== '' && $pool !== 'none') {
-            $data['remote-address'] = $pool;
-        }
-        if ($dns !== '') {
-            $data['dns-server'] = $dns;
-        }
-
-        if ($action === 'add') {
-            if (mikrotikAddPppoeProfile($data)) {
-                setFlash('success', "Profile {$name} berhasil ditambahkan.");
-            } else {
-                setFlash('error', "Gagal menambahkan profile (pastikan mikrotik terhubung dan konfigurasi benar).");
+            if ($name === '') {
+                setFlash('error', 'Nama profile wajib diisi.');
+                redirect('pppoe-profile.php');
             }
-        } else {
-            $id = $_POST['id'] ?? '';
-            if (mikrotikUpdatePppoeProfile($id, $data)) {
-                setFlash('success', "Profile {$name} berhasil diperbarui.");
-            } else {
-                setFlash('error', "Gagal memperbarui profile (pastikan mikrotik terhubung dan konfigurasi benar).");
-            }
-        }
-        redirect('pppoe-profile.php');
-    }
 
-    if ($action === 'delete') {
-        $id = $_POST['id'] ?? '';
-        if (mikrotikDeletePppoeProfile($id)) {
-            setFlash('success', "Profile berhasil dihapus.");
-        } else {
-            setFlash('error', "Gagal menghapus profile.");
-        }
-        redirect('pppoe-profile.php');
+            if ($action === 'add') {
+                $ok = mikrotikAddPppoeProfile($data);
+                setFlash(
+                    $ok ? 'success' : 'error',
+                    $ok
+                        ? "Profile {$name} berhasil ditambahkan."
+                        : 'Gagal menambahkan profile (pastikan mikrotik terhubung dan konfigurasi benar).'
+                );
+                redirect('pppoe-profile.php');
+            }
+
+            $id = pppoeProfileResolveIdFromPost();
+            $ok = ($id !== '') ? mikrotikUpdatePppoeProfile($id, $data) : false;
+            setFlash(
+                $ok ? 'success' : 'error',
+                $ok
+                    ? "Profile {$name} berhasil diperbarui."
+                    : 'Gagal memperbarui profile (pastikan mikrotik terhubung dan konfigurasi benar).'
+            );
+            redirect('pppoe-profile.php');
+            break;
+
+        case 'delete':
+            $id = pppoeProfileResolveIdFromPost();
+            $ok = ($id !== '') ? mikrotikDeletePppoeProfile($id) : false;
+            setFlash($ok ? 'success' : 'error', $ok ? 'Profile berhasil dihapus.' : 'Gagal menghapus profile.');
+            redirect('pppoe-profile.php');
+            break;
+
+        default:
+            if ($action !== '') {
+                setFlash('error', 'Aksi tidak dikenali.');
+                redirect('pppoe-profile.php');
+            }
+            break;
     }
 }
 
-$profiles = mikrotikGetProfiles();
+$profiles = function_exists('pppoeGetProfiles') ? pppoeGetProfiles() : mikrotikGetProfiles();
 $addressPools = mikrotikGetAddressPools();
+$isMikrotikConnected = mikrotikConnect();
 
 ob_start();
 ?>
 
 <!-- Display status connection mikrotik -->
-<?php if (!mikrotikConnect()): ?>
+<?php if (!$isMikrotikConnected): ?>
 <div style="background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
     <div style="display: flex; align-items: center; gap: 10px; color: #ff6666;">
         <i class="fas fa-exclamation-triangle" style="font-size: 1.2rem;"></i>
@@ -113,9 +150,20 @@ ob_start();
                     <option value="none">none</option>
                     <?php foreach ($addressPools as $pool): ?>
                         <option value="<?php echo htmlspecialchars($pool['name']); ?>">
-                            <?php echo htmlspecialchars($pool['name']); ?>
+                            <?php echo htmlspecialchars($pool['name'] . ' - ' . $pool['ranges']); ?>
                         </option>
+                        
                     <?php endforeach; ?>
+                    <textarea name="debug" id="debug" class="form-control" rows="5">
+                        <?php 
+                        // Menggunakan print_r untuk melihat struktur array
+                        if (isset($addressPools[0])) {
+                            print_r($addressPools[0]); 
+                        } else {
+                            echo "Data pool kosong";
+                        }
+                        ?>
+                    </textarea>
                 </select>
             </div>
             <div class="form-group">
@@ -125,7 +173,7 @@ ob_start();
         </div>
 
         <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button type="submit" class="btn btn-primary" <?php echo !mikrotikConnect() ? 'style="cursor: not-allowed;" disabled' : ''; ?>>
+            <button type="submit" class="btn btn-primary" <?php echo !$isMikrotikConnected ? 'style="cursor: not-allowed;" disabled' : ''; ?>>
                 <i class="fas fa-save"></i> Simpan Profile
             </button>
             <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
@@ -168,8 +216,9 @@ ob_start();
                                     class="btn btn-secondary btn-sm"><i class="fas fa-edit"></i></button>
                                 <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus profile ini?')">
                                     <input type="hidden" name="action" value="delete">
-                                    <input type="hidden" name="id" value="<?php echo htmlspecialchars($p['.id'] ?? ''); ?>">
-                                    <button type="submit" class="btn btn-danger btn-sm" <?php echo !mikrotikConnect() ? 'style="cursor: not-allowed;" disabled' : ''; ?>>
+                                    <input type="hidden" name="id" value="<?php echo htmlspecialchars($p['.id'] ?? ($p['name'] ?? '')); ?>">
+                                    <input type="hidden" name="name" value="<?php echo htmlspecialchars($p['name'] ?? ''); ?>">
+                                    <button type="submit" class="btn btn-danger btn-sm" <?php echo !$isMikrotikConnected ? 'style="cursor: not-allowed;" disabled' : ''; ?>>
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </form>

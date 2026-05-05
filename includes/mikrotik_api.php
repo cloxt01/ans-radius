@@ -5,6 +5,10 @@ if (file_exists(__DIR__ . '/config.php')) {
     require_once __DIR__ . '/config.php';
 }
 
+if (file_exists(__DIR__ . '/radius.php')) {
+    require_once __DIR__ . '/radius.php';
+}
+
 function getMikrotikSettings($routerId = null)
 {
     $legacyOverrides = [];
@@ -121,6 +125,7 @@ function getMikrotikSettings($routerId = null)
     }
     return $settings;
 }
+
 
 // Get all routers from database
 function getAllRouters()
@@ -1027,6 +1032,10 @@ function mikrotikGetActiveSessions()
 
 function mikrotikGetProfiles()
 {
+    if (radiusUserProvisioningReady()) {
+        return radiusGetPppoeProfilesCloud();
+    }
+
     $socket = getMikrotikConnection();
     if (!$socket) {
         return [];
@@ -1101,6 +1110,10 @@ function mikrotikParseProfiles($response)
 
 function mikrotikAddPppoeProfile($data)
 {
+    if (radiusUserProvisioningReady()) {
+        return radiusUpsertPppoeProfileCloud(null, $data);
+    }
+
     $socket = getMikrotikConnection();
     if (!$socket) {
         return false;
@@ -1144,6 +1157,10 @@ function mikrotikAddPppoeProfile($data)
 
 function mikrotikUpdatePppoeProfile($id, $data)
 {
+    if (radiusUserProvisioningReady()) {
+        return radiusUpsertPppoeProfileCloud($id, $data);
+    }
+
     $socket = getMikrotikConnection();
     if (!$socket) {
         return false;
@@ -1188,6 +1205,10 @@ function mikrotikUpdatePppoeProfile($id, $data)
 
 function mikrotikDeletePppoeProfile($id)
 {
+    if (radiusUserProvisioningReady()) {
+        return radiusDeletePppoeProfileCloud($id);
+    }
+
     $socket = getMikrotikConnection();
     if (!$socket) {
         return false;
@@ -1211,6 +1232,103 @@ function mikrotikDeletePppoeProfile($id)
         }
     }
     return true;
+}
+
+// PPPoE Profile helpers (service-level wrappers)
+function pppoeNormalizeProfileData($data)
+{
+    if (!is_array($data)) {
+        return [];
+    }
+
+    $normalized = [];
+
+    if (isset($data['name'])) {
+        $name = trim((string) $data['name']);
+        if ($name !== '') {
+            $normalized['name'] = $name;
+        }
+    }
+
+    $map = [
+        'rate-limit' => ['rate-limit', 'rate_limit'],
+        'local-address' => ['local-address', 'local_address'],
+        'remote-address' => ['remote-address', 'remote_address', 'remote_pool'],
+        'dns-server' => ['dns-server', 'dns_server'],
+        'comment' => ['comment'],
+    ];
+
+    foreach ($map as $target => $keys) {
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $data)) {
+                continue;
+            }
+
+            $value = trim((string) $data[$key]);
+            if ($value === '' || strtolower($value) === 'none') {
+                continue;
+            }
+
+            $normalized[$target] = $value;
+            break;
+        }
+    }
+
+    return $normalized;
+}
+
+function pppoeGetProfiles()
+{
+    $profiles = mikrotikGetProfiles();
+    if (!is_array($profiles) || empty($profiles)) {
+        return [];
+    }
+
+    return array_values(array_filter($profiles, function ($profile) {
+        $serviceType = strtolower(trim((string) ($profile['service-type'] ?? $profile['service_type'] ?? '')));
+        $service = strtolower(trim((string) ($profile['service'] ?? '')));
+
+        if ($serviceType === 'framed-user') {
+            return true;
+        }
+
+        return $service === 'pppoe';
+    }));
+}
+
+function pppoeCreateProfile($data)
+{
+    $payload = pppoeNormalizeProfileData($data);
+    if (empty($payload['name'])) {
+        return false;
+    }
+
+    return mikrotikAddPppoeProfile($payload);
+}
+
+function pppoeUpdateProfile($id, $data)
+{
+    $id = trim((string) $id);
+    if ($id === '') {
+        return false;
+    }
+
+    $payload = pppoeNormalizeProfileData($data);
+    if (empty($payload)) {
+        return false;
+    }
+
+    return mikrotikUpdatePppoeProfile($id, $payload);
+}
+
+function pppoeDeleteProfile($id)
+{
+    $id = trim((string) $id);
+    if ($id === '') {
+        return false;
+    }
+
+    return mikrotikDeletePppoeProfile($id);
 }
 
 // Get MikroTik Hotspot Servers
@@ -1263,747 +1381,589 @@ function mikrotikGetHotspotProfiles()
     return radiusGetHotspotProfilesCloud();
 }
 
-// Add MikroTik Hotspot User with Mikhmon Metadata support
-function mikrotikAddHotspotUser($username, $password, $profile = 'default', $extraData = [])
-{
+// ============================================
+// RADIUS DATABASE FUNCTIONS (Procedural Style)
+// ============================================
+
+// ============================================
+// HOTSPOT USER MANAGEMENT
+// ============================================
+
+/**
+ * Create Hotspot User (Flow: RADIUS → MikroTik fallback)
+ */
+function createHotspotUser($username, $password, $profile) {
     if (radiusUserProvisioningReady()) {
-        $reply = [];
-        if (isset($extraData['limit-uptime']) && trim((string) $extraData['limit-uptime']) !== '') {
-            $seconds = mikrotikDurationToSeconds((string) $extraData['limit-uptime']);
-            if ($seconds !== null && $seconds > 0) {
-                $reply['Session-Timeout'] = (string) $seconds;
-            }
-        }
-        if (isset($extraData['limit-bytes-total']) && trim((string) $extraData['limit-bytes-total']) !== '') {
-            $limit = mikrotikBytesToInteger((string) $extraData['limit-bytes-total']);
-            if ($limit !== null && $limit > 0) {
-                $limitValue = (string) $limit;
-                $reply['Mikrotik-Recv-Limit'] = $limitValue;
-                $reply['Mikrotik-Xmit-Limit'] = $limitValue;
-                $reply['Mikrotik-Total-Limit'] = $limitValue;
-            }
-        }
-        if (isset($extraData['rate-limit']) && trim((string) $extraData['rate-limit']) !== '') {
-            $reply['Mikrotik-Rate-Limit'] = trim((string) $extraData['rate-limit']);
-        }
-        if (isset($extraData['idle-timeout']) && trim((string) $extraData['idle-timeout']) !== '') {
-            $reply['Idle-Timeout'] = trim((string) $extraData['idle-timeout']);
-        }
-        if (isset($extraData['address-pool']) && trim((string) $extraData['address-pool']) !== '' && strtolower(trim((string) $extraData['address-pool'])) !== 'none') {
-            $reply['Framed-Pool'] = trim((string) $extraData['address-pool']);
-        }
-        if (isset($extraData['parent-queue']) && trim((string) $extraData['parent-queue']) !== '' && strtolower(trim((string) $extraData['parent-queue'])) !== 'none') {
-            $reply['Mikrotik-Parent-Queue'] = trim((string) $extraData['parent-queue']);
-        }
-
-        return radiusSetUser($username, $password, $profile, 'Login-User', $reply);
+        return createHotspotUserRadius($username, $password, $profile);
     }
-
-    logError('Hotspot create blocked: Radius DB is not ready.');
-    return false;
-
-    // $socket = getMikrotikConnection();
-    // if (!$socket) {
-    //     return false;
-    // }
-
-    // // Add hotspot user
-    // mikrotikWrite($socket, '/ip/hotspot/user/add');
-    // mikrotikWrite($socket, '=name=' . $username);
-    // mikrotikWrite($socket, '=password=' . $password);
-    // mikrotikWrite($socket, '=profile=' . $profile);
-
-    // // Add extra parameters if provided
-    // if (isset($extraData['server'])) {
-    //     mikrotikWrite($socket, '=server=' . $extraData['server']);
-    // }
-    // if (isset($extraData['limit-uptime'])) {
-    //     mikrotikWrite($socket, '=limit-uptime=' . $extraData['limit-uptime']);
-    // }
-    // if (isset($extraData['limit-bytes-total'])) {
-    //     mikrotikWrite($socket, '=limit-bytes-total=' . $extraData['limit-bytes-total']);
-    // }
-
-    // // Mikhmon Style Comment
-    // $comment = $extraData['comment'] ?? "parent:{$profile}";
-    // mikrotikWrite($socket, '=comment=' . $comment);
-
-    // mikrotikWrite($socket, '');
-
-    // $response = mikrotikReadSentence($socket);
-
-    // // Check for success (no !trap error)
-    // foreach ($response as $word) {
-    //     if (strpos($word, '!trap') === 0) {
-    //         return false;
-    //     }
-    // }
-
-    // return true;
+    
+    // Fallback to direct MikroTik API
+    return createHotspotUserMikrotik($username, $password, $profile);
 }
 
-// Delete MikroTik Hotspot User
+/**
+ * Create Hotspot User via RADIUS Database
+ */
+function createHotspotUserRadius($username, $password, $profile) {
+    radiusBeginTransaction();
+    
+    try {
+        // 1. Insert AUTH (Cleartext-Password)
+        insertRadcheck($username, 'Cleartext-Password', ':=', $password);
+        
+        // 2. Insert SERVICE TYPE
+        insertRadcheck($username, 'Service-Type', ':=', 'Login-User');
+        
+        // 3. Insert GROUP
+        insertRadusergroup($username, $profile, 1);
+        
+        radiusCommit();
+        return true;
+        
+    } catch (Exception $e) {
+        radiusRollback();
+        logError("Failed to create hotspot user: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Create Hotspot User via Direct MikroTik API (Fallback)
+ */
+function createHotspotUserMikrotik($username, $password, $profile) {
+    $socket = getMikrotikConnection();
+    if (!$socket) {
+        return false;
+    }
+    
+    mikrotikWrite($socket, '/ip/hotspot/user/add');
+    mikrotikWrite($socket, '=name=' . $username);
+    mikrotikWrite($socket, '=password=' . $password);
+    mikrotikWrite($socket, '=profile=' . $profile);
+    mikrotikWrite($socket, '');
+    
+    $response = mikrotikReadSentence($socket);
+    
+    foreach ($response as $word) {
+        if (strpos($word, '!trap') === 0) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * Insert radcheck record
+ */
+function insertRadcheck($username, $attribute, $op, $value) {
+    $pdo = radiusDbConnection();
+    $sql = "INSERT INTO radcheck (username, attribute, op, value) VALUES (?, ?, ?, ?)";
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute([$username, $attribute, $op, $value]);
+}
+
+/**
+ * Insert radusergroup record
+ */
+function insertRadusergroup($username, $groupname, $priority = 1) {
+    $pdo = radiusDbConnection();
+    $sql = "INSERT INTO radusergroup (username, groupname, priority) VALUES (?, ?, ?)";
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute([$username, $groupname, $priority]);
+}
+
+// ============================================
+// HOTSPOT PROFILE MANAGEMENT
+// ============================================
+
+/**
+ * Create or Update Hotspot Profile
+ */
+function createHotspotProfile($data) {
+    if (!radiusUserProvisioningReady()) {
+        logError('Hotspot profile creation blocked: Radius DB is not ready.');
+        return false;
+    }
+    
+    radiusBeginTransaction();
+    
+    try {
+        // 1. Convert data formats
+        $data = convertProfileData($data);
+        
+        // 2. Save to local hotspot_profiles table
+        saveHotspotProfileLocal($data);
+        
+        // 3. Sync to RADIUS tables (radgroupreply & radgroupcheck)
+        syncRadiusProfileAttributes($data);
+        
+        radiusCommit();
+        return true;
+        
+    } catch (Exception $e) {
+        radiusRollback();
+        logError("Failed to save hotspot profile: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Convert profile data formats (bytes, duration)
+ */
+function convertProfileData($data) {
+    // Convert bytes limits to integer
+    if (!empty($data['recv_limit']) && !empty($data['xmit_limit'])) {
+        $data['recv_limit'] = mikrotikBytesToInteger($data['recv_limit']);
+        $data['xmit_limit'] = mikrotikBytesToInteger($data['xmit_limit']);
+    }
+    if (!empty($data['total_limit'])) {
+        $data['total_limit'] = mikrotikBytesToInteger($data['total_limit']);
+    }
+    
+    // Convert validity/duration to seconds
+    if (!empty($data['validity'])) {
+        $data['validity'] = mikrotikDurationToSeconds($data['validity']);
+    }
+    
+    return $data;
+}
+
+/**
+ * Save profile to local hotspot_profiles table
+ */
+function saveHotspotProfileLocal($data) {
+    $pdo = radiusDbConnection();
+    
+    $payload = [
+        'profile_name' => $data['name'],
+        'shared_users' => $data['shared_users'] ?? 1,
+        'rate_limit' => $data['rate_limit'] ?? '',
+        'session_timeout' => $data['validity'] ?? '',
+        'idle_timeout' => $data['idle_timeout'] ?? '',
+        'address_pool' => $data['address_pool'] ?? '',
+        'price' => $data['price'] ?? 0,
+        'selling_price' => $data['selling_price'] ?? 0,
+        'on_login' => $data['on_login'] ?? null,
+        'comment' => $data['comment'] ?? null,
+        'updated_at' => date('Y-m-d H:i:s'),
+    ];
+    
+    if (!empty($data['id'])) {
+        // UPDATE
+        $sql = "UPDATE hotspot_profiles SET 
+                profile_name = ?, shared_users = ?, rate_limit = ?, 
+                session_timeout = ?, idle_timeout = ?, address_pool = ?,
+                price = ?, selling_price = ?, on_login = ?, comment = ?, updated_at = ?
+                WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            $payload['profile_name'], $payload['shared_users'], $payload['rate_limit'],
+            $payload['session_timeout'], $payload['idle_timeout'], $payload['address_pool'],
+            $payload['price'], $payload['selling_price'], $payload['on_login'],
+            $payload['comment'], $payload['updated_at'], $data['id']
+        ]);
+    } else {
+        // INSERT
+        $payload['created_at'] = date('Y-m-d H:i:s');
+        $sql = "INSERT INTO hotspot_profiles (
+                    profile_name, shared_users, rate_limit, session_timeout, 
+                    idle_timeout, address_pool, price, selling_price, 
+                    on_login, comment, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            $payload['profile_name'], $payload['shared_users'], $payload['rate_limit'],
+            $payload['session_timeout'], $payload['idle_timeout'], $payload['address_pool'],
+            $payload['price'], $payload['selling_price'], $payload['on_login'],
+            $payload['comment'], $payload['created_at'], $payload['updated_at']
+        ]);
+    }
+}
+
+/**
+ * Sync profile attributes to RADIUS tables
+ */
+function syncRadiusProfileAttributes($data) {
+    $attributeMap = [
+        'rate_limit' => 'Mikrotik-Rate-Limit',
+        'validity' => 'Session-Timeout',
+        'idle_timeout' => 'Idle-Timeout',
+        'address_pool' => 'Framed-Pool',
+        'recv_limit' => 'Mikrotik-Recv-Limit',
+        'xmit_limit' => 'Mikrotik-Xmit-Limit',
+        'total_limit' => 'Mikrotik-Total-Limit',
+    ];
+    
+    $pdo = radiusDbConnection();
+    $groupname = $data['name'];
+    
+    foreach ($attributeMap as $field => $attribute) {
+        $value = $data[$field] ?? null;
+        
+        if (empty($value)) {
+            // Delete if exists
+            $sql = "DELETE FROM radgroupreply WHERE groupname = ? AND attribute = ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$groupname, $attribute]);
+            continue;
+        }
+        
+        // Update or Insert
+        $sql = "INSERT INTO radgroupreply (groupname, attribute, op, value) 
+                VALUES (?, ?, ':=', ?)
+                ON DUPLICATE KEY UPDATE value = ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$groupname, $attribute, $value, $value]);
+    }
+    
+    // Simultaneous-Use (radgroupcheck)
+    $sql = "INSERT INTO radgroupcheck (groupname, attribute, op, value) 
+            VALUES (?, 'Simultaneous-Use', ':=', ?)
+            ON DUPLICATE KEY UPDATE value = ?";
+    $stmt = $pdo->prepare($sql);
+    $sharedUsers = $data['shared_users'] ?? 1;
+    $stmt->execute([$groupname, $sharedUsers, $sharedUsers]);
+}
+
+// ============================================
+// DELETE OPERATIONS
+// ============================================
+
+/**
+ * Delete Hotspot User
+ */
+function deleteHotspotUser($username) {
+    if (radiusUserProvisioningReady()) {
+        return deleteUserRadius($username);
+    }
+    
+    return deleteUserMikrotik($username);
+}
+
 function mikrotikDeleteHotspotUser($username)
 {
-    if (radiusUserProvisioningReady()) {
-        return radiusDeleteUser($username);
-    }
-
-    logError('Hotspot delete blocked: Radius DB is not ready.');
-    return false;
-
-    // $socket = getMikrotikConnection();
-    // if (!$socket) {
-    //     return false;
-    // }
-
-    // // Find user first
-    // mikrotikWrite($socket, '/ip/hotspot/user/print');
-    // mikrotikWrite($socket, '?name=' . $username);
-    // mikrotikWrite($socket, '');
-
-    // $allWords = [];
-    // $done = false;
-    // $timeout = time() + 10;
-
-    // while (!$done && time() < $timeout) {
-    //     $words = mikrotikReadSentence($socket);
-    //     if (empty($words))
-    //         break;
-    //     foreach ($words as $word) {
-    //         $allWords[] = $word;
-    //         if ($word === '!done') {
-    //             $done = true;
-    //             break;
-    //         }
-    //     }
-    // }
-
-    // // Find the .id
-    // $userId = null;
-    // foreach ($allWords as $word) {
-    //     if (strpos($word, '=.id=') === 0) {
-    //         $userId = substr($word, 5);
-    //         break;
-    //     }
-    // }
-
-    // if (!$userId) {
-    //     return false; // User not found
-    // }
-
-    // // Remove user
-    // mikrotikWrite($socket, '/ip/hotspot/user/remove');
-    // mikrotikWrite($socket, '=.id=' . $userId);
-    // mikrotikWrite($socket, '');
-
-    // $response = mikrotikReadSentence($socket);
-
-    // foreach ($response as $word) {
-    //     if (strpos($word, '!trap') === 0) {
-    //         return false;
-    //     }
-    // }
-
-    // return true;
+    return deleteHotspotUser($username);
 }
 
-// Toggle Hotspot User (Enable/Disable)
-function mikrotikToggleHotspotUser($username, $status)
-{
-    $socket = getMikrotikConnection();
-    if (!$socket)
+/**
+ * Delete user from RADIUS tables
+ */
+function deleteUserRadius($username) {
+    radiusBeginTransaction();
+    
+    try {
+        $pdo = radiusDbConnection();
+        
+        // Delete from radcheck
+        $stmt = $pdo->prepare("DELETE FROM radcheck WHERE username = ?");
+        $stmt->execute([$username]);
+        
+        
+        // Delete from radusergroup
+        $stmt = $pdo->prepare("DELETE FROM radusergroup WHERE username = ?");
+        $stmt->execute([$username]);
+        
+        radiusCommit();
+        return true;
+        
+    } catch (Exception $e) {
+        radiusRollback();
+        logError("Failed to delete user: " . $e->getMessage());
         return false;
+    }
+}
 
-    // Find user first
+/**
+ * Delete user from MikroTik directly
+ */
+function deleteUserMikrotik($username) {
+    $socket = getMikrotikConnection();
+    if (!$socket) {
+        return false;
+    }
+    
+    // Find user .id first
     mikrotikWrite($socket, '/ip/hotspot/user/print');
     mikrotikWrite($socket, '?name=' . $username);
     mikrotikWrite($socket, '');
-
-    $allWords = [];
+    
+    $userId = null;
     $done = false;
     $timeout = time() + 5;
+    
     while (!$done && time() < $timeout) {
         $words = mikrotikReadSentence($socket);
-        if (empty($words))
-            break;
+        if (empty($words)) break;
         foreach ($words as $word) {
-            $allWords[] = $word;
-            if ($word === '!done') {
+            if (strpos($word, '=.id=') === 0) {
+                $userId = substr($word, 5);
                 $done = true;
                 break;
             }
         }
     }
-
-    // Find the .id
-    $userId = null;
-    foreach ($allWords as $word) {
-        if (strpos($word, '=.id=') === 0) {
-            $userId = substr($word, 5);
-            break;
-        }
-    }
-
+    
     if (!$userId) {
         return false;
     }
-
-    // Toggle
-    mikrotikWrite($socket, '/ip/hotspot/user/set');
+    
+    // Delete user
+    mikrotikWrite($socket, '/ip/hotspot/user/remove');
     mikrotikWrite($socket, '=.id=' . $userId);
-    mikrotikWrite($socket, '=disabled=' . ($status === 'enable' ? 'no' : 'yes'));
     mikrotikWrite($socket, '');
-
+    
     $response = mikrotikReadSentence($socket);
-
     foreach ($response as $word) {
-        if (strpos($word, '!trap') === 0)
+        if (strpos($word, '!trap') === 0) {
             return false;
-    }
-
-    return true;
-}
-
-function radiusDbNameValue()
-{
-    if (!defined('RADIUS_DB_NAME')) {
-        return null;
-    }
-
-    $db = trim((string) RADIUS_DB_NAME);
-    return $db !== '' ? $db : null;
-}
-
-function radiusQualifiedTable($table)
-{
-    $db = radiusDbNameValue();
-    if ($db === null) {
-        return null;
-    }
-
-    return '`' . $db . '`.`' . $table . '`';
-}
-
-function radiusTableAvailable($table)
-{
-    $db = radiusDbNameValue();
-    if ($db === null) {
-        return false;
-    }
-
-    $row = fetchOne(
-        'SELECT 1 FROM information_schema.tables WHERE table_schema = ? AND table_name = ? LIMIT 1',
-        [$db, $table]
-    );
-
-    return $row !== null;
-}
-
-function radiusUserProvisioningReady()
-{
-    return radiusTableAvailable('radcheck') && radiusTableAvailable('radusergroup');
-}
-
-function radiusResolveUsernameById($id)
-{
-    $radcheck = radiusQualifiedTable('radcheck');
-    if ($radcheck === null) {
-        return null;
-    }
-
-    $row = fetchOne("SELECT username FROM {$radcheck} WHERE id = ? LIMIT 1", [(int) $id]);
-    return $row ? (string) ($row['username'] ?? '') : null;
-}
-function radiusAddNas($nasName, $nasIp, $secret, $type = 'other')
-{
-    if (!radiusTableAvailable('nas')) {
-        return false;
-    }
-
-    $nasTable = radiusQualifiedTable('nas');
-    query("INSERT INTO {$nasTable} (nasname, shortname, secret, type) VALUES (?, ?, ?, ?)", [
-        trim((string) $nasIp),
-        trim((string) $nasName),
-        trim((string) $secret),
-        trim((string) $type),
-    ]);
-
-    return true;
-}
-function radiusDisplayNas()
-{
-    if (!radiusTableAvailable('nas')) {
-        return [];
-    }
-
-    $nasTable = radiusQualifiedTable('nas');
-    return fetchAll("SELECT id, shortname, nasname, secret FROM {$nasTable}");
-}
-function radiusDeleteNas($id)
-{
-    if (!radiusTableAvailable('nas')) {
-        return false;
-    }
-
-    $nasTable = radiusQualifiedTable('nas');
-    query("DELETE FROM {$nasTable} WHERE id = ?", [(int) $id]);
-    return true;
-}
-
-function radiusRenameUser($oldUsername, $newUsername)
-{
-    $oldUsername = trim((string) $oldUsername);
-    $newUsername = trim((string) $newUsername);
-    if ($oldUsername === '' || $newUsername === '' || $oldUsername === $newUsername) {
-        return true;
-    }
-
-    $radcheck = radiusQualifiedTable('radcheck');
-    $radusergroup = radiusQualifiedTable('radusergroup');
-    $radreply = radiusTableAvailable('radreply') ? radiusQualifiedTable('radreply') : null;
-
-    query("UPDATE {$radcheck} SET username = ? WHERE username = ?", [$newUsername, $oldUsername]);
-    query("UPDATE {$radusergroup} SET username = ? WHERE username = ?", [$newUsername, $oldUsername]);
-    if ($radreply) {
-        query("UPDATE {$radreply} SET username = ? WHERE username = ?", [$newUsername, $oldUsername]);
-    }
-
-    return true;
-}
-
-function radiusSetUser($username, $password, $profile, $serviceType = 'Login-User', $replyAttributes = [])
-{
-    if (!radiusUserProvisioningReady()) {
-        return false;
-    }
-
-    $username = trim((string) $username);
-    if ($username === '') {
-        return false;
-    }
-
-    $password = (string) $password;
-    $profile = trim((string) $profile);
-    if ($profile === '') {
-        $profile = 'default';
-    }
-
-    $radcheck = radiusQualifiedTable('radcheck');
-    $radusergroup = radiusQualifiedTable('radusergroup');
-    $radreply = radiusTableAvailable('radreply') ? radiusQualifiedTable('radreply') : null;
-
-    query("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password')", [$username]);
-    query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Cleartext-Password', ':=', ?)", [$username, $password]);
-
-    query("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
-    query("INSERT INTO {$radusergroup} (username, groupname, priority) VALUES (?, ?, 1)", [$username, $profile]);
-
-    if ($radreply) {
-        query("DELETE FROM {$radreply} WHERE username = ? AND attribute IN ('Service-Type','Mikrotik-Comment','Session-Timeout','Mikrotik-Total-Limit','Mikrotik-Recv-Limit','Mikrotik-Xmit-Limit','Mikrotik-Disabled','Mikrotik-Price','Mikrotik-Rate-Limit','Idle-Timeout','Framed-Pool','Mikrotik-Parent-Queue')", [$username]);
-        query("INSERT INTO {$radreply} (username, attribute, op, value) VALUES (?, 'Service-Type', ':=', ?)", [$username, $serviceType]);
-
-        foreach ($replyAttributes as $attribute => $value) {
-            $attribute = trim((string) $attribute);
-            $value = trim((string) $value);
-            if ($attribute === '' || $value === '') {
-                continue;
-            }
-            query("INSERT INTO {$radreply} (username, attribute, op, value) VALUES (?, ?, ':=', ?)", [$username, $attribute, $value]);
         }
     }
-
+    
     return true;
 }
 
-function radiusDeleteUser($username)
-{
+/**
+ * Delete Hotspot Profile
+ */
+function deleteHotspotProfile($name) {
+    if (!radiusUserProvisioningReady()) {
+        logError('Hotspot profile deletion blocked: Radius DB is not ready.');
+        return false;
+    }
+    
+    radiusBeginTransaction();
+    
+    try {
+        $pdo = radiusDbConnection();
+        
+        // Check if profile is used by any user
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM radusergroup WHERE groupname = ?");
+        $stmt->execute([$name]);
+        $usageCount = $stmt->fetchColumn();
+        
+        if ($usageCount > 0) {
+            logError("Cannot delete profile '{$name}' - used by {$usageCount} users");
+            radiusRollback();
+            return false;
+        }
+        
+        // Delete from hotspot_profiles
+        $stmt = $pdo->prepare("DELETE FROM hotspot_profiles WHERE profile_name = ?");
+        $stmt->execute([$name]);
+        
+        // Delete from radgroupreply
+        $stmt = $pdo->prepare("DELETE FROM radgroupreply WHERE groupname = ?");
+        $stmt->execute([$name]);
+        
+        // Delete from radusergroup
+        $stmt = $pdo->prepare("DELETE FROM radusergroup WHERE groupname = ?");
+        $stmt->execute([$name]);
+        
+        // Delete from radgroupcheck
+        $stmt = $pdo->prepare("DELETE FROM radgroupcheck WHERE groupname = ?");
+        $stmt->execute([$name]);
+        
+        radiusCommit();
+        return true;
+        
+    } catch (Exception $e) {
+        radiusRollback();
+        logError("Failed to delete profile: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Bulk Delete Users
+ */
+function bulkDeleteUsers($usernames) {
+    if (empty($usernames)) {
+        return true;
+    }
+    
+    if (!radiusUserProvisioningReady()) {
+        // Fallback to MikroTik (loop deletion)
+        $success = true;
+        foreach ($usernames as $username) {
+            if (!deleteUserMikrotik($username)) {
+                $success = false;
+            }
+        }
+        return $success;
+    }
+    
+    radiusBeginTransaction();
+    
+    try {
+        $pdo = radiusDbConnection();
+        $placeholders = implode(',', array_fill(0, count($usernames), '?'));
+        
+        $stmt = $pdo->prepare("DELETE FROM radcheck WHERE username IN ({$placeholders})");
+        $stmt->execute($usernames);
+        
+        
+        $stmt = $pdo->prepare("DELETE FROM radusergroup WHERE username IN ({$placeholders})");
+        $stmt->execute($usernames);
+        
+        radiusCommit();
+        return true;
+        
+    } catch (Exception $e) {
+        radiusRollback();
+        logError("Failed to bulk delete users: " . $e->getMessage());
+        return false;
+    }
+}
+
+// ============================================
+// NAS MANAGEMENT
+// ============================================
+
+/**
+ * Add or Update NAS
+ */
+function addNas($name, $ip, $secret) {
     if (!radiusUserProvisioningReady()) {
         return false;
     }
-
-    $username = trim((string) $username);
-    if ($username === '') {
-        return false;
-    }
-
-    $radcheck = radiusQualifiedTable('radcheck');
-    $radusergroup = radiusQualifiedTable('radusergroup');
-    $radreply = radiusTableAvailable('radreply') ? radiusQualifiedTable('radreply') : null;
-
-    query("DELETE FROM {$radcheck} WHERE username = ?", [$username]);
-    query("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
-    if ($radreply) {
-        query("DELETE FROM {$radreply} WHERE username = ?", [$username]);
-    }
-
-    return true;
+    
+    $pdo = radiusDbConnection();
+    $sql = "INSERT INTO nas (nasname, shortname, secret, type) 
+            VALUES (?, ?, ?, 'other')
+            ON DUPLICATE KEY UPDATE shortname = ?, secret = ?";
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute([$ip, $name, $secret, $name, $secret]);
 }
 
-function radiusGetUsersByService($serviceType)
-{
+/**
+ * Delete NAS by ID
+ */
+function deleteNas($id) {
+    if (!radiusUserProvisioningReady()) {
+        return false;
+    }
+    
+    $pdo = radiusDbConnection();
+    $stmt = $pdo->prepare("DELETE FROM nas WHERE id = ?");
+    return $stmt->execute([$id]);
+}
+
+/**
+ * Get All NAS
+ */
+function getNasList() {
     if (!radiusUserProvisioningReady()) {
         return [];
     }
+    
+    $pdo = radiusDbConnection();
+    $stmt = $pdo->query("SELECT id, shortname, nasname, secret FROM nas ORDER BY id");
+    return $stmt->fetchAll();
+}
 
-    $radcheck = radiusQualifiedTable('radcheck');
-    $radusergroup = radiusQualifiedTable('radusergroup');
-    $radreply = radiusTableAvailable('radreply') ? radiusQualifiedTable('radreply') : null;
+// ============================================
+// QUERY/GETTER FUNCTIONS
+// ============================================
 
-    $serviceTypeSelect = $radreply
-        ? "MAX(CASE WHEN rr.attribute = 'Service-Type' THEN rr.value END) AS service_type"
-        : "NULL AS service_type";
-    $commentSelect = $radreply
-        ? "MAX(CASE WHEN rr.attribute = 'Mikrotik-Comment' THEN rr.value END) AS user_comment"
-        : "'' AS user_comment";
-    $sessionTimeoutSelect = $radreply
-        ? "MAX(CASE WHEN rr.attribute = 'Session-Timeout' THEN rr.value END) AS session_timeout"
-        : "NULL AS session_timeout";
-    $bytesTotalSelect = $radreply
-        ? "COALESCE(MAX(CASE WHEN rr.attribute = 'Mikrotik-Total-Limit' THEN rr.value END), MAX(CASE WHEN rr.attribute = 'Mikrotik-Recv-Limit' THEN rr.value END), MAX(CASE WHEN rr.attribute = 'Mikrotik-Xmit-Limit' THEN rr.value END)) AS bytes_total"
-        : "NULL AS bytes_total";
-    $priceSelect = $radreply
-        ? "MAX(CASE WHEN rr.attribute = 'Mikrotik-Price' THEN rr.value END) AS voucher_price"
-        : "NULL AS voucher_price";
-    $disabledSelect = $radreply
-        ? "MAX(CASE WHEN rr.attribute = 'Mikrotik-Disabled' THEN rr.value END) AS disabled_status"
-        : "'false' AS disabled_status";
-    $rateLimitSelect = $radreply
-        ? "MAX(CASE WHEN rr.attribute = 'Mikrotik-Rate-Limit' THEN rr.value END) AS rate_limit"
-        : "NULL AS rate_limit";
-    $idleTimeoutSelect = $radreply
-        ? "MAX(CASE WHEN rr.attribute = 'Idle-Timeout' THEN rr.value END) AS idle_timeout"
-        : "NULL AS idle_timeout";
-    $addressPoolSelect = $radreply
-        ? "MAX(CASE WHEN rr.attribute = 'Framed-Pool' THEN rr.value END) AS address_pool"
-        : "NULL AS address_pool";
-    $parentQueueSelect = $radreply
-        ? "MAX(CASE WHEN rr.attribute = 'Mikrotik-Parent-Queue' THEN rr.value END) AS parent_queue"
-        : "NULL AS parent_queue";
-
-    $sql = "SELECT c.id,
-                   c.username,
-                   c.value AS password,
-                   COALESCE(ug.groupname, 'default') AS profile,
-                   {$serviceTypeSelect},
-                   {$commentSelect},
-                   {$sessionTimeoutSelect},
-                   {$bytesTotalSelect},
-                   {$priceSelect},
-                   {$disabledSelect},
-                   {$rateLimitSelect},
-                   {$idleTimeoutSelect},
-                   {$addressPoolSelect},
-                   {$parentQueueSelect}
-            FROM {$radcheck} c
-            LEFT JOIN {$radusergroup} ug ON ug.username = c.username";
-
-    if ($radreply) {
-        $sql .= "\n            LEFT JOIN {$radreply} rr ON rr.username = c.username";
+/**
+ * Get Hotspot User by Username
+ */
+function getHotspotUser($username) {
+    if (!radiusUserProvisioningReady()) {
+        // Fallback to MikroTik
+        $users = mikrotikGetHotspotUsers();
+        foreach ($users as $user) {
+            if ($user['name'] === $username) {
+                return $user;
+            }
+        }
+        return null;
     }
+    
+    $pdo = radiusDbConnection();
+    $sql = "SELECT c.id, c.username, c.value as password, ug.groupname as profile
+            FROM radcheck c
+            LEFT JOIN radusergroup ug ON ug.username = c.username
+            WHERE c.username = ? AND c.attribute IN ('Cleartext-Password', 'User-Password')
+            LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$username]);
+    return $stmt->fetch();
+}
 
-    $sql .= "\n            WHERE c.attribute IN ('Cleartext-Password', 'User-Password')
-            GROUP BY c.id, c.username, c.value, ug.groupname
+/**
+ * Get All Hotspot Users
+ */
+function getAllHotspotUsers() {
+    if (!radiusUserProvisioningReady()) {
+        return mikrotikGetHotspotUsers();
+    }
+    
+    $pdo = radiusDbConnection();
+    $sql = "SELECT c.id, c.username, c.value as password, ug.groupname as profile,
+                    rgr.value as rate_limit, rgr2.value as session_timeout
+            FROM radcheck c
+            LEFT JOIN radusergroup ug ON ug.username = c.username
+            LEFT JOIN radgroupreply rgr ON rgr.groupname = ug.groupname AND rgr.attribute = 'Mikrotik-Rate-Limit'
+            LEFT JOIN radgroupreply rgr2 ON rgr2.groupname = ug.groupname AND rgr2.attribute = 'Session-Timeout'
+            WHERE c.attribute IN ('Cleartext-Password', 'User-Password')
             ORDER BY c.id DESC";
+    $stmt = $pdo->query($sql);
+    return $stmt->fetchAll();
+}
 
-    $rows = fetchAll($sql);
-    $users = [];
+/**
+ * Get Profile Names List
+ */
+function getProfileNames() {
+    if (!radiusUserProvisioningReady()) {
+        $profiles = mikrotikGetHotspotProfiles();
+        return array_column($profiles, 'name');
+    }
+    
+    $pdo = radiusDbConnection();
+    $stmt = $pdo->query("SELECT profile_name FROM hotspot_profiles ORDER BY profile_name");
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
 
-    foreach ($rows as $row) {
-        $rowService = (string) ($row['service_type'] ?? '');
-        if ($serviceType === 'Framed-User') {
-            if ($rowService !== 'Framed-User') {
-                continue;
+/**
+ * Get Profile by Username
+ */
+function getProfileByUser($username) {
+    if (!radiusUserProvisioningReady()) {
+        $users = mikrotikGetHotspotUsers();
+        foreach ($users as $user) {
+            if ($user['name'] === $username) {
+                return $user['profile'] ?? null;
             }
-        } else {
-            if ($rowService === 'Framed-User') {
-                continue;
-            }
         }
-
-        $sessionTimeout = isset($row['session_timeout']) && $row['session_timeout'] !== null
-            ? trim((string) $row['session_timeout'])
-            : '';
-
-        $users[] = [
-            '.id' => (string) ($row['id'] ?? ''),
-            'name' => (string) ($row['username'] ?? ''),
-            'password' => (string) ($row['password'] ?? ''),
-            'profile' => (string) ($row['profile'] ?? 'default'),
-            'comment' => (string) ($row['user_comment'] ?? ''),
-            'limit-uptime' => $sessionTimeout !== '' ? $sessionTimeout : '∞',
-            'validity' => $sessionTimeout !== '' ? $sessionTimeout : '-',
-            'price' => is_numeric($row['voucher_price'] ?? null) ? (float) $row['voucher_price'] : 0,
-            'rate-limit' => (string) ($row['rate_limit'] ?? ''),
-            'idle-timeout' => (string) ($row['idle_timeout'] ?? ''),
-            'address-pool' => (string) ($row['address_pool'] ?? ''),
-            'parent-queue' => (string) ($row['parent_queue'] ?? ''),
-            'limit-bytes-total' => is_numeric($row['bytes_total'] ?? null) ? (int) $row['bytes_total'] : 0,
-            'uptime' => '0s',
-            'bytes-in' => 0,
-            'bytes-out' => 0,
-            'server' => 'radius',
-            'disabled' => ((string) ($row['disabled_status'] ?? 'false') === 'true') ? 'true' : 'false',
-        ];
+        return null;
     }
-
-    return $users;
+    
+    $pdo = radiusDbConnection();
+    $stmt = $pdo->prepare("SELECT groupname FROM radusergroup WHERE username = ? LIMIT 1");
+    $stmt->execute([$username]);
+    $result = $stmt->fetch();
+    return $result['groupname'] ?? null;
 }
 
-function radiusGetHotspotUsers()
-{
-    $loginUsers = radiusGetUsersByService('Login-User');
-    $framedUsers = radiusGetUsersByService('Framed-User');
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
 
-    foreach ($framedUsers as $user) {
-        if (radiusLooksLikeHotspotUser($user)) {
-            $loginUsers[] = $user;
-        }
-    }
-
-    return $loginUsers;
+/**
+ * Duration to seconds (reuse existing function)
+ */
+function durationToSeconds($duration) {
+    return mikrotikDurationToSeconds($duration);
 }
 
-function radiusLooksLikeHotspotUser($user)
-{
-    if (!is_array($user)) {
-        return false;
-    }
-
-    $profile = strtolower(trim((string) ($user['profile'] ?? '')));
-    $hotspotProfiles = radiusGetHotspotProfileNameSet();
-    if ($profile !== '' && isset($hotspotProfiles[$profile])) {
-        return true;
-    }
-
-    if (trim((string) ($user['rate-limit'] ?? '')) !== '') {
-        return true;
-    }
-    if (trim((string) ($user['idle-timeout'] ?? '')) !== '') {
-        return true;
-    }
-    if (trim((string) ($user['address-pool'] ?? '')) !== '') {
-        return true;
-    }
-    if (trim((string) ($user['parent-queue'] ?? '')) !== '') {
-        return true;
-    }
-
-    $bytesTotal = (int) ($user['limit-bytes-total'] ?? 0);
-    if ($bytesTotal > 0) {
-        return true;
-    }
-
-    $uptime = trim((string) ($user['limit-uptime'] ?? ''));
-    if ($uptime !== '' && $uptime !== '∞') {
-        return true;
-    }
-
-    return false;
-}
-
-function radiusGetHotspotProfileNameSet()
-{
-    static $cache = null;
-
-    if ($cache !== null) {
-        return $cache;
-    }
-
-    $cache = [];
-    $db = radiusDbNameValue();
-    if ($db === null) {
-        return $cache;
-    }
-
-    if (!radiusTableAvailable('radius_hotspot_profiles')) {
-        return $cache;
-    }
-
-    $table = radiusQualifiedTable('radius_hotspot_profiles');
-
-    $rows = fetchAll("SELECT profile_name FROM {$table}");
-    foreach ($rows as $row) {
-        $name = strtolower(trim((string) ($row['profile_name'] ?? '')));
-        if ($name !== '') {
-            $cache[$name] = true;
-        }
-    }
-
-    return $cache;
-}
-
-function radiusGetHotspotProfilesCloud()
-{
-    $db = radiusDbNameValue();
-    if ($db === null) {
-        return [];
-    }
-
-    $table = radiusQualifiedTable('radius_hotspot_profiles');
-    query("CREATE TABLE IF NOT EXISTS {$table} (
-        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        profile_name VARCHAR(64) NOT NULL UNIQUE,
-        shared_users INT NOT NULL DEFAULT 1,
-        rate_limit VARCHAR(64) NOT NULL DEFAULT '',
-        session_timeout VARCHAR(64) NOT NULL DEFAULT '',
-        idle_timeout VARCHAR(64) NOT NULL DEFAULT '',
-        address_pool VARCHAR(64) NOT NULL DEFAULT '',
-        parent_queue VARCHAR(64) NOT NULL DEFAULT '',
-        price DECIMAL(12,2) NOT NULL DEFAULT 0,
-        selling_price DECIMAL(12,2) NOT NULL DEFAULT 0,
-        on_login TEXT NULL,
-        comment TEXT NULL,
-        created_at DATETIME NULL,
-        updated_at DATETIME NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    $hasPrice = fetchOne(
-        "SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = 'radius_hotspot_profiles' AND column_name = 'price' LIMIT 1",
-        [$db]
-    );
-    if (!$hasPrice) {
-        query("ALTER TABLE {$table} ADD COLUMN price DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER parent_queue");
-    }
-
-    $hasSellingPrice = fetchOne(
-        "SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = 'radius_hotspot_profiles' AND column_name = 'selling_price' LIMIT 1",
-        [$db]
-    );
-    if (!$hasSellingPrice) {
-        query("ALTER TABLE {$table} ADD COLUMN selling_price DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER price");
-    }
-
-    $profiles = [];
-
-    $rows = fetchAll("SELECT * FROM {$table} ORDER BY profile_name ASC");
-    foreach ($rows as $row) {
-        $parsedMeta = parseMikhmonOnLogin((string) ($row['on_login'] ?? ''));
-        $storedPrice = is_numeric($row['price'] ?? null) ? (float) $row['price'] : 0;
-        $storedSellingPrice = is_numeric($row['selling_price'] ?? null) ? (float) $row['selling_price'] : 0;
-        $profiles[] = [
-            '.id' => (string) ($row['id'] ?? ''),
-            'name' => (string) ($row['profile_name'] ?? ''),
-            'shared-users' => (string) ($row['shared_users'] ?? '1'),
-            'rate-limit' => (string) ($row['rate_limit'] ?? ''),
-            'session-timeout' => (string) ($row['session_timeout'] ?? ''),
-            'idle-timeout' => (string) ($row['idle_timeout'] ?? ''),
-            'address-pool' => (string) ($row['address_pool'] ?? ''),
-            'parent-queue' => (string) ($row['parent_queue'] ?? ''),
-            'price' => $storedPrice > 0 ? $storedPrice : (float) ($parsedMeta['price'] ?? 0),
-            'selling-price' => $storedSellingPrice > 0 ? $storedSellingPrice : (float) ($parsedMeta['selling_price'] ?? 0),
-            'on-login' => (string) ($row['on_login'] ?? ''),
-            'comment' => (string) ($row['comment'] ?? ''),
-        ];
-    }
-
-    if (empty($profiles) && radiusTableAvailable('radusergroup')) {
-        $table = radiusQualifiedTable('radusergroup');
-        $rows = fetchAll("SELECT DISTINCT groupname FROM {$table} WHERE groupname IS NOT NULL AND groupname <> '' ORDER BY groupname ASC");
-        foreach ($rows as $row) {
-            $profiles[] = [
-                'name' => (string) ($row['groupname'] ?? ''),
-                'session-timeout' => '',
-                'on-login' => '',
-            ];
-        }
-    }
-
-    if (empty($profiles)) {
-        $profiles[] = ['name' => 'default', 'session-timeout' => '', 'on-login' => ''];
-    }
-
-    return $profiles;
-}
-
-function radiusUpsertHotspotProfileCloud($id, $data)
-{
-    $db = radiusDbNameValue();
-    if ($db === null) {
-        return false;
-    }
-
-    // Ensure table exists
-    radiusGetHotspotProfilesCloud();
-    $table = radiusQualifiedTable('radius_hotspot_profiles');
-
-    $name = trim((string) ($data['name'] ?? ''));
-    if ($name === '') {
-        return false;
-    }
-
-    $sharedUsers = max(1, (int) ($data['shared-users'] ?? 1));
-    $rateLimit = trim((string) ($data['rate-limit'] ?? ''));
-    $sessionTimeout = trim((string) ($data['session-timeout'] ?? ''));
-    $idleTimeout = trim((string) ($data['idle-timeout'] ?? ''));
-    $addressPool = trim((string) ($data['address-pool'] ?? ''));
-    $parentQueue = trim((string) ($data['parent-queue'] ?? ''));
-    $onLogin = (string) ($data['on-login'] ?? '');
-    $comment = (string) ($data['comment'] ?? '');
-    $parsedMeta = parseMikhmonOnLogin($onLogin);
-    $price = isset($data['price']) && is_numeric($data['price']) ? (float) $data['price'] : (float) ($parsedMeta['price'] ?? 0);
-    $sellingPrice = isset($data['selling-price']) && is_numeric($data['selling-price']) ? (float) $data['selling-price'] : (float) ($parsedMeta['selling_price'] ?? 0);
-    $now = date('Y-m-d H:i:s');
-
-    $existing = null;
-    if ($id !== null && $id !== '') {
-        $existing = fetchOne("SELECT id FROM {$table} WHERE id = ?", [(int) $id]);
-    }
-
-    if ($existing) {
-        return query(
-            "UPDATE {$table}
-             SET profile_name = ?, shared_users = ?, rate_limit = ?, session_timeout = ?, idle_timeout = ?, address_pool = ?, parent_queue = ?, price = ?, selling_price = ?, on_login = ?, comment = ?, updated_at = ?
-             WHERE id = ?",
-            [$name, $sharedUsers, $rateLimit, $sessionTimeout, $idleTimeout, $addressPool, $parentQueue, $price, $sellingPrice, $onLogin, $comment, $now, (int) $id]
-        ) !== false;
-    }
-
-    return query(
-        "INSERT INTO {$table} (profile_name, shared_users, rate_limit, session_timeout, idle_timeout, address_pool, parent_queue, price, selling_price, on_login, comment, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [$name, $sharedUsers, $rateLimit, $sessionTimeout, $idleTimeout, $addressPool, $parentQueue, $price, $sellingPrice, $onLogin, $comment, $now, $now]
-    ) !== false;
-}
-
-function radiusDeleteHotspotProfileCloud($id)
-{
-    $db = radiusDbNameValue();
-    if ($db === null) {
-        return false;
-    }
-
-    $usageCount = radiusHotspotProfileUsageCount($id);
-    if ($usageCount > 0) {
-        logError('Delete hotspot profile blocked: profile is still used in radusergroup. id=' . (int) $id . ', count=' . $usageCount);
-        return false;
-    }
-
-    $table = radiusQualifiedTable('radius_hotspot_profiles');
-    return query("DELETE FROM {$table} WHERE id = ?", [(int) $id]) !== false;
-}
-
-function radiusHotspotProfileUsageCount($id)
-{
-    $db = radiusDbNameValue();
-    if ($db === null) {
-        return 0;
-    }
-
-    $profileTable = radiusQualifiedTable('radius_hotspot_profiles');
-    $profileRow = fetchOne("SELECT profile_name FROM {$profileTable} WHERE id = ? LIMIT 1", [(int) $id]);
-    $profileName = trim((string) ($profileRow['profile_name'] ?? ''));
-    if ($profileName === '') {
-        return 0;
-    }
-
-    if (!radiusTableAvailable('radusergroup')) {
-        return 0;
-    }
-
-    $userGroupTable = radiusQualifiedTable('radusergroup');
-    $row = fetchOne("SELECT COUNT(*) AS total FROM {$userGroupTable} WHERE groupname = ?", [$profileName]);
-    return max(0, (int) ($row['total'] ?? 0));
+/**
+ * Bytes to integer (reuse existing function)
+ */
+function bytesToInt($bytes) {
+    return mikrotikBytesToInteger($bytes);
 }
 
 function buildHotspotVoucherPrintData($generatedVouchers, $hotspotName = 'ANS Radius', $dnsName = 'hotspot.net')
@@ -2088,64 +2048,6 @@ function buildHotspotVoucherPrintData($generatedVouchers, $hotspotName = 'ANS Ra
 function mikrotikGetHotspotUsers()
 {
     return radiusGetHotspotUsers();
-
-    // $socket = getMikrotikConnection();
-    // if (!$socket) {
-    //     return [];
-    // }
-
-    // // Get hotspot users
-    // mikrotikWrite($socket, '/ip/hotspot/user/print');
-    // mikrotikWrite($socket, '');
-
-    // $allWords = [];
-    // $done = false;
-    // $timeout = time() + 10;
-
-    // while (!$done && time() < $timeout) {
-    //     $words = mikrotikReadSentence($socket);
-    //     if (empty($words))
-    //         break;
-    //     foreach ($words as $word) {
-    //         $allWords[] = $word;
-    //         if ($word === '!done') {
-    //             $done = true;
-    //             break;
-    //         }
-    //     }
-    // }
-
-    // // Do NOT fclose() — this is a shared persistent connection
-
-    // $users = [];
-    // $currentUser = [];
-
-    // foreach ($allWords as $word) {
-    //     if ($word === '!re' || $word === '!done') {
-    //         if (!empty($currentUser)) {
-    //             // Ensure default keys
-    //             $currentUser['name'] = $currentUser['name'] ?? '';
-    //             $currentUser['profile'] = $currentUser['profile'] ?? 'default';
-    //             $currentUser['comment'] = $currentUser['comment'] ?? '';
-    //             $currentUser['limit-uptime'] = $currentUser['limit-uptime'] ?? '∞';
-    //             $currentUser['limit-bytes-total'] = $currentUser['limit-bytes-total'] ?? 0;
-    //             $currentUser['uptime'] = $currentUser['uptime'] ?? '0s';
-    //             $currentUser['bytes-in'] = $currentUser['bytes-in'] ?? 0;
-    //             $currentUser['bytes-out'] = $currentUser['bytes-out'] ?? 0;
-
-    //             $users[] = $currentUser;
-    //             $currentUser = [];
-    //         }
-    //     } elseif (strpos($word, '=') === 0) {
-    //         $word = substr($word, 1);
-    //         $parts = explode('=', $word, 2);
-    //         if (count($parts) === 2) {
-    //             $currentUser[$parts[0]] = $parts[1];
-    //         }
-    //     }
-    // }
-
-    // return $users;
 }
 // Update MikroTik Hotspot User
 function mikrotikUpdateHotspotUser($id, $data)
@@ -2153,12 +2055,12 @@ function mikrotikUpdateHotspotUser($id, $data)
     if (radiusUserProvisioningReady()) {
         $oldUsername = radiusResolveUsernameById($id);
         if ($oldUsername === null || $oldUsername === '') {
-            return false;
+            return ['success' => false, 'message' => 'User not found in Radius DB'];
         }
 
         $newUsername = trim((string) ($data['name'] ?? $oldUsername));
         if ($newUsername === '') {
-            return false;
+            return ['success' => false, 'message' => 'Username is required'];
         }
 
         if ($newUsername !== $oldUsername) {
@@ -2173,83 +2075,39 @@ function mikrotikUpdateHotspotUser($id, $data)
         }
 
         $profile = trim((string) ($data['profile'] ?? 'default'));
-        $reply = [];
-        if (isset($data['price']) && is_numeric($data['price'])) {
-            $reply['Mikrotik-Price'] = (string) ((float) $data['price']);
-        }
-        if (isset($data['limit-uptime']) && trim((string) $data['limit-uptime']) !== '') {
-            $seconds = mikrotikDurationToSeconds((string) $data['limit-uptime']);
-            if ($seconds !== null && $seconds > 0) {
-                $reply['Session-Timeout'] = (string) $seconds;
-            }
-        }
-        if (isset($data['limit-bytes-total']) && trim((string) $data['limit-bytes-total']) !== '') {
-            $limit = mikrotikBytesToInteger((string) $data['limit-bytes-total']);
-            if ($limit !== null && $limit > 0) {
-                $limitValue = (string) $limit;
-                $reply['Mikrotik-Recv-Limit'] = $limitValue;
-                $reply['Mikrotik-Xmit-Limit'] = $limitValue;
-                $reply['Mikrotik-Total-Limit'] = $limitValue;
-            }
-        }
-        if (isset($data['disabled'])) {
-            $reply['Mikrotik-Disabled'] = ((string) $data['disabled'] === 'true') ? 'true' : 'false';
-        }
 
-        return radiusSetUser($newUsername, $password, $profile, 'Login-User', $reply);
+        $ok = radiusSetUser($newUsername, $password, $profile, 'Login-User', []);
+        return [
+            'success' => $ok,
+            'message' => $ok ? 'User updated in Radius DB' : 'Failed to update user in Radius DB',
+        ];
     }
 
-    // logError('Hotspot update blocked: Radius DB is not ready.');
-    // return false;
-
-    // $socket = getMikrotikConnection();
-    // if (!$socket)
-    //     return false;
-
-    // mikrotikWrite($socket, '/ip/hotspot/user/set');
-    // mikrotikWrite($socket, '=.id=' . $id);
-    // if (isset($data['name']))
-    //     mikrotikWrite($socket, '=name=' . $data['name']);
-    // if (isset($data['password']))
-    //     mikrotikWrite($socket, '=password=' . $data['password']);
-    // if (isset($data['profile']))
-    //     mikrotikWrite($socket, '=profile=' . $data['profile']);
-    // if (isset($data['limit-uptime']))
-    //     mikrotikWrite($socket, '=limit-uptime=' . $data['limit-uptime']);
-    // if (isset($data['limit-bytes-total']))
-    //     mikrotikWrite($socket, '=limit-bytes-total=' . $data['limit-bytes-total']);
-    // if (isset($data['comment']))
-    //     mikrotikWrite($socket, '=comment=' . $data['comment']);
-    // if (isset($data['disabled']))
-    //     mikrotikWrite($socket, '=disabled=' . $data['disabled']);
-    // mikrotikWrite($socket, '');
-
-    // $response = mikrotikReadSentence($socket);
-    // // Do NOT fclose() — this is a shared persistent connection
-    // foreach ($response as $word) {
-    //     if (strpos($word, '!trap') === 0)
-    //         return false;
-    // }
-    // return true;
+    logError('Hotspot update blocked: Radius DB is not ready.');
+    return ['success' => false, 'message' => 'Radius DB is not ready'];
 }
 
 // Get Active Hotspot Users
 function mikrotikGetHotspotActive()
 {
     $socket = getMikrotikConnection();
-    if (!$socket)
+    if (!$socket) {
         return [];
+    }
 
     mikrotikWrite($socket, '/ip/hotspot/active/print');
     mikrotikWrite($socket, '');
 
     $allWords = [];
     $done = false;
-    $timeout = time() + 10;
+    $timeout = time() + 30;
+
     while (!$done && time() < $timeout) {
         $words = mikrotikReadSentence($socket);
-        if (empty($words))
+        if (empty($words)) {
             break;
+        }
+
         foreach ($words as $word) {
             $allWords[] = $word;
             if ($word === '!done') {
@@ -2258,27 +2116,32 @@ function mikrotikGetHotspotActive()
             }
         }
     }
-    // Do NOT fclose() — this is a shared persistent connection
 
     $active = [];
     $current = [];
-    foreach ($allWords as $word) {
-        if ($word === '!re' || $word === '!done') {
-            if (!empty($current)) {
-                $current['user'] = $current['user'] ?? '';
-                $current['address'] = $current['address'] ?? '';
-                $current['uptime'] = $current['uptime'] ?? '0s';
 
+    foreach ($allWords as $word) {
+        if ($word === '!done') {
+            if (!empty($current)) {
+                $active[] = $current;
+            }
+            break;
+        }
+
+        if ($word === '!re') {
+            if (!empty($current)) {
                 $active[] = $current;
                 $current = [];
             }
         } elseif (strpos($word, '=') === 0) {
             $word = substr($word, 1);
             $parts = explode('=', $word, 2);
-            if (count($parts) === 2)
+            if (count($parts) === 2) {
                 $current[$parts[0]] = $parts[1];
+            }
         }
     }
+
     return $active;
 }
 
@@ -2287,51 +2150,6 @@ function mikrotikUpdateHotspotProfile($id, $data)
 {
     return radiusUpsertHotspotProfileCloud($id, $data);
 
-    // $socket = getMikrotikConnection();
-    // if (!$socket)
-    //     return false;
-
-    // mikrotikWrite($socket, '/ip/hotspot/user/profile/set');
-    // mikrotikWrite($socket, '=.id=' . $id);
-    // if (isset($data['name']))
-    //     mikrotikWrite($socket, '=name=' . $data['name']);
-    // if (isset($data['shared-users']))
-    //     mikrotikWrite($socket, '=shared-users=' . $data['shared-users']);
-    // if (isset($data['session-timeout'])) {
-    //     $sessionTimeout = mikrotikNormalizeTimeoutValue($data['session-timeout']);
-    //     if ($sessionTimeout !== null && $sessionTimeout !== '') {
-    //         mikrotikWrite($socket, '=session-timeout=' . $sessionTimeout);
-    //     }
-    // }
-    // if (isset($data['rate-limit']))
-    //     mikrotikWrite($socket, '=rate-limit=' . $data['rate-limit']);
-    // if (isset($data['keepalive-timeout']))
-    //     mikrotikWrite($socket, '=keepalive-timeout=' . $data['keepalive-timeout']);
-    // if (isset($data['idle-timeout']))
-    //     mikrotikWrite($socket, '=idle-timeout=' . $data['idle-timeout']);
-    // if (isset($data['address-pool']))
-    //     mikrotikWrite($socket, '=address-pool=' . $data['address-pool']);
-    // if (isset($data['parent-queue']))
-    //     mikrotikWrite($socket, '=parent-queue=' . $data['parent-queue']);
-    // if (isset($data['on-login']))
-    //     mikrotikWrite($socket, '=on-login=' . $data['on-login']);
-    // if (isset($data['comment']))
-    //     mikrotikWrite($socket, '=comment=' . $data['comment']);
-    // mikrotikWrite($socket, '');
-
-    // $response = mikrotikReadSentence($socket);
-    // foreach ($response as $word) {
-    //     if (strpos($word, '!trap') === 0) {
-    //         $trap = mikrotikTrapMessageFromResponse($response);
-    //         if ($trap !== '') {
-    //             logError('MikroTik update hotspot profile failed: ' . $trap);
-    //         } else {
-    //             logError('MikroTik update hotspot profile failed.');
-    //         }
-    //         return false;
-    //     }
-    // }
-    // return true;
 }
 
 // Add Hotspot Profile
@@ -2339,50 +2157,6 @@ function mikrotikAddHotspotProfile($data)
 {
     return radiusUpsertHotspotProfileCloud(null, $data);
 
-    // $socket = getMikrotikConnection();
-    // if (!$socket)
-    //     return false;
-
-    // mikrotikWrite($socket, '/ip/hotspot/user/profile/add');
-    // if (isset($data['name']))
-    //     mikrotikWrite($socket, '=name=' . $data['name']);
-    // if (isset($data['shared-users']))
-    //     mikrotikWrite($socket, '=shared-users=' . $data['shared-users']);
-    // if (isset($data['session-timeout'])) {
-    //     $sessionTimeout = mikrotikNormalizeTimeoutValue($data['session-timeout']);
-    //     if ($sessionTimeout !== null && $sessionTimeout !== '') {
-    //         mikrotikWrite($socket, '=session-timeout=' . $sessionTimeout);
-    //     }
-    // }
-    // if (isset($data['rate-limit']))
-    //     mikrotikWrite($socket, '=rate-limit=' . $data['rate-limit']);
-    // if (isset($data['keepalive-timeout']))
-    //     mikrotikWrite($socket, '=keepalive-timeout=' . $data['keepalive-timeout']);
-    // if (isset($data['idle-timeout']))
-    //     mikrotikWrite($socket, '=idle-timeout=' . $data['idle-timeout']);
-    // if (isset($data['address-pool']))
-    //     mikrotikWrite($socket, '=address-pool=' . $data['address-pool']);
-    // if (isset($data['parent-queue']))
-    //     mikrotikWrite($socket, '=parent-queue=' . $data['parent-queue']);
-    // if (isset($data['on-login']))
-    //     mikrotikWrite($socket, '=on-login=' . $data['on-login']);
-    // if (isset($data['comment']))
-    //     mikrotikWrite($socket, '=comment=' . $data['comment']);
-    // mikrotikWrite($socket, '');
-
-    // $response = mikrotikReadSentence($socket);
-    // foreach ($response as $word) {
-    //     if (strpos($word, '!trap') === 0) {
-    //         $trap = mikrotikTrapMessageFromResponse($response);
-    //         if ($trap !== '') {
-    //             logError('MikroTik add hotspot profile failed: ' . $trap);
-    //         } else {
-    //             logError('MikroTik add hotspot profile failed.');
-    //         }
-    //         return false;
-    //     }
-    // }
-    // return true;
 }
 
 // Delete Hotspot Profile
@@ -2390,28 +2164,6 @@ function mikrotikDeleteHotspotProfile($id)
 {
     return radiusDeleteHotspotProfileCloud($id);
 
-    // $socket = getMikrotikConnection();
-    // if (!$socket)
-    //     return false;
-
-    // mikrotikWrite($socket, '/ip/hotspot/user/profile/remove');
-    // mikrotikWrite($socket, '=.id=' . $id);
-    // mikrotikWrite($socket, '');
-
-    // $response = mikrotikReadSentence($socket);
-    // fclose($socket);
-    // foreach ($response as $word) {
-    //     if (strpos($word, '!trap') === 0) {
-    //         $trap = mikrotikTrapMessageFromResponse($response);
-    //         if ($trap !== '') {
-    //             logError('MikroTik delete hotspot profile failed: ' . $trap);
-    //         } else {
-    //             logError('MikroTik delete hotspot profile failed.');
-    //         }
-    //         return false;
-    //     }
-    // }
-    // return true;
 }
 
 // Generate Mikhmon v3-style on-login script

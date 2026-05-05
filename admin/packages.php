@@ -324,24 +324,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
 
             case 'add':
-                $selectedServices = normalizePackageServices($_POST['services'] ?? [], $availableServices);
-                $productType = normalizeTypeKey(sanitize($_POST['product_type'] ?? 'general'));
-                if (empty($selectedServices)) {
-                    setFlash('error', 'Pilih minimal 1 service untuk paket.');
-                    redirect('packages.php');
-                }
                 $data = [
                     'name' => sanitize($_POST['name']),
-                    'product_type' => $productType,
                     'price' => (float)$_POST['price'],
                     'profile_normal' => sanitize($_POST['profile_normal']),
                     'profile_isolir' => sanitize($_POST['profile_isolir']),
                     'description' => sanitize($_POST['description']),
                     'created_at' => date('Y-m-d H:i:s')
                 ];
-                if ($supportsPackageServices) {
-                    $data['package_services'] = json_encode($selectedServices);
-                }
+
                 
                 if (insert('packages', $data)) {
                     setFlash('success', 'Paket berhasil ditambahkan');
@@ -354,25 +345,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'edit':
                 $packageId = (int)$_POST['package_id'];
-                $selectedServices = normalizePackageServices($_POST['services'] ?? [], $availableServices);
-                $productType = normalizeTypeKey(sanitize($_POST['product_type'] ?? 'general'));
-                if (empty($selectedServices)) {
-                    setFlash('error', 'Pilih minimal 1 service untuk paket.');
-                    redirect('packages.php');
-                }
                 $data = [
                     'name' => sanitize($_POST['name']),
-                    'product_type' => $productType,
                     'price' => (float)$_POST['price'],
                     'profile_normal' => sanitize($_POST['profile_normal']),
                     'profile_isolir' => sanitize($_POST['profile_isolir']),
                     'description' => sanitize($_POST['description']),
                     'updated_at' => date('Y-m-d H:i:s')
                 ];
-                if ($supportsPackageServices) {
-                    $data['package_services'] = json_encode($selectedServices);
-                }
-                
+
                 if (update('packages', $data, 'id = ?', [$packageId])) {
                     setFlash('success', 'Paket berhasil diperbarui');
                     logActivity('UPDATE_PACKAGE', "ID: {$packageId}");
@@ -558,7 +539,7 @@ ob_start();
     }
 </style>
 
-<!-- Add Service Form -->
+<!-- Add Service Form
 <div class="card">
     <div class="card-header">
         <h3 class="card-title"><i class="fas fa-layer-group"></i> Tambah Service Paket</h3>
@@ -630,7 +611,7 @@ ob_start();
             </div>
         </div>
     <?php endif; ?>
-</div>
+</div> -->
 
 <!-- Edit Service Modal -->
 <div id="editServiceModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2001; overflow-y: auto; padding: 40px 0;">
@@ -728,7 +709,7 @@ ob_start();
             <textarea name="description" class="form-control" rows="2" placeholder="Keterangan tambahan (opsional)"></textarea>
         </div>
 
-        <div class="form-group">
+        <!-- <div class="form-group">
             <label class="form-label">Daftar Service Paket</label>
             <div class="service-checklist">
                 <?php foreach ($availableServices as $serviceKey => $serviceLabel): ?>
@@ -739,7 +720,7 @@ ob_start();
                 <?php endforeach; ?>
             </div>
             <small style="color: var(--text-muted);">Centang service yang tersedia pada paket ini. Service tidak dicentang akan line-through, kecuali tipenya sama dengan tipe produk paket (otomatis di-hide di landing).</small>
-        </div>
+        </div> -->
         
         <button type="submit" class="btn btn-primary">
             <i class="fas fa-save"></i> Simpan Paket
