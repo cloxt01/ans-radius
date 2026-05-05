@@ -1564,9 +1564,7 @@ document.getElementById('editFaqModal').addEventListener('click', function(e) {
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <?php
                     $cronToken = getSettingValue('CRON_TOKEN');
-                    if (!$cronToken) {
-                        $cronToken = bin2hex(random_bytes(16));
-                    }
+                    
                     $cronUrl = APP_URL . "/cron/run.php?token=" . $cronToken;
                     ?>
                     <input type="text" id="cron_web_url" readonly

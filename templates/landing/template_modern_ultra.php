@@ -23,31 +23,6 @@ $defaultPackageServiceTypes = [
 
 $packageFeatureList = $defaultPackageServices;
 $packageFeatureTypes = $defaultPackageServiceTypes;
-try {
-    if (function_exists('tableExists') && tableExists('available_services')) {
-        try {
-            $serviceRows = fetchAll("SELECT service_key, service_name, service_type FROM available_services WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
-        } catch (Exception $e) {
-            $serviceRows = fetchAll("SELECT service_key, service_name FROM available_services WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
-        }
-        if (!empty($serviceRows)) {
-            $packageFeatureList = [];
-            $packageFeatureTypes = [];
-            foreach ($serviceRows as $row) {
-                $key = (string) ($row['service_key'] ?? '');
-                $name = (string) ($row['service_name'] ?? '');
-                $type = strtolower(trim((string) ($row['service_type'] ?? '')));
-                if ($key !== '' && $name !== '') {
-                    $packageFeatureList[$key] = $name;
-                    $packageFeatureTypes[$key] = $type !== '' ? $type : (explode('_', $key)[0] ?? 'general');
-                }
-            }
-        }
-    }
-} catch (Exception $e) {
-    $packageFeatureList = $defaultPackageServices;
-    $packageFeatureTypes = $defaultPackageServiceTypes;
-}
 
 if (!function_exists('modernUltraPackageServices')) {
     function modernUltraPackageServices($pkg)
