@@ -1050,7 +1050,7 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
     <div class="particles" id="particles"></div>
 
     <nav class="navbar">
-        <img src="<?php echo APP_URL; ?>/assets/icons/icon.webp" class="sidebar-brand-logo" style="width: 58px; height: 58px;" alt="Logo" width="58" height="58" fetchpriority="high" decoding="async">
+        <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" class="sidebar-brand-logo" style="width: 58px; height: 58px;" alt="Logo" width="58" height="58" fetchpriority="high" decoding="async">
         <button class="nav-toggle" type="button" onclick="window.__gembokToggleNav && window.__gembokToggleNav()"><i class="fas fa-bars"></i></button>
         <div class="nav-links">
             <a href="#features">Fitur</a>

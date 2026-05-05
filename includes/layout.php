@@ -15,7 +15,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Get page title
-$appName = getSetting('app_name', 'GEMBOK');
+$appName = getSetting('app_name', 'ANS RADIUS');
 $pageTitle = $pageTitle ?? $appName;
 $pageDescription = $pageDescription ?? '';
 
@@ -49,7 +49,7 @@ if (isset($_GET['switch_router'])) {
         rel="stylesheet">
 
     <!-- Font Awesome -->
-    <link rel="apple-touch-icon" href="<?php echo APP_URL; ?>/assets/icons/icon-180x180.png">
+    <link rel="apple-touch-icon" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -1140,7 +1140,12 @@ if (isset($_GET['switch_router'])) {
                     <a href="<?php echo APP_URL; ?>/admin/mikrotik.php"
                         class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'mikrotik.php' ? 'active' : ''; ?>"
                         style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-server"></i> <span>Data MikroTik</span>
+                        <i class="fas fa-server"></i> <span>PPPoE User</span>
+                    </a>
+                    <a href="<?php echo APP_URL; ?>/admin/pppoe-active.php"
+                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-active.php' ? 'active' : ''; ?>"
+                        style="padding-left: 45px; font-size: 0.9rem;">
+                        <i class="fas fa-server"></i> <span>PPPoE Active</span>
                     </a>
                     <a href="<?php echo APP_URL; ?>/admin/pppoe-profile.php"
                         class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php' ? 'active' : ''; ?>"
