@@ -15,8 +15,8 @@ if (session_status() === PHP_SESSION_NONE) {
 
 ensurePublicVoucherTables();
 
-$appName = getSetting('app_name', 'GEMBOK');
-$defaultGateway = strtolower((string) getSetting('DEFAULT_PAYMENT_GATEWAY', 'tripay'));
+$appName = getSetting('app_name', 'ANS RADIUS');
+$defaultGateway = strtolower((string) getSetting('DEFAULT_PAYMENT_GATEWAY', 'midtrans'));
 if (!in_array($defaultGateway, ['tripay', 'midtrans'], true)) {
     $defaultGateway = 'tripay';
 }

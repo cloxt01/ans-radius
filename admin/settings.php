@@ -1726,7 +1726,6 @@ function copyWebhookUrl(inputId, btn) {
             btn.style.background = 'var(--neon-cyan)';
         }, 2000);
     }).catch(function() {
-        // Fallback for older browsers
         document.execCommand('copy');
         const original = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-check"></i> Tersalin!';

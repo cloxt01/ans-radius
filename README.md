@@ -32,9 +32,9 @@ http://domain-anda/install.php
 - MikroTik Config (opsional)
 - Integrations (opsional)
 5. Selesai.
-- Admin: `http://domain-anda/admin/login`
-- Portal pelanggan: `http://domain-anda/portal/login`
-- Portal sales: `http://domain-anda/sales/login`
+- Admin: `http://domain-anda/admin/login.php`
+- Portal pelanggan: `http://domain-anda/portal/login.php`
+- Portal sales: `http://domain-anda/sales/login.php`
 
 ## Konfigurasi
 

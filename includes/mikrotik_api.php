@@ -979,12 +979,11 @@ function mikrotikGetActiveSessions()
     }
 
     mikrotikWrite($socket, '/ppp/active/print');
-    mikrotikWrite($socket, ''); // End sentence
+    mikrotikWrite($socket, '');
 
-    // Read ALL sentences until !done
     $allWords = [];
     $done = false;
-    $timeout = time() + 30; // 30 second timeout for large user lists
+    $timeout = time() + 30;
 
     while (!$done && time() < $timeout) {
         $words = mikrotikReadSentence($socket);
@@ -1001,35 +1000,33 @@ function mikrotikGetActiveSessions()
         }
     }
 
-    // Parse active sessions
-    $sessions = [];
-    $currentSession = [];
+    $active = [];
+    $current = [];
 
     foreach ($allWords as $word) {
         if ($word === '!done') {
-            if (!empty($currentSession)) {
-                $sessions[] = $currentSession;
+            if (!empty($current)) {
+                $active[] = $current;
             }
             break;
         }
 
         if ($word === '!re') {
-            if (!empty($currentSession)) {
-                $sessions[] = $currentSession;
-                $currentSession = [];
+            if (!empty($current)) {
+                $active[] = $current;
+                $current = [];
             }
         } elseif (strpos($word, '=') === 0) {
             $word = substr($word, 1);
             $parts = explode('=', $word, 2);
             if (count($parts) === 2) {
-                $currentSession[$parts[0]] = $parts[1];
+                $current[$parts[0]] = $parts[1];
             }
         }
     }
 
-    return $sessions;
+    return $active;
 }
-
 function mikrotikGetProfiles()
 {
     if (radiusUserProvisioningReady()) {
