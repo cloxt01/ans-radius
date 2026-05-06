@@ -6,7 +6,10 @@ define('DB_NAME', '');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 
+define('RADIUS_DB_HOST', 'localhost');
 define('RADIUS_DB_NAME', 'radius_db');
+define('RADIUS_DB_USER', 'root');
+define('RADIUS_DB_PASS', '');
 
 // MikroTik Configuration
 define('MIKROTIK_HOST', '');
