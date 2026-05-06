@@ -67,7 +67,7 @@ define('ENCRYPTION_KEY', 'ganti-dengan-random-key-anda');
 1. Install paket WireGuard di server:
 ```bash
 sudo apt update
-sudo apt install wireguard -y
+sudo apt install wireguard -y && apt install resolvconf -y
 ```
 
 2. Sesuaikan konfigurasi server yang ada di bagian atas file `setup/wireguard-provision.sh`
