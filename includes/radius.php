@@ -211,29 +211,31 @@ function radiusGetUsersByService($serviceType)
     $radcheck = radiusQualifiedTable('radcheck');
     $radusergroup = radiusQualifiedTable('radusergroup');
     $radgroupreply = radiusQualifiedTable('radgroupreply');
-
     $sql = "SELECT c.id,
-                   c.username,
-                   c.value AS password,
-                   COALESCE(ug.groupname, 'default') AS profile,
-                   MAX(CASE WHEN rr.attribute = 'Service-Type' THEN rr.value END) AS service_type,
-                   MAX(CASE WHEN rr.attribute = 'Mikrotik-Comment' THEN rr.value END) AS user_comment,
-                   MAX(CASE WHEN rr.attribute = 'Session-Timeout' THEN rr.value END) AS session_timeout,
-                   COALESCE(MAX(CASE WHEN rr.attribute = 'Mikrotik-Total-Limit' THEN rr.value END),
-                            MAX(CASE WHEN rr.attribute = 'Mikrotik-Recv-Limit' THEN rr.value END),
-                            MAX(CASE WHEN rr.attribute = 'Mikrotik-Xmit-Limit' THEN rr.value END)) AS bytes_total,
-                   MAX(CASE WHEN rr.attribute = 'Mikrotik-Price' THEN rr.value END) AS voucher_price,
-                   MAX(CASE WHEN rr.attribute = 'Mikrotik-Disabled' THEN rr.value END) AS disabled_status,
-                   MAX(CASE WHEN rr.attribute = 'Mikrotik-Rate-Limit' THEN rr.value END) AS rate_limit,
-                   MAX(CASE WHEN rr.attribute = 'Idle-Timeout' THEN rr.value END) AS idle_timeout,
-                   MAX(CASE WHEN rr.attribute = 'Framed-Pool' THEN rr.value END) AS address_pool,
-                   MAX(CASE WHEN rr.attribute = 'Mikrotik-Parent-Queue' THEN rr.value END) AS parent_queue
-            FROM {$radcheck} c
-            LEFT JOIN {$radusergroup} ug ON ug.username = c.username
-            LEFT JOIN {$radgroupreply} rr ON rr.groupname = ug.groupname
-            WHERE c.attribute IN ('Cleartext-Password', 'User-Password')
-            GROUP BY c.id, c.username, c.value, ug.groupname
-            ORDER BY c.id DESC";
+            c.username,
+            c.value AS password,
+            COALESCE(ug.groupname, 'default') AS profile,
+            -- Mengambil Auth-Type dari radcheck
+            MAX(CASE WHEN c2.attribute = 'Auth-Type' THEN c2.value END) AS disabled,
+            MAX(CASE WHEN rr.attribute = 'Service-Type' THEN rr.value END) AS service_type,
+            MAX(CASE WHEN rr.attribute = 'Mikrotik-Comment' THEN rr.value END) AS user_comment,
+            MAX(CASE WHEN rr.attribute = 'Session-Timeout' THEN rr.value END) AS session_timeout,
+            COALESCE(MAX(CASE WHEN rr.attribute = 'Mikrotik-Total-Limit' THEN rr.value END),
+                        MAX(CASE WHEN rr.attribute = 'Mikrotik-Recv-Limit' THEN rr.value END),
+                        MAX(CASE WHEN rr.attribute = 'Mikrotik-Xmit-Limit' THEN rr.value END)) AS bytes_total,
+            MAX(CASE WHEN rr.attribute = 'Mikrotik-Price' THEN rr.value END) AS voucher_price,
+            MAX(CASE WHEN rr.attribute = 'Mikrotik-Rate-Limit' THEN rr.value END) AS rate_limit,
+            MAX(CASE WHEN rr.attribute = 'Idle-Timeout' THEN rr.value END) AS idle_timeout,
+            MAX(CASE WHEN rr.attribute = 'Framed-Pool' THEN rr.value END) AS address_pool,
+            MAX(CASE WHEN rr.attribute = 'Mikrotik-Parent-Queue' THEN rr.value END) AS parent_queue
+        FROM {$radcheck} c
+        -- Join ke diri sendiri untuk mencari atribut lain dengan username yang sama
+        LEFT JOIN {$radcheck} c2 ON c2.username = c.username AND c2.attribute = 'Auth-Type'
+        LEFT JOIN {$radusergroup} ug ON ug.username = c.username
+        LEFT JOIN {$radgroupreply} rr ON rr.groupname = ug.groupname
+        WHERE c.attribute IN ('Cleartext-Password', 'User-Password')
+        GROUP BY c.id, c.username, c.value, ug.groupname
+        ORDER BY c.id DESC";
 
     $rows = fetchAll($sql);
     $users = [];
@@ -259,7 +261,7 @@ function radiusGetUsersByService($serviceType)
             'limit-uptime' => (string) ($row['session_timeout'] ?? ''),
             'limit-bytes-total' => (string) ($row['bytes_total'] ?? ''),
             'price' => (string) ($row['voucher_price'] ?? ''),
-            'disabled' => strtolower((string) ($row['disabled_status'] ?? 'false')) === 'true' ? 'true' : 'false',
+            'disabled' => (strpos(strtolower((string) ($row['disabled'] ?? '')), 'reject') !== false) ? 'true' : 'false',
             'rate-limit' => (string) ($row['rate_limit'] ?? ''),
             'idle-timeout' => (string) ($row['idle_timeout'] ?? ''),
             'address-pool' => (string) ($row['address_pool'] ?? ''),
@@ -372,28 +374,30 @@ function radiusUpsertHotspotProfileCloud($id, $data)
         return false;
     }
 
-    $profileName = trim((string) ($data['name'] ?? ''));
-    if ($profileName === '' && $id !== null && $id !== '') {
-        $existing = fetchOne("SELECT profile_name FROM " . radiusQualifiedTable('hotspot_profiles') . " WHERE id = ? LIMIT 1", [(int) $id]);
-        $profileName = trim((string) ($existing['profile_name'] ?? ''));
+    $hotspotProfiles = radiusQualifiedTable('hotspot_profiles');
+    $existing = null;
+    if ($id !== null && $id !== '') {
+        $existing = fetchOne("SELECT * FROM {$hotspotProfiles} WHERE id = ? LIMIT 1", [(int) $id]);
     }
+
+    $profileName = trim((string) ($data['name'] ?? ($existing['profile_name'] ?? '')));
     if ($profileName === '') {
         return false;
     }
 
-    $sharedUsers = isset($data['shared-users']) ? (int) $data['shared-users'] : (isset($data['shared_users']) ? (int) $data['shared_users'] : 1);
+    $sharedUsers = isset($data['shared-users']) ? (int) $data['shared-users'] : (isset($data['shared_users']) ? (int) $data['shared_users'] : ($existing['shared_users'] ?? 1));
     if ($sharedUsers < 1) {
         $sharedUsers = 1;
     }
 
-    $rateLimit = trim((string) ($data['rate-limit'] ?? $data['rate_limit'] ?? ''));
-    $sessionTimeout = trim((string) ($data['session-timeout'] ?? $data['validity'] ?? ''));
-    $idleTimeout = trim((string) ($data['idle-timeout'] ?? $data['idle_timeout'] ?? ''));
-    $addressPool = trim((string) ($data['address-pool'] ?? $data['address_pool'] ?? ''));
-    $price = isset($data['price']) && is_numeric($data['price']) ? (float) $data['price'] : 0;
-    $sellingPrice = isset($data['selling-price']) && is_numeric($data['selling-price']) ? (float) $data['selling-price'] : (isset($data['selling_price']) && is_numeric($data['selling_price']) ? (float) $data['selling_price'] : 0);
-    $comment = trim((string) ($data['comment'] ?? ''));
-    $onLogin = trim((string) ($data['on-login'] ?? $data['on_login'] ?? ''));
+    $rateLimit = trim((string) ($data['rate-limit'] ?? ($data['rate_limit'] ?? ($existing['rate_limit'] ?? ''))));
+    $sessionTimeout = trim((string) ($data['session-timeout'] ?? ($data['validity'] ?? ($existing['session_timeout'] ?? ''))));
+    $idleTimeout = trim((string) ($data['idle-timeout'] ?? ($data['idle_timeout'] ?? ($existing['idle_timeout'] ?? ''))));
+    $addressPool = trim((string) ($data['address-pool'] ?? ($data['address_pool'] ?? ($existing['address_pool'] ?? ''))));
+    $price = isset($data['price']) && is_numeric($data['price']) ? (float) $data['price'] : (float) ($existing['price'] ?? 0);
+    $sellingPrice = isset($data['selling-price']) && is_numeric($data['selling-price']) ? (float) $data['selling-price'] : (isset($data['selling_price']) && is_numeric($data['selling_price']) ? (float) $data['selling_price'] : (float) ($existing['selling_price'] ?? 0));
+    $comment = trim((string) ($data['comment'] ?? ($existing['comment'] ?? '')));
+    $onLogin = trim((string) ($data['on-login'] ?? ($data['on_login'] ?? ($existing['on_login'] ?? ''))));
 
     if ($onLogin === '') {
         $onLogin = generateHotspotExpiryScript('none', $price, $sessionTimeout, $sellingPrice);
