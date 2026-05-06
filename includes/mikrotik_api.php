@@ -1172,7 +1172,8 @@ function mikrotikUpdatePppoeProfile($id, $data)
         mikrotikWrite($socket, '=local-address=' . $data['local-address']);
     }
     if (isset($data['remote-address'])) {
-        mikrotikWrite($socket, '=remote-address=' . $data['remote-address']);
+        $rAddress = $data['remote-address'] === 'none' ? '' : $data['remote-address'];
+        mikrotikWrite($socket, '=remote-address=' . $rAddress);
     }
     if (isset($data['rate-limit'])) {
         mikrotikWrite($socket, '=rate-limit=' . $data['rate-limit']);

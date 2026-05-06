@@ -608,15 +608,16 @@ function radiusUpsertPppoeProfileCloud($id, $data)
         foreach ($attributeMap as $attribute => $value) {
             $value = is_null($value) ? '' : trim((string) $value);
 
+            // Selalu hapus dulu yang lama untuk groupname & attribute ini agar tidak duplikat
+            $stmtClear = $pdo->prepare('DELETE FROM radgroupreply WHERE groupname = ? AND attribute = ?');
+            $stmtClear->execute([$targetName, $attribute]);
+
             if ($attribute !== 'Service-Type' && $value === '') {
-                $stmtDelete = $pdo->prepare('DELETE FROM radgroupreply WHERE groupname = ? AND attribute = ?');
-                $stmtDelete->execute([$targetName, $attribute]);
                 continue;
             }
 
             $stmt = $pdo->prepare(
-                'INSERT INTO radgroupreply (groupname, attribute, op, value) VALUES (?, ?, \'=\', ?) '
-                . 'ON DUPLICATE KEY UPDATE value = VALUES(value), op = VALUES(op)'
+                'INSERT INTO radgroupreply (groupname, attribute, op, value) VALUES (?, ?, \'=\', ?)'
             );
             $stmt->execute([$targetName, $attribute, $value]);
         }
