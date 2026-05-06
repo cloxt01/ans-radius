@@ -1129,14 +1129,14 @@ if (isset($_GET['switch_router'])) {
                     </a>
                 </div> -->
 
-                <div class="menu-item <?php echo (basename($_SERVER['PHP_SELF']) === 'mikrotik.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php') ? 'active' : ''; ?>"
+                <div class="menu-item <?php echo (basename($_SERVER['PHP_SELF']) === 'mikrotik.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-active.php') ? 'active' : ''; ?>"
                     onclick="toggleSubmenu(this)">
                     <i class="fas fa-network-wired"></i>
                     <span>PPPOE</span>
                     <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.7rem;"></i>
                 </div>
                 <div class="submenu"
-                    style="<?php echo (basename($_SERVER['PHP_SELF']) === 'mikrotik.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php') ? 'display: block;' : 'display: none;'; ?> background: var(--bg-submenu);">
+                    style="<?php echo (basename($_SERVER['PHP_SELF']) === 'mikrotik.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-active.php') ? 'display: block;' : 'display: none;'; ?> background: var(--bg-submenu);">
                     <a href="<?php echo APP_URL; ?>/admin/mikrotik.php"
                         class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'mikrotik.php' ? 'active' : ''; ?>"
                         style="padding-left: 45px; font-size: 0.9rem;">
