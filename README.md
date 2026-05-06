@@ -67,7 +67,7 @@ define('ENCRYPTION_KEY', 'ganti-dengan-random-key-anda');
 1. Install paket WireGuard di server:
 ```bash
 sudo apt update
-sudo apt install wireguard -y
+sudo apt install wireguard -y && apt install resolvconf -y
 ```
 
 2. Sesuaikan konfigurasi server yang ada di bagian atas file `setup/wireguard-provision.sh`
@@ -83,7 +83,7 @@ INTERFACE_PORT= 16315 # interface port mis (16315)
 ## -- LANJUTAN -- ##
 ```
 
-3. Salin file `setup/wireguard-provision.sh` ke folder `root/`
+3. Salin file `setup/wireguard-provision.sh` ke folder `/usr/local/bin`
 
 4. Lalu masukan perintah `sudo visudo`, lalu tambahkan teks berikut di paling bawah: 
 
@@ -92,6 +92,10 @@ bash
 www ALL=(ALL) NOPASSWD: /root/wg-provision.sh
 www ALL=(ALL) NOPASSWD: /usr/bin/wg
 www ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart freeradius
+```
+5. Terakhir, beri izin eksekusi :
+```
+chmod +x /usr/local/bin/wg-provision.sh
 ```
 
 ### FreeRADIUS (Opsional, BETA)
