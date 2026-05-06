@@ -861,11 +861,27 @@ function mikrotikUpdateSecret($id, $data)
             $password = (string) ($pwd['value'] ?? '');
         }
 
-        $profile = trim((string) ($data['profile'] ?? 'default'));
-        $serviceType = (strtolower((string) ($data['service'] ?? 'pppoe')) === 'pppoe') ? 'Framed-User' : 'Login-User';
+        // Data yang sudah ada di database untuk dipertahankan jika tidak dikirim dalam $data
+        $radusergroup = radiusQualifiedTable('radusergroup');
+        $existingProfile = fetchOne("SELECT groupname FROM {$radusergroup} WHERE username = ? LIMIT 1", [$newUsername]);
+        
+        $profile = isset($data['profile']) ? trim((string)$data['profile']) : ($existingProfile['groupname'] ?? 'default');
+        $serviceType = isset($data['service']) ? (strtolower((string)$data['service']) === 'pppoe' ? 'Framed-User' : 'Login-User') : 'Framed-User';
+        
         $reply = [];
         if (isset($data['disabled'])) {
-            $reply['Mikrotik-Disabled'] = ((string) $data['disabled'] === 'true') ? 'true' : 'false';
+            $radcheck = radiusQualifiedTable('radcheck');
+            $existingReject = fetchOne("SELECT id FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type' LIMIT 1", [$newUsername]);
+
+            if (strtolower((string) $data['disabled']) === 'true') {
+                if (!$existingReject) {
+                    fetchOne("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Auth-Type', ':=', 'Reject')", [$newUsername]);
+                } else {
+                    fetchOne("UPDATE {$radcheck} SET value = 'Reject' WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
+                }
+            } else {
+                fetchOne("DELETE FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
+            }
         }
 
         $ok = radiusSetUser($newUsername, $password, $profile, $serviceType, $reply);
@@ -897,7 +913,7 @@ function mikrotikUpdateSecret($id, $data)
     if (isset($data['disabled']))
         mikrotikWrite($socket, '=disabled=' . $data['disabled']);
 
-    mikrotikWrite($socket, ''); // End sentence
+    mikrotikWrite($socket, ''); 
 
     $response = mikrotikReadSentence($socket);
 
@@ -1165,7 +1181,7 @@ function mikrotikUpdatePppoeProfile($id, $data)
 
     mikrotikWrite($socket, '/ppp/profile/set');
     mikrotikWrite($socket, '=.id=' . $id);
-    if (isset($data['name'])) {
+    if (isset($data['name']) && $data['name'] !== '') {
         mikrotikWrite($socket, '=name=' . $data['name']);
     }
     if (isset($data['local-address'])) {

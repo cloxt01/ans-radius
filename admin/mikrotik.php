@@ -225,10 +225,12 @@ ob_start();
     <table class="data-table">
         <thead>
             <tr>
+                <th>ID</th>
                 <th>Username</th>
                 <th>Profile</th>
                 <th>Service</th>
                 <th>Status</th>
+                <th>Enabled</th>
                 <th>Last Login</th>
                 <th>Aksi</th>
             </tr>
@@ -236,7 +238,7 @@ ob_start();
         <tbody>
             <?php if (empty($mikrotikUsers)): ?>
                 <tr>
-                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
+                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
                         <i class="fas fa-network-wired" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
                         Belum ada PPPoE user atau tidak terkoneksi ke MikroTik
                     </td>
@@ -275,6 +277,13 @@ ob_start();
                             <span class="badge badge-success"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 4px;"></i> Online</span>
                         <?php else: ?>
                             <span class="badge badge-warning">Offline</span>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <?php if ($isDisabled): ?>
+                            <span class="badge badge-danger">No</span>
+                        <?php else: ?>
+                            <span class="badge badge-success">Yes</span>
                         <?php endif; ?>
                     </td>
                     <td data-label="Last Login"><?php echo $user['last-login'] ?? 'Never'; ?></td>
