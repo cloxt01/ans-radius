@@ -382,7 +382,7 @@ ob_start();
                 <label class="form-label">Username PPPoE</label>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" required placeholder="Pilih atau ketik username" style="flex: 1 1 200px; min-width: 0;">
-                    <button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()" style="flex: 0 0 auto; white-space: nowrap;">Pilih dari MikroTik</button>
+                    <button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()" style="flex: 0 0 auto; white-space: nowrap;">Pilih dari Daftar</button>
                 </div>
                 <small style="color: var(--text-muted);">Pilih username PPPoE dari user MikroTik untuk menghindari salah input</small>
             </div>
