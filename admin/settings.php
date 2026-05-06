@@ -839,7 +839,7 @@ ob_start();
     <div style="background: rgba(172, 179, 87, 0.1); border: 1px solid #eeff00; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
         <div style="display: flex; align-items: center; gap: 10px; color: #ddcf0a;">
             <i class="fas fa-info-circle" style="font-size: 1.2rem;"></i>
-            <p>Pastikan VPN sudah di pasang di Router</p>
+            <p>Jika tidak ada NAS/Router di daftar, pastikan VPN sudah terpasang di Router</p>
         </div>
     </div>
     <div class="card-body">
@@ -848,7 +848,7 @@ ob_start();
             <select id="radius_nas_selector" class="form-control" onchange="generateRadiusScript()">
                 <option value="">-- Pilih NAS --</option>
                 <?php
-                $nasList = fetchAll("SELECT nasname, secret, shortname FROM " . radiusQualifiedTable('nas'));
+                $nasList = fetchAll("SELECT nasname, secret, shortname FROM " . radiusQualifiedTable('nas') . " WHERE nasname LIKE '10.7%' ORDER BY id ASC");
                 foreach ($nasList as $nas):
                 ?>
                     <option value="<?php echo htmlspecialchars($nas['nasname']); ?>" data-secret="<?php echo htmlspecialchars($nas['secret']); ?>">
