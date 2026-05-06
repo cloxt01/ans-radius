@@ -830,6 +830,74 @@ ob_start();
     
 </div>
 
+<!-- Mikrotik Radius Script Generator -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-terminal"></i> Mikrotik Radius Script Generator</h3>
+    </div>
+    <!-- Alert info -->
+    <div style="background: rgba(172, 179, 87, 0.1); border: 1px solid #eeff00; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 10px; color: #ddcf0a;">
+            <i class="fas fa-info-circle" style="font-size: 1.2rem;"></i>
+            <p>Pastikan VPN sudah di pasang di Router</p>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="form-group">
+            <label class="form-label">Pilih NAS / Router</label>
+            <select id="radius_nas_selector" class="form-control" onchange="generateRadiusScript()">
+                <option value="">-- Pilih NAS --</option>
+                <?php
+                $nasList = fetchAll("SELECT nasname, secret, shortname FROM " . radiusQualifiedTable('nas'));
+                foreach ($nasList as $nas):
+                ?>
+                    <option value="<?php echo htmlspecialchars($nas['nasname']); ?>" data-secret="<?php echo htmlspecialchars($nas['secret']); ?>">
+                        <?php echo htmlspecialchars($nas['shortname'] . ' (' . $nas['nasname'] . ')'); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Script Mikrotik</label>
+            <div style="position: relative;">
+                <textarea id="radius_add_script" class="form-control" rows="3" readonly placeholder="/radius add ..."></textarea>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="copyRadiusScript()" style="position: absolute; right: 10px; top: 10px;">
+                    <i class="fas fa-copy"></i> Salin
+                </button>
+            </div>
+            <small style="color: var(--text-muted);">Copy script ini dan paste di terminal Mikrotik Anda.</small>
+        </div>
+    </div>
+</div>
+
+<script>
+function generateRadiusScript() {
+    const selector = document.getElementById('radius_nas_selector');
+    const textarea = document.getElementById('radius_add_script');
+    const selected = selector.options[selector.selectedIndex];
+    
+    if (!selected.value) {
+        textarea.value = '';
+        return;
+    }
+
+    const nasname = selected.value;
+    const secret = selected.getAttribute('data-secret');
+    const radiusIp = '10.7.0.1';
+
+    const script = `/radius add address=${radiusIp} service=ppp,hotspot secret=${secret} src-address=${nasname} comment="RADIUS - ANS-RADIUS"`;
+    textarea.value = script;
+}
+
+function copyRadiusScript() {
+    const textarea = document.getElementById('radius_add_script');
+    if (!textarea.value) return;
+    textarea.select();
+    document.execCommand('copy');
+    alert('Script berhasil disalin!');
+}
+</script>
 
 <!-- VPN Settings -->
 <div class="card">
