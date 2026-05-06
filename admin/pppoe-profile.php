@@ -26,7 +26,7 @@ function pppoeProfileBuildPayloadFromPost()
     if ($local !== '') {
         $payload['local-address'] = $local;
     }
-    if ($pool !== '' && $pool !== 'none') {
+    if ($pool !== '') {
         $payload['remote-address'] = $pool;
     }
     if ($dns !== '') {
@@ -154,16 +154,7 @@ ob_start();
                         </option>
                         
                     <?php endforeach; ?>
-                    <textarea name="debug" id="debug" class="form-control" rows="5">
-                        <?php 
-                        // Menggunakan print_r untuk melihat struktur array
-                        if (isset($addressPools[0])) {
-                            print_r($addressPools[0]); 
-                        } else {
-                            echo "Data pool kosong";
-                        }
-                        ?>
-                    </textarea>
+                
                 </select>
             </div>
             <div class="form-group">
