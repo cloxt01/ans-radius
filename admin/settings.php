@@ -630,49 +630,7 @@ $backupFiles = listDatabaseBackups();
 
 ob_start();
 ?>
-<?php
-// Gunakan konfigurasi dari file config yang sudah ada
-$conn = new mysqli('localhost', 'ans_radius', '95b3783482dc8', 'radius_db');
 
-// Ambil data user pppoe/hotspot dari radcheck
-$sql = "SELECT username, attribute, value FROM radcheck ORDER BY id DESC LIMIT 10";
-$result = $conn->query($sql);
-?>
-
-<!-- Service Management -->
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-server"></i> Manajemen Service Server</h3>
-    </div>
-    <div class="card-body p-0">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Username</th>
-                    <th>Tipe Service</th>
-                    <th>Password/Value</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if ($result && $result->num_rows > 0): ?>
-                    <?php while($row = $result->fetch_assoc()): ?>
-                    <tr>
-                        <td><strong><?php echo $row['username']; ?></strong></td>
-                        <td><?php echo $row['attribute']; ?></td>
-                        <td><code><?php echo $row['value']; ?></code></td>
-                        <td><span class="badge badge-success">Active</span></td>
-                    </tr>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <tr>
-                        <td colspan="4" class="text-center">Data radius tidak ditemukan atau akses ditolak.</td>
-                    </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
 <!-- Service Management -->
 <div class="card">
     <div class="card-header">
