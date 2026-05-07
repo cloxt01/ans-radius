@@ -114,23 +114,35 @@ function formatDate($date, $format = 'd M Y')
 }
 
 // Generate invoice number
+// function generateInvoiceNumber()
+// {
+//     $prefix = INVOICE_PREFIX;
+//     $start = INVOICE_START;
+
+//     $lastInvoice = fetchOne("SELECT invoice_number FROM invoices ORDER BY id DESC LIMIT 1");
+
+//     if ($lastInvoice) {
+//         $lastNum = (int) str_replace($prefix, '', $lastInvoice['invoice_number']);
+//         $newNum = $lastNum + 1;
+//     } else {
+//         $newNum = $start;
+//     }
+
+//     return $prefix . str_pad($newNum, 6, '0', STR_PAD_LEFT);
+// }
 function generateInvoiceNumber()
 {
-    $prefix = INVOICE_PREFIX;
-    $start = INVOICE_START;
-
-    $lastInvoice = fetchOne("SELECT invoice_number FROM invoices ORDER BY id DESC LIMIT 1");
-
-    if ($lastInvoice) {
-        $lastNum = (int) str_replace($prefix, '', $lastInvoice['invoice_number']);
-        $newNum = $lastNum + 1;
-    } else {
-        $newNum = $start;
-    }
-
-    return $prefix . str_pad($newNum, 6, '0', STR_PAD_LEFT);
+    $prefix = INVOICE_PREFIX; // Diambil dari config: INV
+    
+    // Mengambil timestamp saat ini (format: YmdHis -> 20260506162205)
+    $timestamp = date('YmdHis');
+    
+    // Membuat 6 angka acak
+    $random = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    
+    // Hasil: INV-20260506162205-123456
+    return $prefix . '-' . $timestamp . $random;
 }
-
 function sendWhatsApp($phone, $message)
 {
     require_once __DIR__ . '/whatsapp.php';
