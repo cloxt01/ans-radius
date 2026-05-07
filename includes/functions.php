@@ -143,6 +143,24 @@ function generateInvoiceNumber()
     // Hasil: INV-20260506162205-123456
     return $prefix . '-' . $timestamp . $random;
 }
+function storeRedirectUrl($orderId, $redirectUrl) {
+    $data = [
+        'order_id' => $orderId,
+        'redirect_url' => $redirectUrl
+    ];
+    $success = insert('payment_redirects', $data);
+
+    if (!$success) {
+        logError("Failed to store redirect URL for order_id: {$orderId}");
+        return false;
+    }
+
+    return true;
+}
+function getRedirectUrl($orderId) {
+    $record = fetchOne("SELECT redirect_url FROM payment_redirects WHERE order_id = ?", [$orderId]);
+    return $record ? $record['redirect_url'] : null;
+}
 function sendWhatsApp($phone, $message)
 {
     require_once __DIR__ . '/whatsapp.php';
