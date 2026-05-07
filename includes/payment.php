@@ -422,7 +422,16 @@ function generateMidtransPaymentLink($invoiceNumber, $amount, $customerName, $cu
         return ['success' => false, 'message' => "Koneksi Midtrans gagal: {$curlError}", 'link' => null];
     }
 
-    if ($httpCode !== 201 && $httpCode !== 200) {
+    if ($httpCode !== 201 && $httpCode !== 200) { 
+        if($httpCode === 400 && (strpos((string)$response, 'order_id sudah digunakan') !== false || strpos((string)$response, 'order_id has already been taken') !== false)) {
+            $redirectUrl = getRedirectUrl($orderId);
+
+            if(!$redirectUrl) {
+                logError("Midtrans order_id already used but no redirect_url found for order_id: {$orderId}");
+                return ['success' => false, 'message' => 'Midtrans error: order_id sudah digunakan, namun tidak ditemukan link pembayaran terkait. Silakan hubungi support.', 'link' => null];
+            }
+            return ['success' => true, 'link' => $redirectUrl, 'data' => null];
+        }
         logError("Midtrans HTTP {$httpCode}: " . substr((string)$response, 0, 500));
         return ['success' => false, 'message' => "Midtrans error (HTTP {$httpCode}): " . substr((string)$response, 0, 100), 'link' => null];
     }
@@ -434,11 +443,16 @@ function generateMidtransPaymentLink($invoiceNumber, $amount, $customerName, $cu
     }
     
     $redirectUrl = $json['redirect_url'] ?? '';
+    logError(json_encode($json));
     if ($redirectUrl === '') {
         logError("Midtrans no redirect_url: " . json_encode($json));
         return ['success' => false, 'message' => 'Midtrans error: ' . ($json['status_message'] ?? 'Tidak ada redirect_url'), 'link' => null];
     }
 
+    $stored = storeRedirectUrl($invoiceNumber, $redirectUrl);
+    if (!$stored) {
+        logError("Failed to store Midtrans redirect URL for order_id: {$invoiceNumber}");
+    }
     return ['success' => true, 'link' => $redirectUrl, 'data' => $json];
 }
 
