@@ -530,6 +530,8 @@ function radiusGetPppoeProfilesCloud()
                        MAX(CASE WHEN r.attribute = 'Mikrotik-Rate-Limit' THEN r.value END) AS rate_limit,
                        MAX(CASE WHEN r.attribute = 'Framed-IP-Address' THEN r.value END) AS local_address,
                        MAX(CASE WHEN r.attribute = 'Framed-Pool' THEN r.value END) AS remote_address,
+                       MAX(CASE WHEN r.attribute = 'Mikrotik-Group' THEN r.value END) AS profile,
+                       MAX(CASE WHEN r.attribute = 'Session-Timeout' THEN r.value END) AS session_timeout,
                        MAX(CASE WHEN r.attribute = 'Mikrotik-Primary-DNS' THEN r.value END) AS dns_server,
                        MAX(CASE WHEN r.attribute = 'Mikrotik-Comment' THEN r.value END) AS profile_comment,
                        MAX(CASE WHEN r.attribute = 'Service-Type' THEN r.value END) AS service_type
@@ -553,6 +555,8 @@ function radiusGetPppoeProfilesCloud()
                 'rate-limit' => (string) ($row['rate_limit'] ?? ''),
                 'local-address' => (string) ($row['local_address'] ?? ''),
                 'remote-address' => (string) ($row['remote_address'] ?? ''),
+                'profile' => (string) ($row['profile'] ?? ''),
+                'session-timeout' => (string) ($row['session_timeout'] ?? ''),
                 'dns-server' => (string) ($row['dns_server'] ?? ''),
                 'comment' => (string) ($row['profile_comment'] ?? ''),
                 'service-type' => 'Framed-User',
@@ -586,6 +590,13 @@ function radiusUpsertPppoeProfileCloud($id, $data)
 
     try {
         $pdo = radiusDbConnection();
+
+        // 1. Ambil data lama agar tidak merusak field yang tidak dikirim (Partial Update)
+        $sqlOld = "SELECT attribute, value FROM radgroupreply WHERE groupname = ?";
+        $stmtOld = $pdo->prepare($sqlOld);
+        $stmtOld->execute([$targetName === (string)$id ? $targetName : (string)$id]);
+        $existingRows = $stmtOld->fetchAll(PDO::FETCH_KEY_PAIR);
+
         radiusBeginTransaction();
 
         $oldName = trim((string) $id);
@@ -600,12 +611,14 @@ function radiusUpsertPppoeProfileCloud($id, $data)
             $stmtRenameUserGroup->execute([$targetName, $oldName]);
         }
 
+        // 2. Petakan atribut dengan prioritas: New Data > Existing DB data
         $attributeMap = [
-            'Mikrotik-Rate-Limit' => $payload['rate-limit'] ?? null,
-            'Framed-IP-Address' => $payload['local-address'] ?? null,
-            'Framed-Pool' => $payload['remote-address'] ?? null,
-            'Mikrotik-Primary-DNS' => $payload['dns-server'] ?? null,
-            'Mikrotik-Comment' => $payload['comment'] ?? null,
+            'Mikrotik-Rate-Limit' => $payload['rate-limit'] ?? ($existingRows['Mikrotik-Rate-Limit'] ?? null),
+            'Framed-IP-Address' => $payload['local-address'] ?? ($existingRows['Framed-IP-Address'] ?? null),
+            'Framed-Pool' => $payload['remote-address'] ?? ($existingRows['Framed-Pool'] ?? null),
+            'Mikrotik-Primary-DNS' => $payload['dns-server'] ?? ($existingRows['Mikrotik-Primary-DNS'] ?? null),
+            'Mikrotik-Group' => $payload['profile'] ?? ($existingRows['Mikrotik-Group'] ?? null),
+            'Mikrotik-Comment' => $payload['comment'] ?? ($existingRows['Mikrotik-Comment'] ?? null),
             'Service-Type' => 'Framed-User',
         ];
 

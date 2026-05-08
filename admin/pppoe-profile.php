@@ -13,6 +13,7 @@ function pppoeProfileBuildPayloadFromPost()
     $name = sanitize($_POST['name'] ?? '');
     $rate = sanitize($_POST['rate_limit'] ?? '');
     $local = sanitize($_POST['local_address'] ?? '');
+    $profile = sanitize($_POST['profile'] ?? '');
     $pool = sanitize($_POST['remote_pool'] ?? 'none');
     $dns = sanitize($_POST['dns_server'] ?? '');
 
@@ -22,6 +23,9 @@ function pppoeProfileBuildPayloadFromPost()
 
     if ($rate !== '') {
         $payload['rate-limit'] = $rate;
+    }
+    if ($profile !== '') {
+        $payload['profile'] = $profile;
     }
     if ($local !== '') {
         $payload['local-address'] = $local;
@@ -98,9 +102,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$profiles = function_exists('pppoeGetProfiles') ? pppoeGetProfiles() : mikrotikGetProfiles();
+$profilesRadius = function_exists('pppoeGetProfiles') ? pppoeGetProfiles() : mikrotikGetProfiles();
 $addressPools = mikrotikGetAddressPools();
 $isMikrotikConnected = mikrotikConnect();
+$profilesMikrotik= mikrotikGetProfilesMikrotik($isMikrotikConnected ? getMikrotikConnection() : null);
 
 ob_start();
 ?>
@@ -140,6 +145,19 @@ ob_start();
                 <label class="form-label">Rate Limit</label>
                 <input type="text" name="rate_limit" id="pRate" class="form-control" placeholder="10M/10M">
             </div>
+            <div>
+                <label class="form-label">PPP Profile</label>
+                <select name="profile" id="pppProfile" class="form-control">
+                    <option value="none">none</option>
+                    <?php foreach ($profilesMikrotik as $profile): ?>
+                        <option value="<?php echo htmlspecialchars($profile['name']); ?>">
+                            <?php echo htmlspecialchars($profile['name']); ?>
+                        </option>
+                        
+                    <?php endforeach; ?>
+                
+                </select>
+            </div>
             <div class="form-group">
                 <label class="form-label">Local Address (optional)</label>
                 <input type="text" name="local_address" id="pLocal" class="form-control" placeholder="10.10.10.1">
@@ -157,6 +175,10 @@ ob_start();
                 
                 </select>
             </div>
+            <!-- <div class="form-group">
+                <label class="form-label">Session Timeout</label>
+                <input type="text" name="session_timeout" id="pSession" class="form-control"">
+            </div> -->
             <div class="form-group">
                 <label class="form-label">DNS Server (optional)</label>
                 <input type="text" name="dns_server" id="pDns" class="form-control" placeholder="8.8.8.8">
@@ -184,6 +206,7 @@ ob_start();
                     <th>Rate Limit</th>
                     <th>Local</th>
                     <th>Remote Pool</th>
+                    <th>Profile</th>
                     <th>DNS</th>
                     <th>Aksi</th>
                 </tr>
@@ -191,15 +214,16 @@ ob_start();
             <tbody>
                 
                 <?php
-                if (empty($profiles)) {
-                    echo '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);"><i class="fas fa-network-wired" style="font-size: 2rem; margin: 12px 0; display: block;"></i> Belum ada profile PPPoE</td></tr>';
+                if (empty($profilesRadius)) {
+                    echo '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);"><i class="fas fa-network-wired" style="font-size: 2rem; margin: 12px 0; display: block;"></i> Belum ada profile PPPoE</td></tr>';
                 } else {
-                foreach ($profiles as $p): ?>
+                foreach ($profilesRadius as $p): ?>
                     <tr>
                         <td data-label="Name"><strong><?php echo htmlspecialchars($p['name'] ?? ''); ?></strong></td>
                         <td data-label="Rate Limit"><?php echo htmlspecialchars($p['rate-limit'] ?? ''); ?></td>
                         <td data-label="Local"><?php echo htmlspecialchars($p['local-address'] ?? ''); ?></td>
                         <td data-label="Remote Pool"><?php echo htmlspecialchars($p['remote-address'] ?? ''); ?></td>
+                        <td data-label="Profile"><?php echo htmlspecialchars($p['profile'] ?? ''); ?></td>
                         <td data-label="DNS"><?php echo htmlspecialchars($p['dns-server'] ?? ''); ?></td>
                         <td data-label="Aksi">
                             <div style="display: flex; gap: 5px;">

@@ -1046,10 +1046,12 @@ function mikrotikGetActiveSessions()
 function mikrotikGetProfiles()
 {
     if (radiusUserProvisioningReady()) {
-        return radiusGetPppoeProfilesCloud();
+        return radiusGetPppoeProfilesCloud() ?? [];
     }
+}
 
-    $socket = getMikrotikConnection();
+function mikrotikGetProfilesMikrotik($socket)
+{
     if (!$socket) {
         return [];
     }
@@ -1144,6 +1146,9 @@ function mikrotikAddPppoeProfile($data)
     }
     if (isset($data['rate-limit'])) {
         mikrotikWrite($socket, '=rate-limit=' . $data['rate-limit']);
+    }
+    if (isset($data['profile'])) {
+        mikrotikWrite($socket, '=group=' . $data['profile']);
     }
     if (isset($data['dns-server'])) {
         mikrotikWrite($socket, '=dns-server=' . $data['dns-server']);
@@ -1269,6 +1274,7 @@ function pppoeNormalizeProfileData($data)
         'local-address' => ['local-address', 'local_address'],
         'remote-address' => ['remote-address', 'remote_address', 'remote_pool'],
         'dns-server' => ['dns-server', 'dns_server'],
+        'profile' => ['profile', 'ppp_profile'],
         'comment' => ['comment'],
     ];
 
