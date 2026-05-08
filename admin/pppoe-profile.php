@@ -204,9 +204,9 @@ ob_start();
                 <tr>
                     <th>Name</th>
                     <th>Rate Limit</th>
+                    <th>Profile</th>
                     <th>Local</th>
                     <th>Remote Pool</th>
-                    <th>Profile</th>
                     <th>DNS</th>
                     <th>Aksi</th>
                 </tr>
@@ -221,9 +221,9 @@ ob_start();
                     <tr>
                         <td data-label="Name"><strong><?php echo htmlspecialchars($p['name'] ?? ''); ?></strong></td>
                         <td data-label="Rate Limit"><?php echo htmlspecialchars($p['rate-limit'] ?? ''); ?></td>
+                        <td data-label="Profile"><?php echo htmlspecialchars($p['profile'] ?? ''); ?></td>
                         <td data-label="Local"><?php echo htmlspecialchars($p['local-address'] ?? ''); ?></td>
                         <td data-label="Remote Pool"><?php echo htmlspecialchars($p['remote-address'] ?? ''); ?></td>
-                        <td data-label="Profile"><?php echo htmlspecialchars($p['profile'] ?? ''); ?></td>
                         <td data-label="DNS"><?php echo htmlspecialchars($p['dns-server'] ?? ''); ?></td>
                         <td data-label="Aksi">
                             <div style="display: flex; gap: 5px;">
@@ -252,6 +252,7 @@ ob_start();
         document.getElementById('formAction').value = 'edit';
         document.getElementById('profileId').value = p['.id'] || '';
         document.getElementById('pName').value = p['name'] || '';
+        document.getElementById('pppProfile').value = p['profile'] || 'none';
         document.getElementById('pRate').value = p['rate-limit'] || '';
         document.getElementById('pLocal').value = p['local-address'] || '';
         document.getElementById('pPool').value = p['remote-address'] || 'none';

@@ -613,12 +613,12 @@ function radiusUpsertPppoeProfileCloud($id, $data)
 
         // 2. Petakan atribut dengan prioritas: New Data > Existing DB data
         $attributeMap = [
-            'Mikrotik-Rate-Limit' => $payload['rate-limit'] ?? ($existingRows['Mikrotik-Rate-Limit'] ?? null),
-            'Framed-IP-Address' => $payload['local-address'] ?? ($existingRows['Framed-IP-Address'] ?? null),
-            'Framed-Pool' => $payload['remote-address'] ?? ($existingRows['Framed-Pool'] ?? null),
-            'Mikrotik-Primary-DNS' => $payload['dns-server'] ?? ($existingRows['Mikrotik-Primary-DNS'] ?? null),
-            'Mikrotik-Group' => $payload['profile'] ?? ($existingRows['Mikrotik-Group'] ?? null),
-            'Mikrotik-Comment' => $payload['comment'] ?? ($existingRows['Mikrotik-Comment'] ?? null),
+            'Mikrotik-Rate-Limit' => array_key_exists('rate-limit', $payload) ? $payload['rate-limit'] : ($existingRows['Mikrotik-Rate-Limit'] ?? null),
+            'Framed-IP-Address' => array_key_exists('local-address', $payload) ? $payload['local-address'] : ($existingRows['Framed-IP-Address'] ?? null),
+            'Framed-Pool' => array_key_exists('remote-address', $payload) ? $payload['remote-address'] : ($existingRows['Framed-Pool'] ?? null),
+            'Mikrotik-Primary-DNS' => array_key_exists('dns-server', $payload) ? $payload['dns-server'] : ($existingRows['Mikrotik-Primary-DNS'] ?? null),
+            'Mikrotik-Group' => array_key_exists('profile', $payload) ? $payload['profile'] : ($existingRows['Mikrotik-Group'] ?? null),
+            'Mikrotik-Comment' => array_key_exists('comment', $payload) ? $payload['comment'] : ($existingRows['Mikrotik-Comment'] ?? null),
             'Service-Type' => 'Framed-User',
         ];
 
@@ -629,7 +629,8 @@ function radiusUpsertPppoeProfileCloud($id, $data)
             $stmtClear = $pdo->prepare('DELETE FROM radgroupreply WHERE groupname = ? AND attribute = ?');
             $stmtClear->execute([$targetName, $attribute]);
 
-            if ($attribute !== 'Service-Type' && $value === '') {
+            // Jika nilai 'none' atau kosong (kecuali Service-Type), jangan insert (biarkan terhapus)
+            if ($attribute !== 'Service-Type' && ($value === '' || strtolower($value) === 'none')) {
                 continue;
             }
 
