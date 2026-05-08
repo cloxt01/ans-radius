@@ -1285,10 +1285,6 @@ function pppoeNormalizeProfileData($data)
             }
 
             $value = trim((string) $data[$key]);
-            if ($value === '' || strtolower($value) === 'none') {
-                continue;
-            }
-
             $normalized[$target] = $value;
             break;
         }
