@@ -147,7 +147,7 @@ ob_start();
                 
                 </select>
             </div>
-            <div class="form-group">
+            <!-- <div class="form-group">
                 <label class="form-label">Local Address (optional)</label>
                 <input type="text" name="local_address" id="pLocal" class="form-control" placeholder="10.10.10.1">
             </div>
@@ -163,7 +163,7 @@ ob_start();
                     <?php endforeach; ?>
                 
                 </select>
-            </div>
+            </div> -->
             <!-- <div class="form-group">
                 <label class="form-label">Session Timeout</label>
                 <input type="text" name="session_timeout" id="pSession" class="form-control"">
@@ -194,8 +194,8 @@ ob_start();
                     <th>Name</th>
                     <th>Rate Limit</th>
                     <th>Profile</th>
-                    <th>Local</th>
-                    <th>Remote Pool</th>
+                        <!-- <th>Local</th>
+                        <th>Remote Pool</th> -->
                     <th>DNS</th>
                     <th>Aksi</th>
                 </tr>
@@ -211,8 +211,8 @@ ob_start();
                         <td data-label="Name"><strong><?php echo htmlspecialchars($p['name'] ?? ''); ?></strong></td>
                         <td data-label="Rate Limit"><?php echo htmlspecialchars($p['rate-limit'] ?? ''); ?></td>
                         <td data-label="Profile"><?php echo htmlspecialchars($p['profile'] ?? ''); ?></td>
-                        <td data-label="Local"><?php echo htmlspecialchars($p['local-address'] ?? ''); ?></td>
-                        <td data-label="Remote Pool"><?php echo htmlspecialchars($p['remote-address'] ?? ''); ?></td>
+                        <!-- <td data-label="Local"><?php echo htmlspecialchars($p['local-address'] ?? ''); ?></td> -->
+                        <!-- <td data-label="Remote Pool"><?php echo htmlspecialchars($p['remote-address'] ?? ''); ?></td> -->
                         <td data-label="DNS"><?php echo htmlspecialchars($p['dns-server'] ?? ''); ?></td>
                         <td data-label="Aksi">
                             <div style="display: flex; gap: 5px;">
