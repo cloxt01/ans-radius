@@ -19,23 +19,12 @@ function pppoeProfileBuildPayloadFromPost()
 
     $payload = [
         'name' => $name,
+        'rate-limit' => $rate,
+        'profile' => $profile,
+        'local-address' => $local,
+        'remote-address' => $pool,
+        'dns-server' => $dns,
     ];
-
-    if ($rate !== '') {
-        $payload['rate-limit'] = $rate;
-    }
-    if ($profile !== '') {
-        $payload['profile'] = $profile;
-    }
-    if ($local !== '') {
-        $payload['local-address'] = $local;
-    }
-    if ($pool !== '') {
-        $payload['remote-address'] = $pool;
-    }
-    if ($dns !== '') {
-        $payload['dns-server'] = $dns;
-    }
 
     return $payload;
 }
