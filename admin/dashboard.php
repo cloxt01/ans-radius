@@ -234,7 +234,7 @@ ob_start();
     <div style="background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 168, 89, 0.2)); border: 1px solid var(--neon-green); border-radius: 16px; padding: 24px; text-align: center; color: var(--text-primary); transition: transform 0.3s, box-shadow 0.3s;"
          onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(0, 255, 136, 0.15)';"
          onmouseout="this.style.transform=''; this.style.boxShadow='';">
-        <div style="font-size: 1.8rem; font-weight: 800; margin-bottom: 5px; color: var(--neon-green);">0</div>
+        <div style="font-size: 1.8rem; font-weight: 800; margin-bottom: 5px; color: var(--neon-green);"><?php echo $monthlyCustomers[5]['count']; ?></div>
         <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-wallet" style="margin-right: 5px;"></i> Total Pelanggan Baru bulan ini</div>
     </div>
 </div>
