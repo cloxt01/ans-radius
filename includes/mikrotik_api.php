@@ -2748,31 +2748,74 @@ function mikrotikRemoveActiveSessionByName($username) {
         }
     }
     
-    $sessionId = null;
+    $sessionIds = [];
+    $currentRow = [];
+
     foreach ($allWords as $word) {
-        if (strpos($word, '=.id=') === 0) {
-            $sessionId = substr($word, 5);
+        if ($word === '!re') {
+            if (!empty($currentRow) && !empty($currentRow['.id'])) {
+                $sessionIds[] = $currentRow['.id'];
+            }
+            $currentRow = [];
+            continue;
+        }
+
+        if ($word === '!done') {
+            if (!empty($currentRow) && !empty($currentRow['.id'])) {
+                $sessionIds[] = $currentRow['.id'];
+            }
             break;
         }
-    }
-    
-    if (!$sessionId) {
-        return false;
-    }
-    
-    mikrotikWrite($socket, '/ppp/active/remove');
-    mikrotikWrite($socket, '=.id=' . $sessionId);
-    mikrotikWrite($socket, '');
-    
-    $response = mikrotikReadSentence($socket);
-    
-    foreach ($response as $word) {
-        if (strpos($word, '!trap') === 0) {
-            return false;
+
+        if (strpos($word, '=') === 0) {
+            $parsedWord = substr($word, 1);
+            $parts = explode('=', $parsedWord, 2);
+            if (count($parts) === 2) {
+                $currentRow[$parts[0]] = $parts[1];
+            }
         }
     }
-    
-    return true;
+
+    if (empty($sessionIds)) {
+        return false;
+    }
+
+    $removed = false;
+
+    foreach ($sessionIds as $sessionId) {
+        mikrotikWrite($socket, '/ppp/active/remove');
+        mikrotikWrite($socket, '=.id=' . $sessionId);
+        mikrotikWrite($socket, '');
+
+        $removeWords = [];
+        $done = false;
+        $timeout = time() + 10;
+
+        while (!$done && time() < $timeout) {
+            $words = mikrotikReadSentence($socket);
+            if (empty($words)) {
+                break;
+            }
+
+            foreach ($words as $word) {
+                $removeWords[] = $word;
+                if ($word === '!done') {
+                    $done = true;
+                    break;
+                }
+            }
+        }
+
+        foreach ($removeWords as $word) {
+            if ($word === '!trap' || strpos($word, '!trap') === 0) {
+                return false;
+            }
+        }
+
+        $removed = true;
+    }
+
+    return $removed;
 }
 
 function mikrotikGetSecretByName($username) {
