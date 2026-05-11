@@ -616,7 +616,6 @@ function radiusUpsertPppoeProfileCloud($id, $data)
             'Mikrotik-Rate-Limit' => array_key_exists('rate-limit', $payload) ? $payload['rate-limit'] : ($existingRows['Mikrotik-Rate-Limit'] ?? null),
             'Framed-IP-Address' => array_key_exists('local-address', $payload) ? $payload['local-address'] : ($existingRows['Framed-IP-Address'] ?? null),
             'Framed-Pool' => array_key_exists('remote-address', $payload) ? $payload['remote-address'] : ($existingRows['Framed-Pool'] ?? null),
-            'Mikrotik-Primary-DNS' => array_key_exists('dns-server', $payload) ? $payload['dns-server'] : ($existingRows['Mikrotik-Primary-DNS'] ?? null),
             'Mikrotik-Group' => array_key_exists('profile', $payload) ? $payload['profile'] : ($existingRows['Mikrotik-Group'] ?? null),
             'Mikrotik-Comment' => array_key_exists('comment', $payload) ? $payload['comment'] : ($existingRows['Mikrotik-Comment'] ?? null),
             'Service-Type' => 'Framed-User',

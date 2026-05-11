@@ -18,6 +18,7 @@ if (!file_exists(__DIR__ . '/config.php')) {
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/radius.php';
 require_once __DIR__ . '/functions.php';
 
 // Start session if not started
