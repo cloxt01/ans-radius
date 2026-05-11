@@ -499,7 +499,10 @@ function isolateCustomer($customerId, $options = [])
     }
 
     if ($package && !empty($customer['pppoe_username']) && !empty($package['profile_isolir'])) {
+        mikrotikSetProfile($customer['pppoe_username'], $package['profile_isolir'], $customer['router_id']);
         radiusUpdateUserProfile($customer['pppoe_username'], $package['profile_isolir']);
+        mikrotikRemoveActiveSessionByName($customer['pppoe_username']);
+        
         if ($sendWhatsapp) {
             $message = "Halo {$customer['name']},\n\nPembayaran internet Anda sudah melewati tanggal jatuh tempo.\n\nMohon segera lakukan pembayaran untuk mengaktifkan kembali koneksi internet Anda.\n\nTerima kasih.";
             $message .= getWhatsAppFooter();
@@ -532,7 +535,7 @@ function unisolateCustomer($customerId, $options = [])
     if ($package && !empty($customer['pppoe_username'])) {
         mikrotikSetProfile($customer['pppoe_username'], $package['profile_normal'], $customer['router_id']);
         radiusUpdateUserProfile($customer['pppoe_username'], $package['profile_normal']);
-
+        mikrotikRemoveActiveSessionByName($customer['pppoe_username']);
         // Update RADIUS session timeout from isolation_date
         if (function_exists('radiusSetSessionTimeoutFromIsolationDate') && radiusUserProvisioningReady()) {
             radiusSetSessionTimeoutFromIsolationDate($customer['pppoe_username']);
@@ -567,9 +570,7 @@ function updateCustomerWithRadiusSync($customerId, $updateData = [])
             update('customers', $updateData, 'id = ?', [$customerId]);
         }
 
-        // Sync RADIUS timeout if PPPoE user
         if (!empty($customer['pppoe_username']) && function_exists('radiusSetSessionTimeoutFromIsolationDate')) {
-            // Get updated customer data
             $updatedCustomer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
             
             // Recalculate and update RADIUS session timeout
