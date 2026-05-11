@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     switch ($action) {
         case 'add':
-            $result = mikrotikAddSecret(
+            $result = radiusSetUser(
                 sanitize($_POST['username']),
                 sanitize($_POST['password']),
                 sanitize($_POST['profile']),

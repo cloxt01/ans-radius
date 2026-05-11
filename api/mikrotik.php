@@ -63,8 +63,6 @@ try {
                 echo json_encode(['success' => false, 'message' => 'Username and password required']);
                 exit;
             }
-
-            // Use the proper shared helper function
             $result = mikrotikAddSecret($username, $password, $profile, $service);
 
             echo json_encode($result);
