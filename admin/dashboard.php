@@ -115,6 +115,8 @@ $salesStats = [
     'todayRevenue' => fetchOne("SELECT SUM(selling_price) as total FROM hotspot_sales WHERE DATE(created_at) = CURDATE()")['total'] ?? 0,
     'todayProfit' => fetchOne("SELECT SUM(selling_price - price) as total FROM hotspot_sales WHERE DATE(created_at) = CURDATE()")['total'] ?? 0,
 ];
+$activeCustomers = $stats['activeCustomers'];
+$totalCustomers = $stats['totalCustomers'];
 
 ob_start();
 ?>
@@ -230,36 +232,14 @@ ob_start();
         <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-orange);"><?php echo ($isolatedCustomers ?? 0) + 1278 ?? 1278 ?></div>
         <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-user-lock" style="margin-right: 5px;"></i> Pelanggan Isolir</div>
     </div>
-    <!-- Total Pendapatan Bulan Ini -->
+    <!-- Total Pelanggan Baru Bulan Ini -->
     <div style="background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 168, 89, 0.2)); border: 1px solid var(--neon-green); border-radius: 16px; padding: 24px; text-align: center; color: var(--text-primary); transition: transform 0.3s, box-shadow 0.3s;"
          onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(0, 255, 136, 0.15)';"
          onmouseout="this.style.transform=''; this.style.boxShadow='';">
-        <div style="font-size: 1.8rem; font-weight: 800; margin-bottom: 5px; color: var(--neon-green);"><?php echo $monthlyCustomers[5]['count']; ?></div>
-        <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-wallet" style="margin-right: 5px;"></i> Total Pelanggan Baru bulan ini</div>
-    </div>
-</div>
-
-<!-- Sales Portal Summary -->
-<div class="card mb-4" style="margin-bottom: 20px;">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-wallet"></i> Ringkasan Sales Portal</h3>
-    </div>
-    <div style="padding: 15px;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-            <div style="background: var(--bg-card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--neon-cyan);">
-                <div style="color: var(--text-secondary); font-size: 0.9rem;">Total Sales User</div>
-                <div style="font-size: 1.5rem; font-weight: bold;"><?php echo $salesStats['totalSales']; ?></div>
-            </div>
-
-            <div style="background: var(--bg-card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--neon-green);">
-                <div style="color: var(--text-secondary); font-size: 0.9rem;">Omzet (Bulan Ini)</div>
-                <div style="font-size: 1.5rem; font-weight: bold;"><?php echo formatCurrency($salesStats['todayRevenue']); ?></div>
-            </div>
-            <div style="background: var(--bg-card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--neon-orange);">
-                <div style="color: var(--text-secondary); font-size: 0.9rem;">Profit (Bulan Ini)</div>
-                <div style="font-size: 1.5rem; font-weight: bold;"><?php echo formatCurrency($salesStats['todayProfit']); ?></div>
-            </div>
+        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-green);">
+            <?php echo isset($monthlyCustomers[5]) ? $monthlyCustomers[5]['count'] : 0; ?>
         </div>
+        <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-user-plus"></i> Pelanggan Baru (Bulan Ini)</div>
     </div>
 </div>
 
