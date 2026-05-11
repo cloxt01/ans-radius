@@ -267,7 +267,7 @@ if ($customersTableExists) {
         SELECT " . implode(', ', $selectParts) . "
         FROM customers c 
         " . implode("\n        ", $joinParts) . "
-        ORDER BY c.status DESC
+        ORDER BY c.status ASC
         LIMIT $perPage OFFSET $offset
     ");
     
