@@ -115,8 +115,9 @@ $salesStats = [
     'todayRevenue' => fetchOne("SELECT SUM(selling_price) as total FROM hotspot_sales WHERE DATE(created_at) = CURDATE()")['total'] ?? 0,
     'todayProfit' => fetchOne("SELECT SUM(selling_price - price) as total FROM hotspot_sales WHERE DATE(created_at) = CURDATE()")['total'] ?? 0,
 ];
-$activeCustomers = $stats['activeCustomers'];
-$totalCustomers = $stats['totalCustomers'];
+$activeCustomers = $stats['activeCustomers'] ?? 0;
+$isolatedCustomers = $stats['isolatedCustomers'] ?? 0;
+$totalCustomers = $stats['totalCustomers'] ?? 0;
 
 ob_start();
 ?>
@@ -222,14 +223,14 @@ ob_start();
     <div style="background: linear-gradient(135deg, rgba(191, 0, 255, 0.1), rgba(122, 0, 163, 0.2)); border: 1px solid var(--neon-purple); border-radius: 16px; padding: 24px; text-align: center; color: var(--text-primary); transition: transform 0.3s, box-shadow 0.3s;"
          onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(191, 0, 255, 0.15)';"
          onmouseout="this.style.transform=''; this.style.boxShadow='';">
-        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-purple);"><?php echo $activeCustomers + 1748 ?? 1748 ?></div>
+        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-purple);"><?php echo $activeCustomers ; ?></div>
         <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-network-wired" style="margin-right: 5px;"></i> Pelanggan Aktif</div>
     </div>
     <!-- Pelanggan Isolir -->
     <div style="background: linear-gradient(135deg, rgba(255, 107, 53, 0.1), rgba(204, 85, 42, 0.2)); border: 1px solid var(--neon-orange); border-radius: 16px; padding: 24px; text-align: center; color: var(--text-primary); transition: transform 0.3s, box-shadow 0.3s;"
          onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(255, 107, 53, 0.15)';"
          onmouseout="this.style.transform=''; this.style.boxShadow='';">
-        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-orange);"><?php echo ($isolatedCustomers ?? 0) + 1278 ?? 1278 ?></div>
+        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-orange);"><?php echo $isolatedCustomers; ?></div>
         <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-user-lock" style="margin-right: 5px;"></i> Pelanggan Isolir</div>
     </div>
     <!-- Total Pelanggan Baru Bulan Ini -->
