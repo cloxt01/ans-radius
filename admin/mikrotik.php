@@ -229,7 +229,7 @@ ob_start();
                 <th>Username</th>
                 <th>Profile</th>
 <!--                <th>Service</th>-->
-                <th>Service</th>
+                <th>Status</th>
                 <th>Active</th>
                 <th>Last Login</th>
                 <th>Aksi</th>
@@ -269,17 +269,18 @@ ob_start();
                     <td data-label="Profile">
                         <span class="badge badge-info"><?php echo htmlspecialchars($user['profile'] ?? 'default'); ?></span>
                     </td>
-                    <td data-label="Service"><?php echo htmlspecialchars($user['service'] ?? 'pppoe'); ?></td>
-<!--                    <td data-label="Status">-->
-<!--                        --><?php //if ($isDisabled): ?>
-<!--                            <span class="badge badge-danger">Disabled</span>-->
-<!--                        --><?php //elseif ($isOnline): ?>
-<!--                            <span class="badge badge-success"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 4px;"></i> Online</span>-->
-<!--                        --><?php //else: ?>
-<!--                            <span class="badge badge-warning">Offline</span>-->
-<!--                        --><?php //endif; ?>
-<!--                    </td>-->
-                    <td>
+                    <!-- <td data-label="Service"><?php echo htmlspecialchars($user['service'] ?? 'pppoe'); ?></td> -->
+                   <td data-label="Status">
+                      <?php if ($isDisabled): ?>
+                           <span class="badge badge-danger">Disabled</span>
+                      <?php elseif ($isOnline): ?>
+                           <span class="badge badge-success"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 4px;"></i> Online</span>
+                      <?php else: ?>
+                           <span class="badge badge-warning">Offline</span>
+                      <?php endif; ?>
+                   </td>
+                   
+                    <td data-label="Active">
                         <?php if ($isDisabled): ?>
                             <span class="badge badge-danger">No</span>
                         <?php else: ?>
