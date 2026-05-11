@@ -499,10 +499,7 @@ function isolateCustomer($customerId, $options = [])
     }
 
     if ($package && !empty($customer['pppoe_username']) && !empty($package['profile_isolir'])) {
-        // Call MikroTik API to change profile on assigned router
-        mikrotikSetProfile($customer['pppoe_username'], $package['profile_isolir'], $customer['router_id']);
-
-        // Send WhatsApp notification
+        radiusUpdateUserProfile($customer['pppoe_username'], $package['profile_isolir']);
         if ($sendWhatsapp) {
             $message = "Halo {$customer['name']},\n\nPembayaran internet Anda sudah melewati tanggal jatuh tempo.\n\nMohon segera lakukan pembayaran untuk mengaktifkan kembali koneksi internet Anda.\n\nTerima kasih.";
             $message .= getWhatsAppFooter();
@@ -529,14 +526,17 @@ function unisolateCustomer($customerId, $options = [])
         return true;
     }
 
-    // Update status
     update('customers', ['status' => 'active'], 'id = ?', [$customerId]);
 
-    // Update MikroTik profile
     $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
     if ($package && !empty($customer['pppoe_username'])) {
-        // Call MikroTik API to change profile on assigned router
         mikrotikSetProfile($customer['pppoe_username'], $package['profile_normal'], $customer['router_id']);
+        radiusUpdateUserProfile($customer['pppoe_username'], $package['profile_normal']);
+
+        // Update RADIUS session timeout from isolation_date
+        if (function_exists('radiusSetSessionTimeoutFromIsolationDate') && radiusUserProvisioningReady()) {
+            radiusSetSessionTimeoutFromIsolationDate($customer['pppoe_username']);
+        }
     }
 
     $sendWhatsapp = false;
@@ -552,6 +552,88 @@ function unisolateCustomer($customerId, $options = [])
     logActivity('UNISOLATE_CUSTOMER', "Customer ID: {$customerId}");
 
     return true;
+}
+
+function updateCustomerWithRadiusSync($customerId, $updateData = [])
+{
+    $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
+    if (!$customer) {
+        return false;
+    }
+
+    try {
+        // Update customer in database
+        if (!empty($updateData)) {
+            update('customers', $updateData, 'id = ?', [$customerId]);
+        }
+
+        // Sync RADIUS timeout if PPPoE user
+        if (!empty($customer['pppoe_username']) && function_exists('radiusSetSessionTimeoutFromIsolationDate')) {
+            // Get updated customer data
+            $updatedCustomer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
+            
+            // Recalculate and update RADIUS session timeout
+            radiusSetSessionTimeoutFromIsolationDate($updatedCustomer['pppoe_username']);
+            
+            logActivity('RADIUS_TIMEOUT_SYNC', "Customer ID: {$customerId}, Username: {$updatedCustomer['pppoe_username']}");
+        }
+
+        return true;
+    } catch (Exception $e) {
+        logError('updateCustomerWithRadiusSync failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Create new customer with RADIUS provisioning if applicable
+ * Handles both MikroTik and RADIUS user setup
+ * 
+ * @param array $customerData Customer data to insert
+ * @return int|false Customer ID or false on failure
+ */
+function createCustomerWithRadiusProvisioning($customerData = [])
+{
+    // Validate required fields
+    if (empty($customerData['pppoe_username'])) {
+        logError('createCustomerWithRadiusProvisioning: pppoe_username is required');
+        return false;
+    }
+
+    try {
+        // Insert customer into database
+        $customerId = insert('customers', $customerData);
+        if (!$customerId) {
+            return false;
+        }
+
+        $pppoeUsername = trim((string) $customerData['pppoe_username']);
+        
+        // Provision RADIUS user if RADIUS is available and password provided
+        if (function_exists('radiusProvisionUser') && radiusUserProvisioningReady() && !empty($customerData['pppoe_password'])) {
+            $package = fetchOne("SELECT * FROM packages WHERE id = ?", [(int) $customerData['package_id']]);
+            $profileName = $package['name'] ?? 'default';
+            $serviceType = 'Framed-User'; // PPPoE
+
+            $success = radiusProvisionUser(
+                $pppoeUsername,
+                $customerData['pppoe_password'],
+                $profileName,
+                $serviceType
+            );
+
+            if (!$success) {
+                logError("RADIUS provisioning failed for customer {$customerId}, continuing with database entry only");
+                // Don't fail entirely - customer is created even if RADIUS provisioning fails
+            }
+        }
+
+        logActivity('CREATE_CUSTOMER', "Customer ID: {$customerId}, Username: {$pppoeUsername}");
+        return $customerId;
+    } catch (Exception $e) {
+        logError('createCustomerWithRadiusProvisioning failed: ' . $e->getMessage());
+        return false;
+    }
 }
 
 // Get GenieACS settings from database (override config.php)
@@ -582,6 +664,92 @@ function getGenieacsSettings()
         }
     }
     return $settings;
+}
+
+/**
+ * Set RADIUS Session-Timeout if username exists in radcheck
+ * Called after customer creation/update to sync timeout
+ * 
+ * @param string $pppoeUsername PPPoE username
+ * @param int $customerId Customer ID (to fetch isolation_date)
+ * @return bool Success status
+ */
+function syncRadiusTimeoutForCustomer($pppoeUsername, $customerId)
+{
+    $pppoeUsername = trim((string) $pppoeUsername);
+    if ($pppoeUsername === '') {
+        return false;
+    }
+
+    // Check if function exists (RADIUS not available)
+    if (!function_exists('radiusSetSessionTimeoutFromIsolationDate')) {
+        return false;
+    }
+
+    try {
+        // Langsung set timeout ke radreply tanpa check radcheck
+        // Function radiusSetSessionTimeoutFromIsolationDate akan:
+        // 1. Ambil isolation_date dari customers table
+        // 2. Hitung timeout
+        // 3. Write ke radreply
+        return radiusSetSessionTimeoutFromIsolationDate($pppoeUsername);
+    } catch (Exception $e) {
+        logError('syncRadiusTimeoutForCustomer failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Sync RADIUS timeout for all customers with pppoe_username and isolation_date
+ * This directly sets timeout in radreply without checking if user exists in radcheck
+ * Useful for batch operations when customers are already created
+ * 
+ * @return array Result with counts: ['updated' => X, 'failed' => Y, 'total' => Z]
+ */
+function syncAllCustomersRadiusTimeout()
+{
+    $result = [
+        'updated' => 0,
+        'failed' => 0,
+        'skipped' => 0,
+        'total' => 0
+    ];
+
+    // Check if RADIUS functions available
+    if (!function_exists('radiusSetSessionTimeoutFromIsolationDate')) {
+        return $result;
+    }
+
+    try {
+        $customers = fetchAll("
+            SELECT id, pppoe_username, isolation_date 
+            FROM customers 
+            WHERE pppoe_username IS NOT NULL 
+            AND pppoe_username != '' 
+            AND isolation_date IS NOT NULL 
+            AND isolation_date != 0
+            ORDER BY id ASC
+        ");
+
+        $result['total'] = count($customers);
+
+        foreach ($customers as $customer) {
+            try {
+                if (radiusSetSessionTimeoutFromIsolationDate($customer['pppoe_username'])) {
+                    $result['updated']++;
+                } else {
+                    $result['failed']++;
+                }
+            } catch (Exception $e) {
+                logError('syncAllCustomersRadiusTimeout - Customer ' . $customer['id'] . ': ' . $e->getMessage());
+                $result['failed']++;
+            }
+        }
+    } catch (Exception $e) {
+        logError('syncAllCustomersRadiusTimeout failed: ' . $e->getMessage());
+    }
+
+    return $result;
 }
 
 // GenieACS functions
