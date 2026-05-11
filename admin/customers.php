@@ -194,6 +194,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 redirect('customers.php');
                 break;
+            case 'isolate':
+                $customerId = (int)$_POST['customer_id'];
+                if (isolateCustomer($customerId)) {
+                    setFlash('success', 'Pelanggan berhasil diisolir');
+                } else {
+                    setFlash('error', 'Gagal mengisolir pelanggan');
+                }
+                redirect('customers.php');
+                break;
 
             case 'reset_portal_password':
                 $customerId = (int)($_POST['customer_id'] ?? 0);
@@ -624,6 +633,15 @@ ob_start();
                                 <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
                                 <button type="submit" class="btn btn-success btn-sm" title="Buka Isolir">
                                     <i class="fas fa-unlock"></i>
+                                </button>
+                            </form>
+                        <?php else: ?>
+                            <form method="POST" data-no-loading="true">
+                                <input type="hidden" name="action" value="isolate">
+                                <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
+                                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                <button type="submit" class="btn btn-success btn-sm" title="Isolir">
+                                    <i class="fas fa-lock"></i>
                                 </button>
                             </form>
                         <?php endif; ?>
