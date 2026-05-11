@@ -4,6 +4,7 @@
  */
 
 require_once '../includes/auth.php';
+require_once '../includes/radius.php';
 requireAdminLogin();
 
 $pageTitle = 'Pelanggan';
@@ -39,7 +40,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $data['auto_isolate'] = isset($_POST['auto_isolate']) ? 1 : 0;
                 }
                 
-                if (insert('customers', $data)) {
+                $customerId = insert('customers', $data);
+                if ($customerId) {
+                    // Sync RADIUS timeout if username exists in radcheck
+                    if (!empty($data['pppoe_username'])) {
+                        syncRadiusTimeoutForCustomer($data['pppoe_username'], $customerId);
+                    }
+
                     // Sync to onu_locations if requested
                     $saveOnu = isset($_POST['save_onu']) && $_POST['save_onu'] == '1';
                     $odpId = isset($_POST['odp_id']) && $_POST['odp_id'] !== '' ? (int) $_POST['odp_id'] : null;
@@ -117,13 +124,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 if (update('customers', $data, 'id = ?', [$customerId])) {
+                    // Get updated customer data for RADIUS sync
+                    $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
+                    
+                    // Sync RADIUS timeout if username exists in radcheck
+                    if ($customer && !empty($customer['pppoe_username'])) {
+                        syncRadiusTimeoutForCustomer($customer['pppoe_username'], $customerId);
+                    }
+
                     // Sync to onu_locations if requested
                     $saveOnu = isset($_POST['save_onu']) && $_POST['save_onu'] == '1';
                     $odpId = isset($_POST['odp_id']) && $_POST['odp_id'] !== '' ? (int) $_POST['odp_id'] : null;
                     if ($saveOnu) {
                         try {
                             // Get PPPoE username for this customer
-                            $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
+                            if (!$customer) {
+                                $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
+                            }
                             if ($customer && !empty($customer['pppoe_username'])) {
                                 $serial = $customer['pppoe_username'];
                                 $exists = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$serial]);
@@ -253,6 +270,30 @@ if ($customersTableExists) {
         ORDER BY c.created_at DESC
         LIMIT $perPage OFFSET $offset
     ");
+    
+    // Check RADIUS status for each customer
+    if (function_exists('radiusUserProvisioningReady') && radiusUserProvisioningReady()) {
+        try {
+            $radiusPdo = radiusDbConnection();
+            if ($radiusPdo) {
+                foreach ($customers as &$customer) {
+                    if (!empty($customer['pppoe_username'])) {
+                        $stmt = $radiusPdo->prepare("SELECT username FROM radcheck WHERE username = ? LIMIT 1");
+                        if ($stmt) {
+                            $stmt->execute([$customer['pppoe_username']]);
+                            $customer['in_radius'] = $stmt->fetch() ? true : false;
+                        } else {
+                            $customer['in_radius'] = null; // Error checking
+                        }
+                    } else {
+                        $customer['in_radius'] = null; // No username
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            // Silent fail - RADIUS not available
+        }
+    }
 } else {
     $totalCustomers = 0;
     $totalPages = 0;
@@ -538,6 +579,17 @@ ob_start();
                         <code style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px;">
                             <?php echo htmlspecialchars($c['pppoe_username']); ?>
                         </code>
+                        <?php if (isset($c['in_radius'])): ?>
+                            <?php if ($c['in_radius'] === true): ?>
+                                <span class="badge badge-success" style="margin-left: 5px;" title="Username terdaftar di RADIUS">
+                                    <i class="fas fa-check-circle"></i> OK
+                                </span>
+                            <?php elseif ($c['in_radius'] === false): ?>
+                                <span class="badge badge-warning" style="margin-left: 5px;" title="Username TIDAK terdaftar di RADIUS - Timeout tidak akan aktif">
+                                    <i class="fas fa-exclamation-circle"></i> NOT
+                                </span>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </td>
                     <td data-label="Tgl Isolir">
                         <span class="badge badge-info">Tgl <?php echo $c['isolation_date']; ?></span>

@@ -1344,7 +1344,7 @@ if (isset($_GET['switch_router'])) {
         <?php endif; ?>
 
         <!-- Page Content -->
-        <?php echo $content; ?>
+        <?php echo isset($content) ? $content : ''; ?>
     </div>
     <!-- Global Form Loading -->
     <div id="globalFormLoading" class="global-loading-overlay" aria-live="polite" aria-hidden="true">
