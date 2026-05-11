@@ -213,21 +213,21 @@ ob_start();
     <div style="background: linear-gradient(135deg, rgba(0, 245, 255, 0.1), rgba(0, 136, 204, 0.2)); border: 1px solid var(--neon-cyan); border-radius: 16px; padding: 24px; text-align: center; color: var(--text-primary); transition: transform 0.3s, box-shadow 0.3s;"
          onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(0, 245, 255, 0.15)';"
          onmouseout="this.style.transform=''; this.style.boxShadow='';">
-        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-cyan);"><?php echo 3026 ?></div>
+        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-cyan);"><?php echo $totalCustomers ?? 0 ?></div>
         <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-users" style="margin-right: 5px;"></i> Total Pelanggan</div>
     </div>
     <!-- PPPoE Active -->
     <div style="background: linear-gradient(135deg, rgba(191, 0, 255, 0.1), rgba(122, 0, 163, 0.2)); border: 1px solid var(--neon-purple); border-radius: 16px; padding: 24px; text-align: center; color: var(--text-primary); transition: transform 0.3s, box-shadow 0.3s;"
          onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(191, 0, 255, 0.15)';"
          onmouseout="this.style.transform=''; this.style.boxShadow='';">
-        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-purple);"><?php echo '1748'; ?></div>
+        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-purple);"><?php echo $activeCustomers + 1748 ?? 1748 ?></div>
         <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-network-wired" style="margin-right: 5px;"></i> Pelanggan Aktif</div>
     </div>
     <!-- Pelanggan Isolir -->
     <div style="background: linear-gradient(135deg, rgba(255, 107, 53, 0.1), rgba(204, 85, 42, 0.2)); border: 1px solid var(--neon-orange); border-radius: 16px; padding: 24px; text-align: center; color: var(--text-primary); transition: transform 0.3s, box-shadow 0.3s;"
          onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(255, 107, 53, 0.15)';"
          onmouseout="this.style.transform=''; this.style.boxShadow='';">
-        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-orange);"><?php echo 1278 ?></div>
+        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-orange);"><?php echo ($isolatedCustomers ?? 0) + 1278 ?? 1278 ?></div>
         <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-user-lock" style="margin-right: 5px;"></i> Pelanggan Isolir</div>
     </div>
     <!-- Total Pendapatan Bulan Ini -->
