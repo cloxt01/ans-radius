@@ -107,7 +107,7 @@ $packages = fetchAll("
     FROM packages p 
     LEFT JOIN customers c ON p.id = c.package_id 
     GROUP BY p.id 
-    ORDER BY p.name
+    ORDER BY p.price ASC
 ");
 
 $mikrotikConnected = true;
