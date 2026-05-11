@@ -232,7 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get data with pagination
 $page = (int)($_GET['page'] ?? 1);
-$perPage = 3000;
+$perPage = 10000;
 $offset = ($page - 1) * $perPage;
 
 $customersTableExists = tableExists('customers');
