@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($action === 'add') {
-                $ok = mikrotikAddPppoeProfile($data);
+                $ok = radiusUpsertPppoeProfileCloud(null, $data);
                 setFlash(
                     $ok ? 'success' : 'error',
                     $ok
@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $id = pppoeProfileResolveIdFromPost();
-            $ok = ($id !== '') ? mikrotikUpdatePppoeProfile($id, $data) : false;
+            $ok = ($id !== '') ? radiusUpsertPppoeProfileCloud($id, $data) : false;
             setFlash(
                 $ok ? 'success' : 'error',
                 $ok
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         case 'delete':
             $id = pppoeProfileResolveIdFromPost();
-            $ok = ($id !== '') ? mikrotikDeletePppoeProfile($id) : false;
+            $ok = ($id !== '') ? radiusDeletePppoeProfileCloud($id) : false;
             setFlash($ok ? 'success' : 'error', $ok ? 'Profile berhasil dihapus.' : 'Gagal menghapus profile.');
             redirect('pppoe-profile.php');
             break;
