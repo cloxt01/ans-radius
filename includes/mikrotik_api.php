@@ -802,37 +802,7 @@ function mikrotikAddSecret($name, $password, $profile = 'default', $service = 'p
         ];
     }
 
-    $socket = getMikrotikConnection();
-    if (!$socket) {
-        return ['success' => false, 'message' => 'Cannot connect to MikroTik'];
-    }
-
-    mikrotikWrite($socket, '/ppp/secret/add');
-    mikrotikWrite($socket, '=name=' . $name);
-    mikrotikWrite($socket, '=password=' . $password);
-    mikrotikWrite($socket, '=profile=' . $profile);
-    mikrotikWrite($socket, '=service=' . $service);
-    mikrotikWrite($socket, ''); // End sentence
-
-    $response = mikrotikReadSentence($socket);
-
-    foreach ($response as $word) {
-        if ($word === '!done') {
-            return ['success' => true, 'message' => 'User added successfully'];
-        }
-        if (strpos($word, '!trap') === 0) {
-            $message = 'Unknown error';
-            foreach ($response as $w) {
-                if (strpos($w, '=message=') === 0) {
-                    $message = substr($w, 9);
-                    break;
-                }
-            }
-            return ['success' => false, 'message' => $message];
-        }
-    }
-
-    return ['success' => false, 'message' => 'Unknown response'];
+    return ['success' => false, 'message' => 'Radius DB is not ready. Cannot add PPPoE secret.'];
 }
 
 // Update PPPoE Secret
@@ -882,6 +852,7 @@ function mikrotikUpdateSecret($id, $data)
             } else {
                 fetchOne("DELETE FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
             }
+            mikrotikRemoveActiveSessionByName($newUsername);
         }
 
         $ok = radiusSetUser($newUsername, $password, $profile, $serviceType, $reply);
@@ -892,48 +863,6 @@ function mikrotikUpdateSecret($id, $data)
     }
     logError('PPPoE blocked: Radius DB is not ready.');
     return false;
-
-    // Mikrotik
-    $socket = getMikrotikConnection();
-    if (!$socket) {
-        return ['success' => false, 'message' => 'Cannot connect to MikroTik'];
-    }
-
-    mikrotikWrite($socket, '/ppp/secret/set');
-    mikrotikWrite($socket, '=.id=' . $id);
-
-    if (isset($data['name']))
-        mikrotikWrite($socket, '=name=' . $data['name']);
-    if (isset($data['password']))
-        mikrotikWrite($socket, '=password=' . $data['password']);
-    if (isset($data['profile']))
-        mikrotikWrite($socket, '=profile=' . $data['profile']);
-    if (isset($data['service']))
-        mikrotikWrite($socket, '=service=' . $data['service']);
-    if (isset($data['disabled']))
-        mikrotikWrite($socket, '=disabled=' . $data['disabled']);
-
-    mikrotikWrite($socket, ''); 
-
-    $response = mikrotikReadSentence($socket);
-
-    foreach ($response as $word) {
-        if ($word === '!done') {
-            return ['success' => true, 'message' => 'User updated successfully'];
-        }
-        if (strpos($word, '!trap') === 0) {
-            $message = 'Unknown error';
-            foreach ($response as $w) {
-                if (strpos($w, '=message=') === 0) {
-                    $message = substr($w, 9);
-                    break;
-                }
-            }
-            return ['success' => false, 'message' => $message];
-        }
-    }
-
-    return ['success' => false, 'message' => 'Unknown response'];
 }
 
 // Delete PPPoE Secret
@@ -954,36 +883,6 @@ function mikrotikDeleteSecret($id)
     }
     logError('PPPoE blocked: Radius DB is not ready.');
     return false;
-
-    // Mikrotik
-    $socket = getMikrotikConnection();
-    if (!$socket) {
-        return ['success' => false, 'message' => 'Cannot connect to MikroTik'];
-    }
-
-    mikrotikWrite($socket, '/ppp/secret/remove');
-    mikrotikWrite($socket, '=.id=' . $id);
-    mikrotikWrite($socket, ''); // End sentence
-
-    $response = mikrotikReadSentence($socket);
-
-    foreach ($response as $word) {
-        if ($word === '!done') {
-            return ['success' => true, 'message' => 'User deleted successfully'];
-        }
-        if (strpos($word, '!trap') === 0) {
-            $message = 'Unknown error';
-            foreach ($response as $w) {
-                if (strpos($w, '=message=') === 0) {
-                    $message = substr($w, 9);
-                    break;
-                }
-            }
-            return ['success' => false, 'message' => $message];
-        }
-    }
-
-    return ['success' => false, 'message' => 'Unknown response'];
 }
 
 // Get Active PPPoE Sessions (users currently connected)
