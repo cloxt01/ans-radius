@@ -229,8 +229,8 @@ ob_start();
                 <th>Username</th>
                 <th>Profile</th>
 <!--                <th>Service</th>-->
-                <th>Status</th>
-                <th>Enabled</th>
+                <th>Service</th>
+                <th>Active</th>
                 <th>Last Login</th>
                 <th>Aksi</th>
             </tr>
