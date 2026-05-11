@@ -640,7 +640,7 @@ ob_start();
                                 <input type="hidden" name="action" value="isolate">
                                 <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                                 <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                                <button type="submit" class="btn btn-success btn-sm" title="Isolir">
+                                <button type="submit" class="btn btn-warning btn-sm" title="Isolir">
                                     <i class="fas fa-lock"></i>
                                 </button>
                             </form>
