@@ -536,7 +536,6 @@ function unisolateCustomer($customerId, $options = [])
         mikrotikSetProfile($customer['pppoe_username'], $package['profile_normal'], $customer['router_id']);
         radiusUpdateUserProfile($customer['pppoe_username'], $package['profile_normal']);
         mikrotikRemoveActiveSessionByName($customer['pppoe_username']);
-        // Update RADIUS session timeout from isolation_date
         if (function_exists('radiusSetSessionTimeoutFromIsolationDate') && radiusUserProvisioningReady()) {
             radiusSetSessionTimeoutFromIsolationDate($customer['pppoe_username']);
         }
