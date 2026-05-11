@@ -510,6 +510,8 @@ function isolateCustomer($customerId, $options = [])
         }
     } elseif ($package && !empty($customer['pppoe_username']) && empty($package['profile_isolir'])) {
         logError('Isolir skipped MikroTik profile update (profile_isolir kosong). Customer ID: ' . $customerId);
+    } else {
+        logError('Isolir skipped MikroTik profile update (package not found or pppoe_username empty). Customer ID: ' . $customerId);
     }
 
     logActivity('ISOLATE_CUSTOMER', "Customer ID: {$customerId}");
