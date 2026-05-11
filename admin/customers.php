@@ -560,7 +560,7 @@ ob_start();
                     <td data-label="ID">#<?php echo $c['id']; ?></td>
                     <td data-label="Nama & Kontak">
                         <strong><?php echo htmlspecialchars($c['name']); ?></strong><br>
-                        <small><i class="fab fa-whatsapp"></i> <?php echo htmlspecialchars($c['phone']); ?></small>
+                        <small><i class="fab fa-whatsapp"></i> <?php echo htmlspecialchars($c['phone'] ?? 'N/A'); ?></small>
                     </td>
                     <td data-label="Paket & Router">
                         <?php echo htmlspecialchars($c['package_name'] ?? 'Tanpa Paket'); ?><br>
