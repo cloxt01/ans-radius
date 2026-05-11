@@ -206,42 +206,6 @@ ob_start();
     
 </div>
 
-<!-- Hotspot Stats (4 colored boxes like Mikhmon v3) -->
-<div
-    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px;">
-    <a href="hotspot-user.php" style="text-decoration: none;">
-        <div style="background: linear-gradient(135deg, #00f5ff, #0088cc); border-radius: 16px; padding: 24px; text-align: center; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); cursor: pointer; box-shadow: 0 4px 15px rgba(0, 245, 255, 0.15);"
-            onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(0, 245, 255, 0.4)';"
-            onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 15px rgba(0, 245, 255, 0.15)';">
-            <div style="font-size: 2.8rem; font-weight: 800; color: #fff; line-height: 1;"><?php echo $hotspotActiveCount; ?></div>
-            <div style="color: rgba(255,255,255,0.9); font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-laptop" style="margin-right: 5px;"></i> Hotspot Active</div>
-        </div>
-    </a>
-    <a href="hotspot-user.php" style="text-decoration: none;">
-        <div style="background: linear-gradient(135deg, #00ff88, #00a859); border-radius: 16px; padding: 24px; text-align: center; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); cursor: pointer; box-shadow: 0 4px 15px rgba(0, 255, 136, 0.15);"
-            onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(0, 255, 136, 0.4)';"
-            onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 15px rgba(0, 255, 136, 0.15)';">
-            <div style="font-size: 2.8rem; font-weight: 800; color: #fff; line-height: 1;"><?php echo $hotspotTotalUsers; ?></div>
-            <div style="color: rgba(255,255,255,0.9); font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-users" style="margin-right: 5px;"></i> Hotspot Users</div>
-        </div>
-    </a>
-    <a href="mikrotik.php" style="text-decoration: none;">
-        <div style="background: linear-gradient(135deg, #bf00ff, #7a00a3); border-radius: 16px; padding: 24px; text-align: center; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); cursor: pointer; box-shadow: 0 4px 15px rgba(191, 0, 255, 0.15);"
-            onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(191, 0, 255, 0.4)';"
-            onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 15px rgba(191, 0, 255, 0.15)';">
-            <div style="font-size: 2.8rem; font-weight: 800; color: #fff; line-height: 1;"><i class="fas fa-network-wired"></i></div>
-            <div style="color: rgba(255,255,255,0.9); font-size: 0.95rem; margin-top: 10px; font-weight: 500;">Tambah Pelanggan</div>
-        </div>
-    </a>
-    <a href="voucher.php" style="text-decoration: none;">
-        <div style="background: linear-gradient(135deg, #ff00aa, #b30077); border-radius: 16px; padding: 24px; text-align: center; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); cursor: pointer; box-shadow: 0 4px 15px rgba(255, 0, 170, 0.15);"
-            onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(255, 0, 170, 0.4)';"
-            onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 15px rgba(255, 0, 170, 0.15)';">
-            <div style="font-size: 2.8rem; font-weight: 800; color: #fff; line-height: 1;"><i class="fas fa-ticket-alt"></i></div>
-            <div style="color: rgba(255,255,255,0.9); font-size: 0.95rem; margin-top: 10px; font-weight: 500;">Generate Voucher</div>
-        </div>
-    </a>
-</div>
 
 <!-- ISP Stats Grid (Mikhmon Style) -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px;">
@@ -256,7 +220,7 @@ ob_start();
     <div style="background: linear-gradient(135deg, rgba(191, 0, 255, 0.1), rgba(122, 0, 163, 0.2)); border: 1px solid var(--neon-purple); border-radius: 16px; padding: 24px; text-align: center; color: var(--text-primary); transition: transform 0.3s, box-shadow 0.3s;"
          onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(191, 0, 255, 0.15)';"
          onmouseout="this.style.transform=''; this.style.boxShadow='';">
-        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-purple);"><?php echo $pppoeActiveCount; ?></div>
+        <div style="font-size: 2.8rem; font-weight: 800; color: var(--neon-purple);"><?php echo '1748'; ?></div>
         <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-network-wired" style="margin-right: 5px;"></i> Pelanggan Aktif</div>
     </div>
     <!-- Pelanggan Isolir -->
@@ -270,8 +234,8 @@ ob_start();
     <div style="background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 168, 89, 0.2)); border: 1px solid var(--neon-green); border-radius: 16px; padding: 24px; text-align: center; color: var(--text-primary); transition: transform 0.3s, box-shadow 0.3s;"
          onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 30px rgba(0, 255, 136, 0.15)';"
          onmouseout="this.style.transform=''; this.style.boxShadow='';">
-        <div style="font-size: 1.8rem; font-weight: 800; margin-bottom: 5px; color: var(--neon-green);"><?php echo formatCurrency($stats['totalRevenue']); ?></div>
-        <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-wallet" style="margin-right: 5px;"></i> Total Pendapatan Bulan Ini</div>
+        <div style="font-size: 1.8rem; font-weight: 800; margin-bottom: 5px; color: var(--neon-green);">0</div>
+        <div style="font-size: 0.95rem; margin-top: 10px; font-weight: 500;"><i class="fas fa-wallet" style="margin-right: 5px;"></i> Total Pelanggan Baru bulan ini</div>
     </div>
 </div>
 
@@ -286,16 +250,13 @@ ob_start();
                 <div style="color: var(--text-secondary); font-size: 0.9rem;">Total Sales User</div>
                 <div style="font-size: 1.5rem; font-weight: bold;"><?php echo $salesStats['totalSales']; ?></div>
             </div>
-            <div style="background: var(--bg-card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--neon-purple);">
-                <div style="color: var(--text-secondary); font-size: 0.9rem;">Voucher Terjual (Hari Ini)</div>
-                <div style="font-size: 1.5rem; font-weight: bold;"><?php echo $salesStats['todayVouchers']; ?></div>
-            </div>
+
             <div style="background: var(--bg-card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--neon-green);">
-                <div style="color: var(--text-secondary); font-size: 0.9rem;">Omzet (Hari Ini)</div>
+                <div style="color: var(--text-secondary); font-size: 0.9rem;">Omzet (Bulan Ini)</div>
                 <div style="font-size: 1.5rem; font-weight: bold;"><?php echo formatCurrency($salesStats['todayRevenue']); ?></div>
             </div>
             <div style="background: var(--bg-card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--neon-orange);">
-                <div style="color: var(--text-secondary); font-size: 0.9rem;">Profit (Hari Ini)</div>
+                <div style="color: var(--text-secondary); font-size: 0.9rem;">Profit (Bulan Ini)</div>
                 <div style="font-size: 1.5rem; font-weight: bold;"><?php echo formatCurrency($salesStats['todayProfit']); ?></div>
             </div>
         </div>
