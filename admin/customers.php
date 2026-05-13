@@ -43,6 +43,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $customerId = insert('customers', $data);
                 if ($customerId) {
                     // Sync RADIUS timeout if username exists in radcheck
+                    if (!radiusIsUserExists($data['pppoe_username'])) {
+                        $profile = getProfileFromPackageId($data['package_id'])['profile_normal'] ?? null;
+                        if (!$profile) {
+                            logError('Failed to sync RADIUS for new customer - profile not found. Customer ID: ' . $customerId);
+                        }
+                        mikrotikAddSecret($data['pppoe_username'], $pppoePassword, $profile);
+                    }
                     if (!empty($data['pppoe_username'])) {
                         syncRadiusTimeoutForCustomer($data['pppoe_username'], $customerId);
                     }
@@ -176,6 +183,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'delete':
                 $customerId = (int)$_POST['customer_id'];
+                $customer_username = getPppoeUsernameByCustomerId($customerId);
+                if(radiusIsUserExistsByUsername($customer_username)) {
+                    radiusDeleteUser($customer_username);
+                    mikrotikRemoveActiveSessionByName($customer_username);
+                }
                 if (delete('customers', 'id = ?', [$customerId])) {
                     setFlash('success', 'Pelanggan berhasil dihapus');
                     logActivity('DELETE_CUSTOMER', "ID: {$customerId}");
@@ -617,7 +629,7 @@ ob_start();
                                 <i class="fas fa-key"></i>
                             </button>
                         </form>
-                        <form method="POST" data-no-loading="true" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Data yang dihapus tidak dapat dikembalikan.');">
+                        <form method="POST" data-no-loading="true"  onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Data yang dihapus tidak dapat dikembalikan.');">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">

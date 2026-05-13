@@ -245,6 +245,7 @@ function radiusUpdateUserPassword($username, $newPassword)
         query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Cleartext-Password', ':=', ?)", 
               [$username, $newPassword]);
         
+        logActivity('RADIUS_UPDATE_USER_PASSWORD', "Username: {$username}");
         return true;
     } catch (Exception $e) {
         logError('radiusUpdateUserPassword failed: ' . $e->getMessage());
@@ -272,6 +273,7 @@ function radiusUpdateUserProfile($username, $newProfile)
         query("INSERT INTO {$radusergroup} (username, groupname, priority) VALUES (?, ?, 1)", 
               [$username, $newProfile]);
         
+        logActivity('RADIUS_UPDATE_USER_PROFILE', "Username: {$username}, New Profile: {$newProfile}");
         return true;
     } catch (Exception $e) {
         logError('radiusUpdateUserProfile failed: ' . $e->getMessage());
@@ -296,6 +298,7 @@ function radiusDeleteUser($username)
     query("DELETE FROM {$radcheck} WHERE username = ?", [$username]);
     query("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
 
+    logActivity('RADIUS_DELETE_USER', "Username: {$username}");
     return true;
 }
 
@@ -582,6 +585,44 @@ function radiusUpsertHotspotProfileCloud($id, $data)
         logError('Failed to save hotspot profile to Radius: ' . $e->getMessage());
         return false;
     }
+}
+
+function radiusIsUserExistsByUsername($username)
+{
+    if (!radiusUserProvisioningReady()) {
+        return false;
+    }
+
+    $username = trim((string) $username);
+    if ($username === '') {
+        return false;
+    }
+
+    $radcheck = radiusQualifiedTable('radcheck');
+    $row = fetchOne("SELECT COUNT(*) AS total FROM {$radcheck} WHERE username = ?", [$username]);
+
+    return (int) ($row['total'] ?? 0) > 0;
+}
+function radiusIsUserExistsByCustomerId($customerId)
+{
+    if (!radiusUserProvisioningReady()) {
+        return false;
+    }
+
+    $customerId = trim((string) $customerId);
+    if ($customerId === '') {
+        return false;
+    }
+    $customer_pppoeUsername = "SELECT pppoe_username FROM customers WHERE id = ?";
+    $rowCustomer = fetchOne($customer_pppoeUsername, [$customerId]);
+    if (!$rowCustomer || empty($rowCustomer['pppoe_username'])) {
+        return false;
+    }
+
+    $radcheck = radiusQualifiedTable('radcheck');
+    $row = fetchOne("SELECT COUNT(*) AS total FROM {$radcheck} WHERE username = ?", [$rowCustomer['pppoe_username']]);
+
+    return (bool) ($row['total'] ?? 0) > 0;
 }
 
 function radiusDeleteHotspotProfileCloud($id)
