@@ -36,6 +36,7 @@ if ($defaultGateway === 'tripay') {
         ['code' => 'ALFAMART', 'name' => 'Alfamart'],
         ['code' => 'INDOMARET', 'name' => 'Indomaret']
     ];
+    $paymentMethods = filterTripayPaymentMethods($paymentMethods);
 } else {
     $paymentMethods = [
         ['code' => 'qris', 'name' => 'QRIS'],

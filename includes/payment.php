@@ -68,12 +68,9 @@ function paymentGetTripayCandidateBaseUrls()
 {
     $mode = strtolower(trim((string) paymentGetConfig('TRIPAY_MODE', '')));
     if (strpos($mode, 'sandbox') !== false) {
-        return ['https://tripay.co.id/api-sandbox', 'https://payment.tripay.co.id/api-sandbox'];
+        return ['https://tripay.co.id/api-sandbox'];
     }
-    if ($mode !== '' && strpos($mode, 'production') !== false) {
-        return ['https://tripay.co.id/api', 'https://payment.tripay.co.id/api'];
-    }
-    return ['https://tripay.co.id/api', 'https://tripay.co.id/api-sandbox', 'https://payment.tripay.co.id/api', 'https://payment.tripay.co.id/api-sandbox'];
+    return ['https://tripay.co.id/api'];
 }
 
 function paymentNormalizeTripayMethod($code)
@@ -98,6 +95,35 @@ function paymentNormalizeTripayMethod($code)
     ];
 
     return $legacyMap[$value] ?? $value;
+}
+
+function tripayPickDefaultEnabledMethod(array $enabledChannels): string
+{
+    $enabledMap = array_fill_keys(array_map(static function ($channel) {
+        return strtoupper(trim((string) $channel));
+    }, $enabledChannels), true);
+
+    $preferredOrder = [
+        'QRIS',
+        'BCAVA',
+        'BRIVA',
+        'MANDIRIVA',
+        'BNIVA',
+        'OVO',
+        'DANA',
+        'LINKAJA',
+        'SHOPEEPAY',
+        'ALFAMART',
+        'INDOMARET'
+    ];
+
+    foreach ($preferredOrder as $channel) {
+        if (isset($enabledMap[$channel])) {
+            return $channel;
+        }
+    }
+
+    return $enabledChannels[0] ?? '';
 }
 
 function paymentFallbackEmailFromPhone($phone)
@@ -143,7 +169,6 @@ function paymentTripayRequest($path, $method, $apiKey, $payload = null, $baseUrl
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Authorization: Bearer ' . $apiKey,
         'Accept: application/json',
-        'User-Agent: GEMBOK/2.x (Tripay Client)'
     ]);
 
     if (strtoupper($method) === 'POST') {
@@ -151,9 +176,9 @@ function paymentTripayRequest($path, $method, $apiKey, $payload = null, $baseUrl
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Authorization: Bearer ' . $apiKey,
             'Accept: application/json',
-            'Content-Type: application/x-www-form-urlencoded'
+            'Content-Type: application/json',
         ]);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, is_array($payload) ? http_build_query($payload) : (string) $payload);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, is_array($payload) ? json_encode($payload, JSON_UNESCAPED_SLASHES) : (string) $payload);
     }
 
     $response = curl_exec($ch);
@@ -216,7 +241,30 @@ function generateTripayPaymentLink($invoiceNumber, $amount, $customerName, $cust
 
     $merchantRef = (string) $invoiceNumber;
     $amountInt = (int) $amount;
-    $method = paymentNormalizeTripayMethod($paymentMethod);
+
+    $enabledChannels = getTripayEnabledPaymentChannels();
+    if ($paymentMethod === '') {
+        $method = tripayPickDefaultEnabledMethod($enabledChannels);
+    } else {
+        $method = paymentNormalizeTripayMethod($paymentMethod);
+    }
+
+    if ($method === '') {
+        return [
+            'success' => false,
+            'message' => 'Tidak ada payment channel Tripay yang aktif untuk merchant ini',
+            'link' => null
+        ];
+    }
+
+    if (!empty($enabledChannels) && !in_array($method, $enabledChannels, true)) {
+        return [
+            'success' => false,
+            'message' => 'Payment channel is not enabled (' . $method . '). Please enable in Merchant > Opsi > Atur Channel Pembayaran',
+            'link' => null
+        ];
+    }
+
     $expiredTime = time() + (24 * 60 * 60);
     $dueTs = strtotime((string) $dueDate);
     if ($dueTs !== false && $dueTs > time()) {
@@ -257,66 +305,28 @@ function generateTripayPaymentLink($invoiceNumber, $amount, $customerName, $cust
     $result = paymentTripayRequest('/transaction/create', 'POST', $apiKey, $payload);
     $json = $result['json'] ?? null;
     if (!is_array($json) || !($json['success'] ?? false)) {
-        $bases = paymentGetTripayCandidateBaseUrls();
-        $lastMessage = is_array($json) ? (string) ($json['message'] ?? '') : '';
-        $lastData = is_array($json) ? $json : null;
-        $lastHttpCode = (int) ($result['http_code'] ?? 0);
-        $lastError = (string) ($result['error'] ?? '');
-        $lastUrl = (string) ($result['effective_url'] ?? ($result['url'] ?? ''));
-        $lastRaw = (string) ($result['raw'] ?? '');
-        $lastRedirects = (int) ($result['redirect_count'] ?? 0);
-        $lastContentType = (string) ($result['content_type'] ?? '');
-        foreach ($bases as $base) {
-            foreach ([$payload, $method !== 'QRIS' ? array_merge($payload, ['method' => 'QRIS']) : null] as $candidatePayload) {
-                if ($candidatePayload === null) {
-                    continue;
-                }
-                $res = paymentTripayRequest('/transaction/create', 'POST', $apiKey, $candidatePayload, $base);
-                $js = $res['json'] ?? null;
-                if (is_array($js) && ($js['success'] ?? false) && ($js['data']['checkout_url'] ?? '') !== '') {
-                    $data = $js['data'];
-                    return ['success' => true, 'link' => $data['checkout_url'], 'data' => $data];
-                }
-                $lastHttpCode = (int) ($res['http_code'] ?? 0);
-                $lastError = (string) ($res['error'] ?? '');
-                $lastUrl = (string) ($res['effective_url'] ?? ($res['url'] ?? ''));
-                $lastRaw = (string) ($res['raw'] ?? '');
-                $lastRedirects = (int) ($res['redirect_count'] ?? 0);
-                $lastContentType = (string) ($res['content_type'] ?? '');
-                if (is_array($js)) {
-                    $lastData = $js;
-                    if (!empty($js['message'])) {
-                        $lastMessage = (string) $js['message'];
-                    }
-                }
-            }
-        }
-        $message = $lastMessage;
+        $message = is_array($json) ? (string) ($json['message'] ?? '') : '';
         if ($message === '') {
-            if ($lastHttpCode !== 0) {
-                $message = 'Tripay error HTTP ' . $lastHttpCode;
-            } else {
-                $message = 'Gagal membuat transaksi Tripay';
-            }
-            if ($lastError !== '') {
-                $message .= ': ' . $lastError;
-            }
+            $message = 'Gagal membuat transaksi Tripay';
         }
+
         paymentLog('tripay_create_failed', [
             'order' => $merchantRef,
             'mode' => (string) paymentGetConfig('TRIPAY_MODE', ''),
             'method' => $method,
-            'url' => $lastUrl,
-            'http_code' => $lastHttpCode,
-            'redirects' => $lastRedirects,
-            'content_type' => $lastContentType,
-            'error' => $lastError,
-            'message' => $lastMessage,
-            'raw' => mb_substr($lastRaw, 0, 800),
-            'data' => $lastData
+            'url' => (string) ($result['effective_url'] ?? ($result['url'] ?? '')),
+            'http_code' => (int) ($result['http_code'] ?? 0),
+            'redirects' => (int) ($result['redirect_count'] ?? 0),
+            'content_type' => (string) ($result['content_type'] ?? ''),
+            'error' => (string) ($result['error'] ?? ''),
+            'message' => $message,
+            'raw' => mb_substr((string) ($result['raw'] ?? ''), 0, 800),
+            'data' => is_array($json) ? $json : null
         ]);
-        return ['success' => false, 'message' => $message, 'link' => null, 'data' => $lastData];
+
+        return ['success' => false, 'message' => $message, 'link' => null, 'data' => is_array($json) ? $json : null];
     }
+
     $data = $json['data'] ?? [];
     $checkoutUrl = $data['checkout_url'] ?? '';
     if ($checkoutUrl === '') {
@@ -525,6 +535,74 @@ function getTripayPaymentStatus($merchantRef) {
     }
 
     return ['success' => true, 'data' => ['data' => $transaction]];
+}
+
+function tripayCollectEnabledChannels($node, array &$channels): void
+{
+    if (!is_array($node)) {
+        return;
+    }
+
+    $channelCode = $node['code'] ?? $node['channel_code'] ?? $node['method'] ?? null;
+    if (is_string($channelCode) && $channelCode !== '') {
+        $isEnabled = true;
+        foreach (['is_active', 'active', 'enabled', 'enable'] as $flagKey) {
+            if (!array_key_exists($flagKey, $node)) {
+                continue;
+            }
+
+            $flagValue = $node[$flagKey];
+            if (is_bool($flagValue) && $flagValue === false) {
+                $isEnabled = false;
+            } elseif (is_numeric($flagValue) && (int) $flagValue === 0) {
+                $isEnabled = false;
+            } elseif (is_string($flagValue) && in_array(strtolower(trim($flagValue)), ['0', 'false', 'disabled', 'inactive', 'off', 'no'], true)) {
+                $isEnabled = false;
+            }
+        }
+
+        if ($isEnabled) {
+            $channels[strtoupper(trim($channelCode))] = true;
+        }
+    }
+
+    foreach ($node as $value) {
+        if (is_array($value)) {
+            tripayCollectEnabledChannels($value, $channels);
+        }
+    }
+}
+
+function getTripayEnabledPaymentChannels(): array
+{
+    $apiKey = trim((string) paymentGetConfig('TRIPAY_API_KEY', ''));
+    if ($apiKey === '') {
+        return [];
+    }
+
+    $result = paymentTripayRequest('/merchant/payment-channel', 'GET', $apiKey);
+    $json = $result['json'] ?? null;
+    if (!is_array($json) || !($json['success'] ?? false)) {
+        return [];
+    }
+
+    $channels = [];
+    tripayCollectEnabledChannels($json, $channels);
+    return array_keys($channels);
+}
+
+function filterTripayPaymentMethods(array $methods): array
+{
+    $enabledChannels = getTripayEnabledPaymentChannels();
+    if (empty($enabledChannels)) {
+        return $methods;
+    }
+
+    $enabledMap = array_fill_keys($enabledChannels, true);
+    return array_values(array_filter($methods, static function ($method) use ($enabledMap) {
+        $code = strtoupper(trim((string) ($method['code'] ?? '')));
+        return $code !== '' && isset($enabledMap[$code]);
+    }));
 }
 
 // Get payment status from Midtrans

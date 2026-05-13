@@ -46,13 +46,14 @@ if ($defaultGateway === 'tripay') {
         ['code' => 'BRIVA', 'name' => 'BRI Virtual Account', 'icon' => 'fa-building', 'color' => '#667eea'],
         ['code' => 'MANDIRIVA', 'name' => 'Mandiri Virtual Account', 'icon' => 'fa-building', 'color' => '#667eea'],
         ['code' => 'BNIVA', 'name' => 'BNI Virtual Account', 'icon' => 'fa-building', 'color' => '#667eea'],
-        ['code' => 'OVO', 'name' => 'OVO', 'icon' => 'fa-wallet', 'color' => '#bf00ff'],
+        // ['code' => 'OVO', 'name' => 'OVO', 'icon' => 'fa-wallet', 'color' => '#bf00ff'],
         ['code' => 'DANA', 'name' => 'DANA', 'icon' => 'fa-wallet', 'color' => '#bf00ff'],
         ['code' => 'LINKAJA', 'name' => 'LinkAja', 'icon' => 'fa-wallet', 'color' => '#bf00ff'],
         ['code' => 'SHOPEEPAY', 'name' => 'ShopeePay', 'icon' => 'fa-wallet', 'color' => '#bf00ff'],
         ['code' => 'ALFAMART', 'name' => 'Alfamart', 'icon' => 'fa-store', 'color' => '#00ff00'],
         ['code' => 'INDOMARET', 'name' => 'Indomaret', 'icon' => 'fa-store', 'color' => '#ff0000']
     ];
+    $paymentMethods = filterTripayPaymentMethods($paymentMethods);
 } elseif ($defaultGateway === 'midtrans') {
     $paymentMethods = [
         ['code' => 'gopay', 'name' => 'GoPay', 'icon' => 'fa-wallet', 'color' => '#00f5ff'],
@@ -96,6 +97,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($selectedPaymentMethod)) {
         setFlash('error', 'Silakan pilih metode pembayaran');
+    } elseif ($defaultGateway === 'tripay' && !in_array($selectedPaymentMethod, array_map(static function ($method) {
+        return (string) ($method['code'] ?? '');
+    }, $paymentMethods), true)) {
+        setFlash('error', 'Metode pembayaran yang dipilih tidak tersedia untuk merchant Tripay ini.');
     } else {
         // Generate payment link with payment method
         $result = generatePaymentLink(
@@ -111,11 +116,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($result['success']) {
             logActivity('PAYMENT_LINK_GENERATED', "Invoice: {$invoice['invoice_number']}, Gateway: {$defaultGateway}, Method: {$selectedPaymentMethod}");
             $paymentLink = $result['link'] ?? '';
-            if ($paymentLink !== '') {
+            if ($paymentLink !== '' && filter_var($paymentLink, FILTER_VALIDATE_URL)) {
                 redirect($paymentLink);
+            } else {
+                paymentLog('PAYMENT_LINK_INVALID', [
+                    'invoice' => $invoice['invoice_number'],
+                    'gateway' => $defaultGateway,
+                    'method' => $selectedPaymentMethod,
+                    'link' => $paymentLink,
+                    'result' => $result
+                ]);
+                setFlash('error', 'Payment link tidak valid. Silakan hubungi support.');
             }
-            setFlash('error', 'Gagal membuka payment gateway');
         } else {
+            paymentLog('PAYMENT_LINK_FAILED', [
+                'invoice' => $invoice['invoice_number'],
+                'gateway' => $defaultGateway,
+                'method' => $selectedPaymentMethod,
+                'result' => $result
+            ]);
             setFlash('error', $result['message'] ?? 'Gagal generate payment link');
         }
     }
@@ -144,7 +163,7 @@ ob_start();
                 <i class="fas fa-check-circle"></i> Invoice ini sudah dibayar
             </div>
         <?php else: ?>
-            <form method="POST" action="payment.php?invoice_id=<?php echo (int)$invoiceId; ?>">
+            <form method="POST" action="<?php echo APP_URL . '/portal/payment.php?invoice_id=' . (int)$invoiceId; ?>">
                 <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
                 <div class="form-group">
                     <label class="form-label">Metode Pembayaran</label>
