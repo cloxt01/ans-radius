@@ -144,7 +144,7 @@ ob_start();
                 <i class="fas fa-check-circle"></i> Invoice ini sudah dibayar
             </div>
         <?php else: ?>
-            <form method="POST">
+            <form method="POST" action="payment.php?invoice_id=<?php echo (int)$invoiceId; ?>">
                 <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
                 <div class="form-group">
                     <label class="form-label">Metode Pembayaran</label>
