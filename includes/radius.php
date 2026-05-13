@@ -140,6 +140,7 @@ function radiusRenameUser($oldUsername, $newUsername)
     query("UPDATE {$radcheck} SET username = ? WHERE username = ?", [$newUsername, $oldUsername]);
     query("UPDATE {$radusergroup} SET username = ? WHERE username = ?", [$newUsername, $oldUsername]);
 
+    logActivity('RADIUS_RENAME_USER', "Old Username: {$oldUsername}, New Username: {$newUsername}");
     return true;
 }
 
