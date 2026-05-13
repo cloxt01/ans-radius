@@ -332,7 +332,8 @@ ob_start();
             
             <div class="form-group">
                 <label class="form-label">Username</label>
-                <input type="text" name="username" id="edit_username" class="form-control" required>
+                <input type="text" name="username" id="edit_username" class="form-control" readonly required>
+                <small>Username tidak dapat diubah</small>
             </div>
             
             <div class="form-group">

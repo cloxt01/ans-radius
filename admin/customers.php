@@ -48,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (!$profile) {
                             logError('Failed to sync RADIUS for new customer - profile not found. Customer ID: ' . $customerId);
                         }
+                        # Add ke RADIUS
                         mikrotikAddSecret($data['pppoe_username'], $pppoePassword, $profile);
                     }
                     if (!empty($data['pppoe_username'])) {
@@ -114,6 +115,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'edit':
                 $customerId = (int)$_POST['customer_id'];
+                if(!fetchOne("SELECT id FROM customers WHERE id = ?", [$customerId])) {
+                    setFlash('error', 'Pelanggan tidak ditemukan');
+                    redirect('customers.php');
+                }
+                $customer_username = getPppoeUsernameById($customerId);
                 $data = [
                     'name' => sanitize($_POST['name']),
                     'phone' => sanitize($_POST['phone']),
@@ -133,8 +139,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (update('customers', $data, 'id = ?', [$customerId])) {
                     // Get updated customer data for RADIUS sync
                     $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
-                    
-                    // Sync RADIUS timeout if username exists in radcheck
                     if ($customer && !empty($customer['pppoe_username'])) {
                         syncRadiusTimeoutForCustomer($customer['pppoe_username'], $customerId);
                     }
