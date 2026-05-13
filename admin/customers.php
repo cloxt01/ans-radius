@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setFlash('error', 'Pelanggan tidak ditemukan');
                     redirect('customers.php');
                 }
-                $customer_username = getPppoeUsernameById($customerId);
+                $customer_username = getPppoeUsernameByCustomerId($customerId);
                 $data = [
                     'name' => sanitize($_POST['name']),
                     'phone' => sanitize($_POST['phone']),
