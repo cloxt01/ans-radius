@@ -796,6 +796,7 @@ function mikrotikAddSecret($name, $password, $profile = 'default', $service = 'p
     if (radiusUserProvisioningReady()) {
         $serviceType = (strtolower((string) $service) === 'pppoe') ? 'Framed-User' : 'Login-User';
         $ok = radiusSetUser($name, $password, $profile, $serviceType);
+        logActivity('Add PPPoE User', "User: {$name}, Profile: {$profile}, Service: {$serviceType}, Result: " . ($ok ? 'Success' : 'Failure'));
         return [
             'success' => $ok,
             'message' => $ok ? 'User saved to Radius DB' : 'Failed to save user to Radius DB',

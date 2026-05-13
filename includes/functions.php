@@ -1901,6 +1901,16 @@ function findPublicVoucherPackage($catalog, $profileName)
     return null;
 }
 
+function getProfileFromPackageId($id)
+{
+    $package = "SELECT * FROM packages where id = ?";
+    $data = fetchOne($package, [$id]);
+    return [
+        'profile_normal' => $data['profile_normal'] ?? null,
+        'profile_isolir' => $data['profile_isolate'] ?? null
+    ];
+}
+
 function normalizePublicVoucherPhone($phone)
 {
     $digits = preg_replace('/\D+/', '', (string) $phone);
@@ -2136,6 +2146,16 @@ function fulfillPublicVoucherOrder($orderNumber)
         'message' => $waSent ? 'Voucher berhasil dibuat dan dikirim ke WhatsApp' : 'Voucher berhasil dibuat, pengiriman WhatsApp gagal',
         'order' => getPublicVoucherOrderByNumber($safe)
     ];
+}
+
+function getPppoeUsernameByCustomerId($customerId)
+{
+    $customerId = (int) $customerId;
+    if ($customerId <= 0) {
+        return null;
+    }
+    $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
+    return $customer['pppoe_username'] ?? null;
 }
 
 function markPublicVoucherOrderPaid($orderNumber, $gateway, $paymentData = [])
