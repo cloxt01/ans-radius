@@ -91,7 +91,7 @@ $mikrotikUsers = mikrotikGetPppoeUsers();
 $totalUsers = count($mikrotikUsers);
 
 // Get active PPPoE sessions (currently online)
-$activeSessions = mikrotikGetActiveSessions();
+$activeSessions = mikrotikGetActiveSessionsAllRouter();
 $onlineCount = count($activeSessions);
 
 // Create list of online usernames
