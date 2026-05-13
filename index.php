@@ -276,7 +276,13 @@ $registerModal = '
   })();
 </script>';
 
-$inject = $voucherButton . $registerModal;
+$footerLinks = '<div style="position:fixed;left:16px;bottom:18px;z-index:9999;color:var(--text-muted);font-size:13px;display:flex;gap:12px;align-items:center;">'
+  . '<a href="about.php" style="color:var(--text-muted);">Tentang Kami</a>'
+  . '<a href="terms.php" style="color:var(--text-muted);">Syarat & Ketentuan</a>'
+  . '<a href="privacy.php" style="color:var(--text-muted);">Kebijakan Privasi</a>'
+  . '</div>';
+
+$inject = $voucherButton . $footerLinks . $registerModal;
 if (stripos($html, '</body>') !== false) {
     $html = preg_replace('/<\/body>/i', $inject . '</body>', $html, 1);
 } else {

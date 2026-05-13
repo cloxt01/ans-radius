@@ -276,11 +276,10 @@ if ($customersTableExists) {
         SELECT " . implode(', ', $selectParts) . "
         FROM customers c 
         " . implode("\n        ", $joinParts) . "
-        ORDER BY c.status ASC
+        ORDER BY c.created_at DESC
         LIMIT $perPage OFFSET $offset
     ");
     
-    // Check RADIUS status for each customer
     if (function_exists('radiusUserProvisioningReady') && radiusUserProvisioningReady()) {
         try {
             $radiusPdo = radiusDbConnection();
