@@ -70,7 +70,6 @@ function adminLogout() {
     logActivity('ADMIN_LOGOUT', "Username: " . ($_SESSION['admin']['username'] ?? 'unknown'));
     
     unset($_SESSION['admin']);
-    session_destroy();
     
     redirect(APP_URL . '/admin/login.php');
 }
@@ -114,7 +113,6 @@ function customerLogout() {
     logActivity('CUSTOMER_LOGOUT', "Phone: " . ($_SESSION['customer']['phone'] ?? 'unknown'));
     
     unset($_SESSION['customer']);
-    session_destroy();
     
     redirect(APP_URL . '/portal/login.php');
 }
@@ -246,7 +244,6 @@ function salesLogout() {
     logActivity('SALES_LOGOUT', "Username: " . ($_SESSION['sales']['username'] ?? 'unknown'));
     
     unset($_SESSION['sales']);
-    session_destroy();
     
     redirect(APP_URL . '/sales/login.php');
 }
@@ -311,7 +308,6 @@ function technicianLogout() {
     logActivity('TECH_LOGOUT', "Username: " . ($_SESSION['technician']['username'] ?? 'unknown'));
     
     unset($_SESSION['technician']);
-    session_destroy();
     
     redirect(APP_URL . '/technician/login.php');
 }
