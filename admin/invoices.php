@@ -264,7 +264,7 @@ $invoices = fetchAll("
     SELECT i.*, c.name as customer_name, c.pppoe_username, c.phone 
     FROM invoices i 
     LEFT JOIN customers c ON i.customer_id = c.id 
-    ORDER BY i.created_at DESC
+    ORDER BY i.updated_at DESC
 ");
 
 // Get active customers for manual invoice
