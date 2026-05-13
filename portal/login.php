@@ -43,7 +43,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$appName = getSetting('app_name', 'GEMBOK');
+
+
+$appName = getSetting('app_name', 'ANS Radius');
 $pageTitle = 'Login Pelanggan';
 $content = '';
 
@@ -57,236 +59,438 @@ ob_start();
     <title><?php echo htmlspecialchars($pageTitle . ' - ' . $appName); ?></title>
     
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#f5f7fb">
+    <meta name="theme-color" content="#0d1117">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="Portal Pelanggan">
     <link rel="manifest" href="<?php echo APP_URL; ?>/manifest.json">
     <link rel="apple-touch-icon" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
     
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800;14..32,900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
 <style>
+    /* ==================== GITHUB DARK THEME ==================== */
+    :root {
+        --bg-canvas: #0d1117;
+        --bg-inset: #010409;
+        --bg-primary: #161b22;
+        --bg-secondary: #0d1117;
+        --bg-tertiary: #21262d;
+        --border-default: #30363d;
+        --border-muted: #21262d;
+        --fg-default: #e6edf3;
+        --fg-muted: #7d8590;
+        --fg-subtle: #6e7681;
+        --fg-on-emphasis: #ffffff;
+        --accent-blue: #2f81f7;
+        --accent-blue-hover: #58a6ff;
+        --accent-green: #3fb950;
+        --accent-red: #f85149;
+        --accent-orange: #d29922;
+        --accent-red-soft: rgba(248, 81, 73, 0.15);
+        --accent-blue-soft: rgba(47, 129, 247, 0.1);
+        --shadow-small: 0 0 0 1px rgba(255,255,255,0.05);
+        --shadow-medium: 0 4px 12px rgba(0,0,0,0.3);
+        --shadow-large: 0 8px 24px rgba(0,0,0,0.4);
+        --shadow-blue: 0 4px 12px rgba(47, 129, 247, 0.25);
+    }
+
     * {
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
     }
 
     body {
-        margin: 0;
-        padding: 0;
-        font-family: 'Inter', sans-serif;
-        overflow-x: hidden;
-        background: #f5f7fb;
-    }
-
-    :root {
-        --brand-blue: #2563eb;
-        --brand-teal: #0891b2;
-        --bg-main: radial-gradient(circle at 15% 15%, #ffffff 0%, #f5f7fb 48%, #e8edf8 100%);
-        --bg-card: rgba(255, 255, 255, 0.88);
-        --bg-input: #ffffff;
-        --text-primary: #111827;
-        --text-secondary: #4b5563;
-        --border-soft: rgba(15, 23, 42, 0.12);
-        --brand-gradient: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
-    }
-
-    .login-container {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif;
+        background: var(--bg-canvas);
+        color: var(--fg-default);
+        line-height: 1.5;
         min-height: 100vh;
-        width: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 20px;
-        background: var(--bg-main);
-        overflow: hidden;
+        position: relative;
+        overflow-x: hidden;
     }
 
-    .login-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border-soft);
-        border-radius: 18px;
-        padding: 60px;
+    /* Animated background orbs */
+    .bg-orb {
+        position: fixed;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.35;
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    .orb-1 {
+        width: 350px;
+        height: 350px;
+        left: -120px;
+        top: -80px;
+        background: var(--accent-blue);
+        opacity: 0.25;
+    }
+
+    .orb-2 {
+        width: 450px;
+        height: 450px;
+        right: -180px;
+        bottom: -120px;
+        background: var(--accent-green);
+        opacity: 0.12;
+    }
+
+    .orb-3 {
+        width: 280px;
+        height: 280px;
+        left: 15%;
+        bottom: 10%;
+        background: var(--accent-orange);
+        opacity: 0.1;
+    }
+
+    .login-container {
         width: 100%;
-        max-width: 600px;
-        box-shadow: 0 16px 40px rgba(37, 99, 235, 0.14);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
+        max-width: 480px;
+        margin: 20px;
         position: relative;
-        overflow: hidden;
-        box-sizing: border-box;
+        z-index: 1;
+    }
+
+    /* Login Card - GitHub Dark Style */
+    .login-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-default);
+        border-radius: 24px;
+        padding: 44px 36px;
+        box-shadow: var(--shadow-large);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .login-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Brand Section */
+    .brand {
+        text-align: center;
+        margin-bottom: 36px;
     }
 
     .login-header-icon {
-        font-size: 3rem;
-        background: var(--brand-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin-bottom: 15px;
-        display: inline-block;
+        width: 88px;
+        height: 88px;
+        margin: 0 auto 16px;
+        display: block;
+        border-radius: 20px;
+        box-shadow: var(--shadow-small);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        padding: 8px;
+        object-fit: contain;
+    }
+
+    .login-header-icon:hover {
+        transform: scale(1.02);
+        box-shadow: var(--shadow-medium);
     }
 
     .login-title {
-        font-size: 1.8rem;
+        font-size: 1.6rem;
         font-weight: 700;
-        margin-bottom: 5px;
-        background: var(--brand-gradient);
+        letter-spacing: -0.02em;
+        margin-bottom: 4px;
+        background: linear-gradient(135deg, var(--accent-blue), var(--accent-green));
         -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
         background-clip: text;
-    }
-    
-    .login-subtitle {
-        color: var(--text-secondary);
-        margin: 0;
+        -webkit-text-fill-color: transparent;
     }
 
+    .login-subtitle {
+        color: var(--fg-muted);
+        font-size: 0.85rem;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+    }
+
+    /* Alert Messages - GitHub Style */
+    .alert {
+        padding: 14px 18px;
+        border-radius: 12px;
+        margin-bottom: 28px;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid;
+        animation: slideIn 0.3s ease;
+        font-weight: 500;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-12px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .alert-error {
+        background: var(--accent-red-soft);
+        border-color: rgba(248, 81, 73, 0.35);
+        color: var(--accent-red);
+    }
+
+    .alert-error i {
+        color: var(--accent-red);
+        font-size: 1rem;
+    }
+
+    /* Form Styles - GitHub Dark Inputs */
     .form-group {
-        margin-bottom: 20px;
+        margin-bottom: 22px;
     }
 
     .form-label {
         display: block;
         margin-bottom: 8px;
         font-weight: 600;
-        color: var(--text-secondary);
+        font-size: 0.75rem;
+        color: var(--fg-muted);
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+    }
+
+    .form-label i {
+        margin-right: 6px;
+        font-size: 0.7rem;
     }
 
     .form-control {
         width: 100%;
-        padding: 12px;
-        background: var(--bg-input);
-        border: 1px solid var(--border-soft);
-        border-radius: 8px;
-        color: var(--text-primary);
-        font-size: 1rem;
-        box-sizing: border-box;
+        padding: 12px 14px;
+        background: var(--bg-canvas);
+        border: 1px solid var(--border-default);
+        border-radius: 12px;
+        color: var(--fg-default);
+        font-size: 0.9rem;
+        font-family: 'Inter', monospace;
+        transition: all 0.2s ease;
     }
-    
+
+    .form-control::placeholder {
+        color: var(--fg-subtle);
+        font-size: 0.85rem;
+    }
+
     .form-control:focus {
         outline: none;
-        border-color: var(--brand-blue);
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 0 3px var(--accent-blue-soft);
     }
 
+    /* Login Button - GitHub Primary */
     .btn-login {
         width: 100%;
-        padding: 12px 20px;
+        padding: 12px 16px;
+        background: var(--accent-blue);
         border: none;
         border-radius: 12px;
-        font-size: 1rem;
+        color: #fff;
+        font-size: 0.9rem;
         font-weight: 600;
         cursor: pointer;
-        color: #ffffff;
-        background: var(--brand-gradient);
-        transition: all 0.3s;
-        box-shadow: 0 8px 24px rgba(37, 99, 235, 0.28);
-    }
-    
-    .btn-login:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 28px rgba(37, 99, 235, 0.34);
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 8px;
     }
 
+    .btn-login:hover {
+        background: var(--accent-blue-hover);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-blue);
+    }
+
+    .btn-login:active {
+        transform: translateY(0);
+    }
+
+    /* Help Box */
     .login-help {
         margin-top: 20px;
-        padding: 15px;
-        background: rgba(37, 99, 235, 0.08);
-        border: 1px solid rgba(37, 99, 235, 0.2);
-        border-radius: 8px;
-        color: #2563eb;
-        font-size: 0.9rem;
+        padding: 14px 16px;
+        background: var(--accent-blue-soft);
+        border: 1px solid rgba(47, 129, 247, 0.25);
+        border-radius: 12px;
+        color: var(--accent-blue);
+        font-size: 0.8rem;
         text-align: center;
     }
 
+    .login-help i {
+        margin-right: 8px;
+    }
+
+    /* Footer Links */
     .login-footer {
         text-align: center;
-        margin-top: 20px;
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-        position: relative;
-        z-index: 1;
-    }
-    
-    .login-footer a {
-        color: #2563eb;
-        text-decoration: none;
-        display: inline-block;
-        margin-top: 10px;
-        transition: color 0.3s;
-    }
-    
-    .login-footer a:hover {
-        color: #0f766e;
+        margin-top: 28px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-muted);
     }
 
-    @media (max-width: 480px) {
+    .login-footer p {
+        color: var(--fg-muted);
+        font-size: 0.75rem;
+        margin-bottom: 12px;
+    }
+
+    .login-footer p i {
+        margin-right: 6px;
+        font-size: 0.7rem;
+        color: var(--accent-blue);
+    }
+
+    .login-footer a {
+        color: var(--accent-blue);
+        text-decoration: none;
+        display: inline-block;
+        margin: 6px 8px;
+        font-size: 0.8rem;
+        transition: color 0.2s;
+    }
+
+    .login-footer a:hover {
+        color: var(--accent-blue-hover);
+        text-decoration: underline;
+    }
+
+    .login-footer a i {
+        margin-right: 6px;
+        font-size: 0.75rem;
+    }
+
+    /* ==================== RESPONSIVE ==================== */
+    @media (max-width: 520px) {
         .login-container {
-            padding: 0;
+            margin: 0;
+            max-width: 100%;
         }
 
         .login-card {
-            padding: 30px 25px;
-            max-width: 100%;
+            padding: 32px 24px;
             border-radius: 0;
             min-height: 100vh;
-            border: 0;
             display: flex;
             flex-direction: column;
-            justify-content: space-around; /* Spread content vertically */
-        }
-
-        .login-title {
-            font-size: 2.5rem;
-        }
-
-        .login-subtitle {
-            font-size: 1.2rem;
-        }
-
-        .form-group {
-            margin-bottom: 30px;
-        }
-
-        .form-label {
-            font-size: 1.1rem;
-            margin-bottom: 12px;
-        }
-
-        .form-control {
-            padding: 16px;
-            font-size: 1.1rem;
-            border-radius: 12px;
-        }
-        
-        .btn-login {
-            padding: 16px;
-            font-size: 1.2rem;
-            border-radius: 14px;
+            justify-content: center;
         }
 
         .login-header-icon {
-            font-size: 4rem;
+            width: 72px;
+            height: 72px;
+            padding: 6px;
         }
 
-        .login-help, .login-footer {
+        .login-title {
+            font-size: 1.8rem;
+        }
+
+        .login-subtitle {
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+
+        .form-control {
+            padding: 14px 16px;
             font-size: 1rem;
+            border-radius: 12px;
+        }
+
+        .btn-login {
+            padding: 14px 18px;
+            font-size: 1rem;
+            border-radius: 12px;
+            margin-top: 12px;
+        }
+
+        .login-help {
+            font-size: 0.85rem;
+            padding: 12px 14px;
+        }
+
+        .login-footer {
+            margin-top: 24px;
+        }
+
+        .login-footer a {
+            font-size: 0.85rem;
+            margin: 8px 6px;
+        }
+    }
+
+    @media (max-width: 380px) {
+        .login-card {
+            padding: 28px 20px;
+        }
+
+        .login-footer a {
+            display: block;
+            margin: 8px 0;
+        }
+    }
+
+    /* Reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
+        .alert,
+        .login-card,
+        .btn-login,
+        .login-header-icon {
+            transition: none;
+            animation: none;
+        }
+
+        .login-card:hover {
+            transform: none;
         }
     }
 </style>
 
 <div class="login-container">
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+
     <div class="login-card">
-        <div style="text-align: center; margin-bottom: 30px; position: relative; z-index: 1;">
-            <img src="<?php echo APP_URL; ?>/assets/icons/icon.webp" alt="<?php echo htmlspecialchars($appName); ?>" width="120" height="120" class="login-header-icon">
-            <p class="login-subtitle">Portal Pelanggan</p>
+        <div class="brand">
+            <img src="<?php echo APP_URL; ?>/assets/icons/icon.webp" alt="<?php echo htmlspecialchars($appName); ?>" class="login-header-icon">
+            <p class="login-subtitle">
+                <i class="fas fa-users"></i> Portal Pelanggan
+            </p>
         </div>
 
         <?php if (hasFlash('error')): ?>
-            <div class="alert alert-error"
-                style="margin-bottom: 20px; background: rgba(255, 71, 87, 0.2); border: 1px solid #ff4757; color: #ff4757; padding: 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+            <div class="alert alert-error">
                 <i class="fas fa-exclamation-circle"></i>
                 <?php echo htmlspecialchars(getFlash('error')); ?>
             </div>
@@ -294,13 +498,18 @@ ob_start();
 
         <form method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            
             <div class="form-group">
-                <label class="form-label">Nomor HP</label>
+                <label class="form-label">
+                    <i class="fas fa-phone-alt"></i> Nomor HP
+                </label>
                 <input type="text" name="phone" class="form-control" placeholder="08xxxxxxxxxx" required autofocus>
             </div>
 
             <div class="form-group">
-                <label class="form-label">Password</label>
+                <label class="form-label">
+                    <i class="fas fa-lock"></i> Password
+                </label>
                 <input type="password" name="password" class="form-control" placeholder="Masukkan password" required>
             </div>
 
@@ -309,11 +518,15 @@ ob_start();
             </button>
         </form>
 
-        
+        <div class="login-help">
+            <i class="fas fa-info-circle"></i>
+            Belum punya akun atau Lupa Password? Hubungi admin.
+        </div>
 
         <div class="login-footer">
-            <p style="margin: 0;">Belum punya akun atau Lupa Password? <a href="<?php echo APP_URL; ?>/index.php#contact">Hubungi admin.</a></p>
-            <a href="../index.php"><i class="fas fa-arrow-left"></i> Kembali ke Beranda</a>
+            <a href="../index.php">
+                <i class="fas fa-arrow-left"></i> Kembali ke Beranda
+            </a>
         </div>
     </div>
 </div>
@@ -339,4 +552,3 @@ echo $content;
 ?>
 </body>
 </html>
-

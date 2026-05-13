@@ -167,6 +167,7 @@ $templateFiles = [
     'modern' => 'templates/landing/template_modern.php',
     'corporate' => 'templates/landing/template_corporate.php',
     'minimal' => 'templates/landing/template_minimal.php',
+    'dark' => 'templates/landing/template_dark.php',
     'glassmorphism' => 'templates/landing/template_glassmorphism.php',
     'neumorphism' => 'templates/landing/template_neumorphism.php',
     'bento' => 'templates/landing/template_bento.php',
@@ -202,84 +203,192 @@ foreach ($packages as $p) {
 $pkgOptions .= '<option value="Lainnya">Lainnya</option>';
 
 $registerModal = '
-<div id="gembokRegOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,.48);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:10000;display:none;align-items:center;justify-content:center;padding:16px;">
-  <div style="width:100%;max-width:540px;background:rgba(255,255,255,.92);color:#111827;border:1px solid rgba(15,23,42,.12);border-radius:16px;box-shadow:0 16px 40px rgba(37,99,235,.18);overflow:hidden;font-family:Inter,Segoe UI,Arial,sans-serif;">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg, rgba(37,99,235,.1), rgba(8,145,178,.1));border-bottom:1px solid rgba(15,23,42,.1);">
-      <div style="font-weight:800;background:linear-gradient(135deg,#2563eb 0%,#0891b2 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">Pendaftaran Pelanggan Baru</div>
-      <button type="button" onclick="window.__gembokCloseRegisterModal && window.__gembokCloseRegisterModal()" style="background:transparent;border:none;color:#374151;font-size:18px;cursor:pointer;line-height:1;">×</button>
+<div id="gembokRegOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:10000;display:none;align-items:center;justify-content:center;padding:20px;">
+  <div style="width:100%;max-width:520px;background:var(--bg-primary, #161b22);border:1px solid var(--border-default, #30363d);border-radius:20px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);overflow:hidden;font-family:\'Inter\', -apple-system, BlinkMacSystemFont, \'Segoe UI\', sans-serif;">
+    
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;background:linear-gradient(135deg, rgba(47,129,247,0.12), rgba(63,185,80,0.05));border-bottom:1px solid var(--border-default, #30363d);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <i class="fa-solid fa-user-plus" style="color:var(--accent-blue, #2f81f7);font-size:1.2rem;"></i>
+        <span style="font-weight:700;font-size:1.1rem;color:var(--fg-default, #e6edf3);">Pendaftaran Pelanggan Baru</span>
+      </div>
+      <button type="button" onclick="window.__gembokCloseRegisterModal && window.__gembokCloseRegisterModal()" style="background:transparent;border:none;color:var(--fg-muted, #7d8590);font-size:22px;cursor:pointer;line-height:1;transition:color 0.2s;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;" onmouseover="this.style.color=\'var(--fg-default)\'" onmouseout="this.style.color=\'var(--fg-muted)\'">×</button>
     </div>
-    <form method="POST" action="' . htmlspecialchars(rtrim(APP_URL, '/') . '/index.php', ENT_QUOTES, 'UTF-8') . '" style="padding:16px;">
+    
+    <!-- Form -->
+    <form method="POST" action="' . htmlspecialchars(rtrim(APP_URL, '/') . '/index.php', ENT_QUOTES, 'UTF-8') . '" style="padding:20px;">
       <input type="hidden" name="action" value="public_register">
       <input type="hidden" name="csrf_token" value="' . $csrf . '">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      
+      <!-- Nama & No HP Row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
         <div>
-          <label style="display:block;font-size:12px;color:#4b5563;margin-bottom:6px;font-weight:600;">Nama Lengkap</label>
-          <input name="name" required minlength="3" placeholder="Masukkan nama lengkap" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(15,23,42,.12);background:#fff;color:#111827;">
+          <label style="display:block;font-size:0.75rem;color:var(--fg-muted, #7d8590);margin-bottom:6px;font-weight:600;">
+            <i class="fa-regular fa-user" style="margin-right:4px;font-size:0.7rem;"></i> Nama Lengkap
+          </label>
+          <input name="name" required minlength="3" placeholder="Masukkan nama lengkap" 
+                 style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-default, #30363d);background:var(--bg-canvas, #0d1117);color:var(--fg-default, #e6edf3);font-size:0.85rem;transition:border-color 0.2s, box-shadow 0.2s;"
+                 onfocus="this.style.borderColor=\'#2f81f7\';this.style.outline=\'none\'" 
+                 onblur="this.style.borderColor=\'var(--border-default, #30363d)\'">
         </div>
         <div>
-          <label style="display:block;font-size:12px;color:#4b5563;margin-bottom:6px;font-weight:600;">No HP (WA)</label>
-          <input name="phone" required minlength="8" placeholder="08xxxx atau 62xxxx" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(15,23,42,.12);background:#fff;color:#111827;">
+          <label style="display:block;font-size:0.75rem;color:var(--fg-muted, #7d8590);margin-bottom:6px;font-weight:600;">
+            <i class="fa-brands fa-whatsapp" style="margin-right:4px;font-size:0.7rem;"></i> No HP (WA)
+          </label>
+          <input name="phone" required minlength="8" placeholder="08xxxx atau 62xxxx" 
+                 style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-default, #30363d);background:var(--bg-canvas, #0d1117);color:var(--fg-default, #e6edf3);font-size:0.85rem;transition:border-color 0.2s, box-shadow 0.2s;"
+                 onfocus="this.style.borderColor=\'#2f81f7\';this.style.outline=\'none\'" 
+                 onblur="this.style.borderColor=\'var(--border-default, #30363d)\'">
         </div>
       </div>
-      <div style="margin-top:12px;">
-        <label style="display:block;font-size:12px;color:#4b5563;margin-bottom:6px;font-weight:600;">Alamat</label>
-        <textarea name="address" required minlength="6" rows="2" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(15,23,42,.12);background:#fff;color:#111827;resize:vertical;"></textarea>
+      
+      <!-- Alamat -->
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.75rem;color:var(--fg-muted, #7d8590);margin-bottom:6px;font-weight:600;">
+          <i class="fa-regular fa-location-dot" style="margin-right:4px;font-size:0.7rem;"></i> Alamat
+        </label>
+        <textarea name="address" required minlength="6" rows="2" placeholder="Masukkan alamat lengkap" 
+                  style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-default, #30363d);background:var(--bg-canvas, #0d1117);color:var(--fg-default, #e6edf3);font-size:0.85rem;resize:vertical;font-family:inherit;transition:border-color 0.2s;"
+                  onfocus="this.style.borderColor=\'#2f81f7\';this.style.outline=\'none\'" 
+                  onblur="this.style.borderColor=\'var(--border-default, #30363d)\'"></textarea>
       </div>
-      <div style="margin-top:12px;">
-        <label style="display:block;font-size:12px;color:#4b5563;margin-bottom:6px;font-weight:600;">Paket (opsional)</label>
-        <select name="package" id="gembokRegPackage" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(15,23,42,.12);background:#fff;color:#111827;">
+      
+      <!-- Paket Options -->
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.75rem;color:var(--fg-muted, #7d8590);margin-bottom:6px;font-weight:600;">
+          <i class="fa-regular fa-layer-group" style="margin-right:4px;font-size:0.7rem;"></i> Paket (opsional)
+        </label>
+        <select name="package" id="gembokRegPackage" 
+                style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-default, #30363d);background:var(--bg-canvas, #0d1117);color:var(--fg-default, #e6edf3);font-size:0.85rem;cursor:pointer;transition:border-color 0.2s;"
+                onfocus="this.style.borderColor=\'#2f81f7\';this.style.outline=\'none\'" 
+                onblur="this.style.borderColor=\'var(--border-default, #30363d)\'">
           ' . $pkgOptions . '
         </select>
       </div>
-      <div style="margin-top:12px;">
-        <label style="display:block;font-size:12px;color:#4b5563;margin-bottom:6px;font-weight:600;">Catatan (opsional)</label>
-        <input name="notes" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(15,23,42,.12);background:#fff;color:#111827;" placeholder="Contoh: lokasi, patokan rumah, jam dihubungi">
+      
+      <!-- Catatan -->
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:0.75rem;color:var(--fg-muted, #7d8590);margin-bottom:6px;font-weight:600;">
+          <i class="fa-regular fa-pen" style="margin-right:4px;font-size:0.7rem;"></i> Catatan (opsional)
+        </label>
+        <input name="notes" placeholder="Contoh: lokasi, patokan rumah, jam dihubungi" 
+               style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-default, #30363d);background:var(--bg-canvas, #0d1117);color:var(--fg-default, #e6edf3);font-size:0.85rem;transition:border-color 0.2s;"
+               onfocus="this.style.borderColor=\'#2f81f7\';this.style.outline=\'none\'" 
+               onblur="this.style.borderColor=\'var(--border-default, #30363d)\'">
       </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
-        <button type="button" onclick="window.__gembokCloseRegisterModal && window.__gembokCloseRegisterModal()" style="background:#ffffff;border:1px solid rgba(15,23,42,.16);color:#374151;padding:10px 12px;border-radius:10px;cursor:pointer;">Batal</button>
-        <button type="submit" style="background:linear-gradient(135deg,#2563eb 0%,#0891b2 100%);border:none;color:#ffffff;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:800;">Kirim</button>
+      
+      <!-- Buttons -->
+      <div style="display:flex;gap:12px;justify-content:flex-end;">
+        <button type="button" onclick="window.__gembokCloseRegisterModal && window.__gembokCloseRegisterModal()" 
+                style="background:transparent;border:1px solid var(--border-default, #30363d);color:var(--fg-muted, #7d8590);padding:10px 18px;border-radius:10px;cursor:pointer;font-weight:500;font-size:0.85rem;transition:all 0.2s;"
+                onmouseover="this.style.background=\'var(--bg-tertiary, #21262d)\';this.style.color=\'var(--fg-default)\'" 
+                onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--fg-muted)\'">
+          Batal
+        </button>
+        <button type="submit" 
+                style="background:linear-gradient(135deg, var(--accent-blue, #2f81f7), #1a5fb4);border:none;color:#ffffff;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:600;font-size:0.85rem;transition:all 0.2s;box-shadow:0 2px 8px rgba(47,129,247,0.3);"
+                onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 12px rgba(47,129,247,0.4)\'" 
+                onmouseout="this.style.transform=\'translateY(0)\';this.style.boxShadow=\'0 2px 8px rgba(47,129,247,0.3)\'">
+          <i class="fa-regular fa-paper-plane" style="margin-right:6px;"></i> Kirim Pendaftaran
+        </button>
       </div>
     </form>
   </div>
 </div>
+
 <script>
-  (function() {
+(function() {
     const overlay = document.getElementById("gembokRegOverlay");
     const packageSelect = document.getElementById("gembokRegPackage");
-    window.__gembokOpenRegisterModal = function() { if (overlay) overlay.style.display = "flex"; };
-    window.__gembokCloseRegisterModal = function() { if (overlay) overlay.style.display = "none"; };
-    window.__gembokOpenRegisterModalWithPackage = function(pkg) {
-      if (packageSelect && typeof pkg === "string" && pkg !== "") {
-        let found = false;
-        for (let i = 0; i < packageSelect.options.length; i++) {
-          if (packageSelect.options[i].value === pkg) {
-            found = true;
-            break;
-          }
+    
+    // Fungsi open modal
+    window.__gembokOpenRegisterModal = function() { 
+        if (overlay) {
+            overlay.style.display = "flex";
+            document.body.style.overflow = "hidden";
         }
-        packageSelect.value = found ? pkg : "Lainnya";
-      }
-      window.__gembokOpenRegisterModal && window.__gembokOpenRegisterModal();
     };
+    
+    // Fungsi close modal
+    window.__gembokCloseRegisterModal = function() { 
+        if (overlay) {
+            overlay.style.display = "none";
+            document.body.style.overflow = "";
+        }
+    };
+    
+    // Fungsi open modal dengan paket tertentu
+    window.__gembokOpenRegisterModalWithPackage = function(pkg) {
+        if (packageSelect && typeof pkg === "string" && pkg !== "") {
+            let found = false;
+            for (let i = 0; i < packageSelect.options.length; i++) {
+                if (packageSelect.options[i].value === pkg) {
+                    packageSelect.selectedIndex = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found && packageSelect.options.length > 0) {
+                packageSelect.value = "Lainnya";
+            }
+        }
+        window.__gembokOpenRegisterModal();
+    };
+    
+    // Tutup modal jika klik overlay
     if (overlay) {
-      overlay.addEventListener("click", function(e) { if (e.target === overlay) window.__gembokCloseRegisterModal(); });
+        overlay.addEventListener("click", function(e) { 
+            if (e.target === overlay) {
+                window.__gembokCloseRegisterModal();
+            }
+        });
     }
+    
+    // Tutup modal dengan tombol ESC
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+            window.__gembokCloseRegisterModal();
+        }
+    });
+    
+    // Handle URL parameter untuk auto-open modal
     const p = new URLSearchParams(window.location.search);
     const reg = p.get("reg");
-    if (reg === "success") alert("Pendaftaran berhasil dikirim. Kami akan segera menghubungi Anda.");
-    if (reg === "invalid") alert("Data belum lengkap. Mohon cek kembali Nama/No HP/Alamat.");
-    if (reg === "csrf") alert("Sesi tidak valid. Silakan refresh halaman dan coba lagi.");
-    if (reg === "open") {
-      const pkg = p.get("pkg") || "";
-      window.__gembokOpenRegisterModalWithPackage && window.__gembokOpenRegisterModalWithPackage(pkg);
+    
+    if (reg === "success") {
+        alert("✓ Pendaftaran berhasil dikirim! Tim kami akan segera menghubungi Anda.");
     }
-  })();
-</script>';
-
+    if (reg === "invalid") {
+        alert("⚠️ Data belum lengkap. Mohon cek kembali Nama, No HP, dan Alamat.");
+    }
+    if (reg === "csrf") {
+        alert("⚠️ Sesi tidak valid. Silakan refresh halaman dan coba lagi.");
+    }
+    if (reg === "open") {
+        const pkg = p.get("pkg") || "";
+        setTimeout(function() {
+            window.__gembokOpenRegisterModalWithPackage(pkg);
+        }, 300);
+    }
+    
+    // Prevent form double submission
+    const form = document.querySelector("#gembokRegOverlay form");
+    if (form) {
+        form.addEventListener("submit", function(e) {
+            const submitBtn = form.querySelector("button[type=\'submit\']");
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = \'<i class="fa-solid fa-spinner fa-spin"></i> Mengirim...\';
+            }
+        });
+    }
+})();
+</script>
+';
 $footerLinks = '<div style="position:fixed;left:16px;bottom:18px;z-index:9999;color:var(--text-muted);font-size:13px;display:flex;gap:12px;align-items:center;">'
-  . '<a href="about.php" style="color:var(--text-muted);">Tentang Kami</a>'
-  . '<a href="terms.php" style="color:var(--text-muted);">Syarat & Ketentuan</a>'
-  . '<a href="privacy.php" style="color:var(--text-muted);">Kebijakan Privasi</a>'
+  . '<a href="page.php?page=about" style="color:var(--text-muted);">Tentang Kami</a>'
+  . '<a href="page.php?page=terms" style="color:var(--text-muted);">Syarat & Ketentuan</a>'
+  . '<a href="page.php?page=privacy" style="color:var(--text-muted);">Kebijakan Privasi</a>'
   . '</div>';
 
 $inject = $voucherButton . $footerLinks . $registerModal;
