@@ -157,6 +157,7 @@ function storeRedirectUrl($orderId, $redirectUrl) {
 
     return true;
 }
+
 function getRedirectUrl($orderId) {
     $record = fetchOne("SELECT redirect_url FROM payment_redirects WHERE order_id = ?", [$orderId]);
     return $record ? $record['redirect_url'] : null;
@@ -701,6 +702,13 @@ function syncRadiusTimeoutForCustomer($pppoeUsername, $customerId)
     }
 }
 
+function getAllRouters()
+{
+    if (!tableExists('routers')) {
+        return [];
+    }
+    return fetchAll("SELECT * FROM routers ORDER BY name ASC");
+}
 /**
  * Sync RADIUS timeout for all customers with pppoe_username and isolation_date
  * This directly sets timeout in radreply without checking if user exists in radcheck
