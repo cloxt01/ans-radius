@@ -222,6 +222,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 redirect('invoices.php');
                 break;
+
+            case 'generate_payment_link':
+                $invoiceId = (int)$_POST['invoice_id'];
+                $invoice = fetchOne("SELECT i.*, c.name as customer_name, c.phone as customer_phone, p.name as package_name FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id LEFT JOIN packages p ON c.package_id = p.id WHERE i.id = ?", [$invoiceId]);
+
+                if ($invoice && $invoice['status'] === 'unpaid') {
+                    $defaultGateway = getSetting('DEFAULT_PAYMENT_GATEWAY', 'tripay');
+                    if (!in_array($defaultGateway, ['tripay', 'midtrans'], true)) {
+                        $defaultGateway = 'tripay';
+                    }
+
+                    require_once '../includes/payment.php';
+
+                    $result = generatePaymentLink(
+                        $invoice['invoice_number'],
+                        $invoice['amount'],
+                        $invoice['customer_name'],
+                        $invoice['customer_phone'],
+                        $invoice['due_date'],
+                        $defaultGateway
+                    );
+
+                    if (!empty($result['success']) && !empty($result['link'])) {
+                        logActivity('PAYMENT_LINK_GENERATED', "Invoice: {$invoice['invoice_number']}, Gateway: {$defaultGateway}");
+                        redirect($result['link']);
+                    }
+
+                    setFlash('error', $result['message'] ?? 'Gagal generate payment link');
+                } else {
+                    setFlash('error', 'Invoice tidak ditemukan atau sudah lunas');
+                }
+                redirect('invoices.php');
+                break;
         }
     }
 }
@@ -415,6 +448,15 @@ ob_start();
                                     <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
                                     <button type="submit" class="btn btn-secondary btn-sm" title="Tunda ke Bulan Depan" style="background: var(--neon-cyan); border-color: var(--neon-cyan);">
                                         <i class="fas fa-calendar-plus"></i>
+                                    </button>
+                                </form>
+
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="action" value="generate_payment_link">
+                                    <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                    <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
+                                    <button type="submit" class="btn btn-secondary btn-sm" title="Generate Payment Link" style="background: var(--neon-green); border-color: var(--neon-green);">
+                                        <i class="fas fa-link"></i>
                                     </button>
                                 </form>
                             <?php endif; ?>
