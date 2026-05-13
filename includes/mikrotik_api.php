@@ -822,6 +822,7 @@ function mikrotikUpdateSecret($id, $data)
         }
 
         if ($newUsername !== $oldUsername) {
+            customerRenameUsernameByUsername($oldUsername, $newUsername);
             radiusRenameUser($oldUsername, $newUsername);
         }
 

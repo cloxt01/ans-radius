@@ -2157,7 +2157,37 @@ function getPppoeUsernameByCustomerId($customerId)
     $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
     return $customer['pppoe_username'] ?? null;
 }
-
+// function customerRenameUsername($customerId, $newUsername)
+// {
+//     $customerId = (int) $customerId;
+//     if ($customerId <= 0) {
+//         return false;
+//     }
+//     $newUsername = trim((string) $newUsername);
+//     if ($newUsername === '') {
+//         return false;
+//     }
+//     $existing = fetchOne("SELECT id FROM customers WHERE pppoe_username = ? AND id != ?", [$newUsername, $customerId]);
+//     if ($existing) {
+//         return false;
+//     }
+//     logActivity("Customer ID {$customerId} rename PPPoE username to '{$newUsername}'");
+//     return update('customers', ['pppoe_username' => $newUsername], 'id = ?', [$customerId]);
+// }
+function customerRenameUsernameByUsername($oldUsername, $newUsername)
+{
+    $oldUsername = trim((string) $oldUsername);
+    $newUsername = trim((string) $newUsername);
+    if ($oldUsername === '' || $newUsername === '') {
+        return false;
+    }
+    $existing = fetchOne("SELECT id FROM customers WHERE pppoe_username = ?", [$newUsername]);
+    if ($existing) {
+        return false;
+    }
+    logActivity("Customer with PPPoE username '{$oldUsername}' rename to '{$newUsername}'");
+    return update('customers', ['pppoe_username' => $newUsername], 'pppoe_username = ?', [$oldUsername]);
+}
 function markPublicVoucherOrderPaid($orderNumber, $gateway, $paymentData = [])
 {
     if (!ensurePublicVoucherTables()) {
