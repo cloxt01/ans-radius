@@ -333,7 +333,7 @@ ob_start();
             <div class="form-group">
                 <label class="form-label">Username</label>
                 <input type="text" name="username" id="edit_username" class="form-control" readonly required>
-                <small>Username tidak dapat diubah</small>
+                <small>Username dapat diubah hanya melalui halaman <a href="<?php echo APP_URL; ?>/admin/customers.php">pelanggan</a></small>
             </div>
             
             <div class="form-group">
