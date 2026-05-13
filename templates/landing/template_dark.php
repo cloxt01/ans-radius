@@ -1230,10 +1230,10 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
                 <span><i class="fas fa-screwdriver-wrench"></i> Login Teknisi</span>
                 <i class="fas fa-arrow-right"></i>
             </a>
-            <a class="login-role-link" href="sales/login.php">
+            <!-- <a class="login-role-link" href="sales/login.php">
                 <span><i class="fas fa-chart-line"></i> Login Sales</span>
                 <i class="fas fa-arrow-right"></i>
-            </a>
+            </a> -->
         </div>
     </div>
 </div>
