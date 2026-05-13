@@ -742,7 +742,7 @@ ob_start();
                 
                 <div class="form-group">
                     <label class="form-label">Username PPPoE</label>
-                    <input type="text" name="pppoe_username" id="edit_pppoe_username" class="form-control" required placeholder="Username di MikroTik" style="background: rgba(255,255,255,0.05); cursor: not-allowed;">
+                    <input type="text" name="pppoe_username" id="edit_pppoe_username" class="form-control" required placeholder="Username di MikroTik" style="background: rgba(255,255,255,0.05);">
                     <!-- <small style="color: var(--text-muted);">Username PPPoE tidak dapat diubah</small> -->
                 </div>
                 
