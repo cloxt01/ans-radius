@@ -46,7 +46,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
     
     // Header row
     echo '<Row>' . "\n";
-    $headers = ['Nama', 'No HP', 'PPPoE Username', 'Paket', 'Status', 'Tgl Isolir', 'Alamat', 'Latitude', 'Longitude'];
+    $headers = ['ID', 'Nama', 'No HP', 'PPPoE Username', 'Paket', 'Status', 'Tgl Isolir', 'Alamat', 'Latitude', 'Longitude'];
     foreach ($headers as $header) {
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($header) . '</Data></Cell>' . "\n";
     }
@@ -55,6 +55,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
     // Data rows
     foreach ($customers as $customer) {
         echo '<Row>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['id']) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['name']) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['phone']) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['pppoe_username']) . '</Data></Cell>' . "\n";
@@ -106,6 +107,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
     
     // Write CSV header
     fputcsv($output, [
+        'ID',
         'Nama',
         'No HP',
         'PPPoE Username',
@@ -120,6 +122,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
     // Write data rows
     foreach ($customers as $customer) {
         fputcsv($output, [
+            $customer['id'],
             $customer['name'],
             $customer['phone'],
             $customer['pppoe_username'],
