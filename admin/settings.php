@@ -1040,20 +1040,15 @@ function copyRadiusScript() {
         <div class="form-group">
             <label class="form-label">Template Landing Page</label>
             <select name="landing_template" class="form-control">
-                <optgroup label="🎨 Classic">
                     <option value="neon" <?php echo ($siteSettings['landing_template'] ?? 'neon') === 'neon' ? 'selected' : ''; ?>>Neon Dark (Default)</option>
                     <option value="modern" <?php echo ($siteSettings['landing_template'] ?? '') === 'modern' ? 'selected' : ''; ?>>Modern Clean</option>
                     <option value="corporate" <?php echo ($siteSettings['landing_template'] ?? '') === 'corporate' ? 'selected' : ''; ?>>Corporate Blue</option>
                     <option value="minimal" <?php echo ($siteSettings['landing_template'] ?? '') === 'minimal' ? 'selected' : ''; ?>>Minimal Dark</option>
-                </optgroup>
-                <optgroup label="✨ Modern & Trending">
                     <option value="glassmorphism" <?php echo ($siteSettings['landing_template'] ?? '') === 'glassmorphism' ? 'selected' : ''; ?>>Glassmorphism (Blur Effects)</option>
                     <option value="neumorphism" <?php echo ($siteSettings['landing_template'] ?? '') === 'neumorphism' ? 'selected' : ''; ?>>Neumorphism (Soft UI)</option>
-                </optgroup>
-                <optgroup label="🚀 Ultra Modern">
                     <option value="bento" <?php echo ($siteSettings['landing_template'] ?? '') === 'bento' ? 'selected' : ''; ?>>Bento Grid (Smooth Animations)</option>
                     <option value="modern_ultra" <?php echo ($siteSettings['landing_template'] ?? '') === 'modern_ultra' ? 'selected' : ''; ?>>Modern Ultra (3D & Particles)</option>
-                </optgroup>
+                    <option value="dark" <?php echo ($siteSettings['landing_template'] ?? '') === 'dark' ? 'selected' : ''; ?>>Dark (Github Mode)</option>
             </select>
             <small class="text-muted">Pilih tampilan landing page (index.php)</small>
         </div>
