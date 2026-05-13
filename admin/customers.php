@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $customerId = insert('customers', $data);
                 if ($customerId) {
                     // Sync RADIUS timeout if username exists in radcheck
-                    if (!radiusIsUserExists($data['pppoe_username'])) {
+                    if (!radiusIsUserExistsByUsername($data['pppoe_username'])) {
                         $profile = getProfileFromPackageId($data['package_id'])['profile_normal'] ?? null;
                         if (!$profile) {
                             logError('Failed to sync RADIUS for new customer - profile not found. Customer ID: ' . $customerId);
