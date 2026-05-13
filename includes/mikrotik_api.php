@@ -902,7 +902,7 @@ function mikrotikGetActiveSessionsAllRouter()
 }
 function mikrotikGetActiveSessions($routerId = null)
 {
-    $socket = getMikrotikConnection();
+    $socket = getMikrotikConnection($routerId);
     if (!$socket) {
         return [];
     }
