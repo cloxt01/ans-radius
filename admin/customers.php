@@ -119,8 +119,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setFlash('error', 'Pelanggan tidak ditemukan');
                     redirect('customers.php');
                 }
+
                 $customer_username = getPppoeUsernameByCustomerId($customerId);
+
+                if($customer_username !== $_POST['pppoe_username']) {
+                    radiusRenameUser($customer_username, $_POST['pppoe_username']);
+                }
                 $data = [
+                    'pppoe_username' => sanitize($_POST['pppoe_username']),
                     'name' => sanitize($_POST['name']),
                     'phone' => sanitize($_POST['phone']),
                     'package_id' => (int)$_POST['package_id'],
@@ -736,8 +742,8 @@ ob_start();
                 
                 <div class="form-group">
                     <label class="form-label">Username PPPoE</label>
-                    <input type="text" name="pppoe_username" id="edit_pppoe_username" class="form-control" required placeholder="Username di MikroTik" readonly style="background: rgba(255,255,255,0.05); cursor: not-allowed;">
-                    <small style="color: var(--text-muted);">Username PPPoE tidak dapat diubah</small>
+                    <input type="text" name="pppoe_username" id="edit_pppoe_username" class="form-control" required placeholder="Username di MikroTik" style="background: rgba(255,255,255,0.05); cursor: not-allowed;">
+                    <!-- <small style="color: var(--text-muted);">Username PPPoE tidak dapat diubah</small> -->
                 </div>
                 
                 <div class="form-group">
