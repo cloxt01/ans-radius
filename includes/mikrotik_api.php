@@ -824,6 +824,7 @@ function mikrotikUpdateSecret($id, $data)
         if ($newUsername !== $oldUsername) {
             customerRenameUsernameByUsername($oldUsername, $newUsername);
             radiusRenameUser($oldUsername, $newUsername);
+            
         }
 
         $password = isset($data['password']) ? (string) $data['password'] : '';
@@ -888,7 +889,25 @@ function mikrotikDeleteSecret($id)
 }
 
 // Get Active PPPoE Sessions (users currently connected)
-function mikrotikGetActiveSessions()
+
+
+function mikrotikGetActiveSessionsAllRouter()
+{
+    $routers = getAllRouters();
+    $allSessions = [];
+
+    foreach ($routers as $router) {
+        $sessions = mikrotikGetActiveSessions($router['id']);
+        foreach ($sessions as $session) {
+            $session['router_name'] = $router['name'];
+            $session['router_id'] = $router['id'];
+            $allSessions[] = $session;
+        }
+    }
+
+    return $allSessions;
+}
+function mikrotikGetActiveSessions($routerId = null)
 {
     $socket = getMikrotikConnection();
     if (!$socket) {

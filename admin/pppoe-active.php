@@ -11,7 +11,7 @@ $pageTitle = 'PPPoE Active Sessions';
 // Get active sessions
 // $activeSessions = mikrotikGetPro();
 
-$activeSessions = mikrotikGetActiveSessions();
+$activeSessions = mikrotikGetActiveSessionsAllRouter();
 
 ob_start();
 ?>
