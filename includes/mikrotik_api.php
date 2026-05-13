@@ -127,14 +127,6 @@ function getMikrotikSettings($routerId = null)
 }
 
 
-// Get all routers from database
-function getAllRouters()
-{
-    if (!tableExists('routers')) {
-        return [];
-    }
-    return fetchAll("SELECT * FROM routers ORDER BY name ASC");
-}
 /**
  * Get a persistent MikroTik connection for the remainder of the request
  */
@@ -893,6 +885,7 @@ function mikrotikDeleteSecret($id)
 
 function mikrotikGetActiveSessionsAllRouter()
 {
+    require_once __DIR__ . '/functions.php';
     $routers = getAllRouters();
     $allSessions = [];
 
