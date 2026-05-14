@@ -763,9 +763,8 @@ function generateMikrotikClientScript()
         'password' => generateRandomString(12, 'mixed')
     ];
     
-    $script = "# CLIENT - ".getSetting('app_name')."\n";
-    $script .= "# Generated at: " . date('Y-m-d H:i:s') . "\n";
-    $script .= "\n";
+    $script .= "# CLIENT - ".getSetting('app_name')."\n";
+    $script .= "# Generated at: " . date('Y-m-d H:i:s') . "\n\n";
     $script .= "/ip dns set allow-remote-requests=yes;\n";
     $script .= "/ppp aaa set interim-update=18m use-radius=yes accounting=yes;\n";
 
@@ -773,29 +772,27 @@ function generateMikrotikClientScript()
     $script .= "/radius incoming set accept=yes port=3799;\n";
     $script .= "/radius incoming authentication-port=3799 accounting;\n";
     $script .= "/radius rem [find comment~\"".$appName."\"];\n";
-    $script .= "/radius add address=".$OvpnIP." comment=\"".$appName."\" authentication-port=1812 accounting-port=1813 secret=\"".$radiusCredential['nas_secret']."\" service=ppp timeout=3s  require-message-auth=no ;\n";
-    
+    $script .= "/radius add address=".$OvpnIP." comment=\"".$appName."\" authentication-port=1812 accounting-port=1813 secret=\"".$radiusCredential['nas_secret']."\" service=ppp timeout=3s require-message-auth=no;\n";
+
     # POOL
     $script .= "/ip pool remove [find name=\"".$appName."\"];\n";
     $script .= "/ip pool add name=\"".$appName."\" ranges=".$rangeIsolir."\n";
-
     $script .= "/ip pool remove [find name=\"".$appName."-ISOLIR\"];\n";
     $script .= "/ip pool add name=\"".$appName."-ISOLIR\" ranges=".$rangeIsolir."\n";
 
     # PPP PROFILE
-    $script .= "/ppp profile remove [find name=".$appName."];\n";
-    $script .= "/ppp profile add name=\"".$appName."\" local-address=11.7.0.1 remote-address=\"".$appName."\"";
-    
+    $script .= "/ppp profile remove [find name=\"".$appName."\"];\n";  // ← fix quote
+    $script .= "/ppp profile add name=\"".$appName."\" local-address=11.7.0.1 remote-address=\"".$appName."\"\n"; // ← fix \n
+
     # PPP PROFILE (VPN)
     $script .= "/ppp profile remove [find name=\"".$appName."-VPN\"];\n";
-    $script .= "/ppp profile add change-tcp-mss=yes comment=\"DEFAULT BY " . $appName . " (DON'T CHANGE IT)\" name=\"".$appName."-VPN\" only-one=default use-encryption=yes;\n";
-    
+    $script .= "/ppp profile add change-tcp-mss=yes comment=\"DEFAULT BY ".$appName." (DON'T CHANGE IT)\" name=\"".$appName."-VPN\" only-one=default use-encryption=yes;\n";
+
     # INTERFACE (OVPN)
-    $script .= "/interface ovpn-client add disabled=no  connect-to=" . $serverIP . " name=\"".$appName."-OVPN\" profile=\"".$appName."-VPN\" user=\"".$vpnCredential['username']."\" password=\"".$vpnCredential['password']."\" comment=\"".$appName."- OVPN Client\";\n";
-    
+    $script .= "/interface ovpn-client add disabled=no connect-to=".$serverIP." name=\"".$appName."-OVPN\" profile=\"".$appName."-VPN\" user=\"".$vpnCredential['username']."\" password=\"".$vpnCredential['password']."\" comment=\"".$appName."- OVPN Client\";\n";
+
     # FIREWALL
     $script .= "/ip firewall filter add action=drop chain=input comment=\"ANSISOLIR\" src-address=".$rangeIsolir.";\n";
-    
     return [
         'script' => $script,
         'vpn' => $vpnCredential,
