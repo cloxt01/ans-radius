@@ -802,16 +802,14 @@ function generateMikrotikClientScript()
         'radius' => $radiusCredential
     ];
 }
+<?php
+
 function getOpenVpnActiveClients() {
     $path = '/var/log/openvpn/openvpn-status.log';
-    
-    if (!file_exists($path)) {
-        return ["error" => "File log tidak ditemukan."];
-    }
+    if (!file_exists($path)) return ["error" => "File log tidak ditemukan."];
 
     $content = file_get_contents($path);
     $lines = explode("\n", $content);
-    
     $results = [];
     $mode = '';
 
@@ -819,45 +817,43 @@ function getOpenVpnActiveClients() {
         $line = trim($line);
         if (empty($line) || $line === 'END') continue;
 
-        if (str_contains($line, 'Common Name,Real Address')) {
-            $mode = 'CLIENTS';
-            continue;
-        } 
-        if (str_contains($line, 'Virtual Address,Common Name')) {
-            $mode = 'ROUTING';
-            continue;
+        if (strpos($line, 'Virtual Address,Common Name') !== false) {
+            $mode = 'ROUTING'; continue;
         }
-        if (str_contains($line, 'GLOBAL STATS')) {
-            break; 
+        // Baru cek CLIENTS
+        if (strpos($line, 'Common Name,Real Address') !== false) {
+            $mode = 'CLIENTS'; continue;
         }
+        if (strpos($line, 'GLOBAL STATS') !== false) break;
 
         $data = explode(',', $line);
 
         if ($mode === 'CLIENTS' && count($data) >= 5) {
-            $name = $data[0];
+            $name = trim($data[0]);
             $results[$name] = [
-                'username'      => $name,
-                'real_address'  => $data[1],
-                'bytes_received'=> round($data[2] / 1024, 2) . " KB",
-                'bytes_sent'    => round($data[3] / 1024, 2) . " KB",
-                'connected_since'=> $data[4],
-                'virtual_ip'    => '-'
+                'username'        => $name,
+                'real_address'    => trim($data[1]),
+                'bytes_received'  => round($data[2] / 1024, 2) . " KB",
+                'bytes_sent'      => round($data[3] / 1024, 2) . " KB",
+                'connected_since' => trim($data[4]),
+                'virtual_ip'      => '-'
             ];
         }
 
         if ($mode === 'ROUTING' && count($data) >= 3) {
-            $name = $data[1];
+            $name = trim($data[1]);
             if (isset($results[$name])) {
-                $results[$name]['virtual_ip'] = $data[0];
-                $results[$name]['last_ref']   = $data[3] ?? '';
+                $results[$name]['virtual_ip'] = trim($data[0]);
+                $results[$name]['last_ref']   = trim(($data[3] ?? '') . ' ' . ($data[4] ?? ''));
             }
         }
     }
-
-    return array_values($results); 
+    return array_values($results);
 }
+
 function nextAddressOvpnClient() {
     $clients = getOpenVpnActiveClients();
+    
 
     if (isset($clients['error'])) {
         return $clients;
