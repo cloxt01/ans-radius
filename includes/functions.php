@@ -802,7 +802,7 @@ function generateMikrotikClientScript()
         'radius' => $radiusCredential
     ];
 }
-<?php
+
 
 function getOpenVpnActiveClients() {
     $path = '/var/log/openvpn/openvpn-status.log';
