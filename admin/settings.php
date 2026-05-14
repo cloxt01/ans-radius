@@ -77,9 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if(!$nextAddress){
                     logError('Gagal mendapatkan IP berikutnya untuk client OVPN. Pastikan subnet OVPN benar dan tidak penuh.');
-                    return [
-                        'error' => 'Gagal mendapatkan IP berikutnya untuk client OVPN. Pastikan subnet OVPN benar dan tidak penuh.'
-                    ];
+                    redirect('settings.php');
+                    break;
                 }
                 
                 if(isset($script['error'])) {
