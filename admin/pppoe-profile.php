@@ -1,6 +1,6 @@
 <?php
 /**
- * PPPoE Profile Management
+ * PPPoE Profile Management - Elegant Dark Minimalis Theme
  */
 
 require_once '../includes/auth.php';
@@ -94,169 +94,440 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $profilesRadius = function_exists('pppoeGetProfiles') ? pppoeGetProfiles() : mikrotikGetProfiles();
 $addressPools = mikrotikGetAddressPools();
 $isMikrotikConnected = mikrotikConnect();
-$profilesMikrotik= mikrotikGetProfilesMikrotik($isMikrotikConnected ? getMikrotikConnection() : null);
+$profilesMikrotik = mikrotikGetProfilesMikrotik($isMikrotikConnected ? getMikrotikConnection() : null);
 
 ob_start();
 ?>
 
-<!-- Display status connection mikrotik -->
+<!-- Warning Connection -->
 <?php if (!$isMikrotikConnected): ?>
-<div style="background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-    <div style="display: flex; align-items: center; gap: 10px; color: #ff6666;">
-        <i class="fas fa-exclamation-triangle" style="font-size: 1.2rem;"></i>
-        <div>
-            <strong>Gagal terhubung ke MikroTik!</strong>
-            <p style="margin: 5px 0 0 0; font-size: 0.9rem; color: #f38282;">
-                Profile yang ditampilkan adalah profil default. 
-                Silakan periksa pengaturan MikroTik di <a href="settings.php" style="color: #66ccff;">Settings</a> 
-                untuk memastikan kredensial benar.
-            </p>
-        </div>
+<div class="alert alert-warning" style="margin-bottom: 24px;">
+    <i class="fas fa-exclamation-triangle"></i>
+    <div>
+        <strong>Gagal terhubung ke MikroTik!</strong>
+        <p style="margin: 4px 0 0 0; font-size: 13px;">
+            Profile yang ditampilkan adalah profil default. 
+            Silakan periksa pengaturan MikroTik di <a href="settings.php" style="color: var(--accent-blue);">Settings</a>.
+        </p>
     </div>
 </div>
 <?php endif; ?>
 
-
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-plus-circle"></i> Tambah/Edit Profile</h3>
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3><?php echo count($profilesRadius); ?></h3>
+            <p>Total Profile</p>
+        </div>
+        <div class="stat-icon blue">
+            <i class="fas fa-id-card"></i>
+        </div>
     </div>
-    <form method="POST" id="profileForm">
-        <input type="hidden" name="action" value="add" id="formAction">
-        <input type="hidden" name="id" id="profileId">
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
-            <div class="form-group">
-                <label class="form-label">Name</label>
-                <input type="text" name="name" id="pName" class="form-control" placeholder="Voucher 2000 (Basic)" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Rate Limit</label>
-                <input type="text" name="rate_limit" id="pRate" class="form-control" placeholder="10M/10M">
-            </div>
-            <div>
-                <label class="form-label">PPP Profile</label>
-                <select name="profile" id="pppProfile" class="form-control">
-                    <option value="none">none</option>
-                    <?php foreach ($profilesMikrotik as $profile): ?>
-                        <option value="<?php echo htmlspecialchars($profile['name']); ?>">
-                            <?php echo htmlspecialchars($profile['name']); ?>
-                        </option>
-                        
-                    <?php endforeach; ?>
-                
-                </select>
-            </div>
-            <!-- <div class="form-group">
-                <label class="form-label">Local Address (optional)</label>
-                <input type="text" name="local_address" id="pLocal" class="form-control" placeholder="10.10.10.1">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Remote Address Pool (optional)</label>
-                <select name="remote_pool" id="pPool" class="form-control">
-                    <option value="none">none</option>
-                    <?php foreach ($addressPools as $pool): ?>
-                        <option value="<?php echo htmlspecialchars($pool['name']); ?>">
-                            <?php echo htmlspecialchars($pool['name'] . ' - ' . $pool['ranges']); ?>
-                        </option>
-                        
-                    <?php endforeach; ?>
-                
-                </select>
-            </div> -->
-            <!-- <div class="form-group">
-                <label class="form-label">Session Timeout</label>
-                <input type="text" name="session_timeout" id="pSession" class="form-control"">
-            </div> -->
-            <div class="form-group">
-                <label class="form-label">DNS Server (optional)</label>
-                <input type="text" name="dns_server" id="pDns" class="form-control" placeholder="8.8.8.8">
-            </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3><?php echo count($profilesMikrotik); ?></h3>
+            <p>PPP Profile</p>
         </div>
-
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button type="submit" class="btn btn-primary" <?php echo !$isMikrotikConnected ? 'style="cursor: not-allowed;" disabled' : ''; ?>>
-                <i class="fas fa-save"></i> Simpan Profile
-            </button>
-            <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+        <div class="stat-icon purple">
+            <i class="fas fa-tachometer-alt"></i>
         </div>
-    </form>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3><?php echo count($addressPools); ?></h3>
+            <p>Address Pool</p>
+        </div>
+        <div class="stat-icon green">
+            <i class="fas fa-network-wired"></i>
+        </div>
+    </div>
 </div>
 
+<!-- Add/Edit Profile Form -->
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-list"></i> Daftar PPPoE Profile</h3>
+        <h3 class="card-title">
+            <i class="fas fa-plus-circle"></i> Tambah / Edit Profile
+        </h3>
     </div>
+    <div class="card-body">
+        <form method="POST" id="profileForm">
+            <input type="hidden" name="action" value="add" id="formAction">
+            <input type="hidden" name="id" id="profileId">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-tag"></i> Nama Profile
+                    </label>
+                    <input type="text" name="name" id="pName" class="form-control" 
+                           placeholder="Contoh: Premium-10M" required>
+                    <small class="form-hint">Nama unik untuk profile ini</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-tachometer-alt"></i> Rate Limit
+                    </label>
+                    <input type="text" name="rate_limit" id="pRate" class="form-control" 
+                           placeholder="10M/10M atau 20M/20M">
+                    <small class="form-hint">Upload/Download dalam format (Mbps)</small>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-server"></i> PPP Profile
+                    </label>
+                    <select name="profile" id="pppProfile" class="form-control">
+                        <option value="none">-- Pilih PPP Profile --</option>
+                        <?php foreach ($profilesMikrotik as $profile): ?>
+                            <option value="<?php echo htmlspecialchars($profile['name']); ?>">
+                                <?php echo htmlspecialchars($profile['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small class="form-hint">Profile PPP dari MikroTik</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-globe"></i> DNS Server
+                    </label>
+                    <input type="text" name="dns_server" id="pDns" class="form-control" 
+                           placeholder="8.8.8.8, 1.1.1.1">
+                    <small class="form-hint">DNS server (pisah dengan koma)</small>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" <?php echo !$isMikrotikConnected ? 'disabled' : ''; ?>>
+                    <i class="fas fa-save"></i> Simpan Profile
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                    <i class="fas fa-undo-alt"></i> Reset
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Profiles Table -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-list"></i> Daftar PPPoE Profile
+        </h3>
+        <div class="search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchProfile" class="form-control" placeholder="Cari profile...">
+        </div>
+    </div>
+    
     <div class="table-responsive">
-        <table class="data-table">
+        <table class="data-table" id="profilesTable">
             <thead>
                 <tr>
-                    <th>Name</th>
+                    <th>Nama Profile</th>
                     <th>Rate Limit</th>
-                    <th>Profile</th>
-                        <!-- <th>Local</th>
-                        <th>Remote Pool</th> -->
-                    <th>DNS</th>
+                    <th>PPP Profile</th>
+                    <th>DNS Server</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
-                
-                <?php
-                if (empty($profilesRadius)) {
-                    echo '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);"><i class="fas fa-network-wired" style="font-size: 2rem; margin: 12px 0; display: block;"></i> Belum ada profile PPPoE</td></tr>';
-                } else {
-                foreach ($profilesRadius as $p): ?>
+                <?php if (empty($profilesRadius)): ?>
                     <tr>
-                        <td data-label="Name"><strong><?php echo htmlspecialchars($p['name'] ?? ''); ?></strong></td>
-                        <td data-label="Rate Limit"><?php echo htmlspecialchars($p['rate-limit'] ?? ''); ?></td>
-                        <td data-label="Profile"><?php echo htmlspecialchars($p['profile'] ?? ''); ?></td>
-                        <!-- <td data-label="Local"><?php echo htmlspecialchars($p['local-address'] ?? ''); ?></td> -->
-                        <!-- <td data-label="Remote Pool"><?php echo htmlspecialchars($p['remote-address'] ?? ''); ?></td> -->
-                        <td data-label="DNS"><?php echo htmlspecialchars($p['dns-server'] ?? ''); ?></td>
-                        <td data-label="Aksi">
-                            <div style="display: flex; gap: 5px;">
-                                <button onclick='editProfile(<?php echo json_encode($p); ?>)'
-                                    class="btn btn-secondary btn-sm"><i class="fas fa-edit"></i></button>
-                                <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus profile ini?')">
-                                    <input type="hidden" name="action" value="delete">
-                                    <input type="hidden" name="id" value="<?php echo htmlspecialchars($p['.id'] ?? ($p['name'] ?? '')); ?>">
-                                    <input type="hidden" name="name" value="<?php echo htmlspecialchars($p['name'] ?? ''); ?>">
-                                    <button type="submit" class="btn btn-danger btn-sm" <?php echo !$isMikrotikConnected ? 'style="cursor: not-allowed;" disabled' : ''; ?>>
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
-                            </div>
+                        <td colspan="5" class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>Belum ada profile PPPoE</p>
+                            <small>Tambahkan profile menggunakan form di atas</small>
                         </td>
                     </tr>
-                <?php endforeach; ?>
-                <?php } ?>
+                <?php else: ?>
+                    <?php foreach ($profilesRadius as $p): ?>
+                        <tr>
+                            <td data-label="Nama Profile">
+                                <div class="profile-info">
+                                    <div class="profile-avatar">
+                                        <?php echo strtoupper(substr($p['name'] ?? 'P', 0, 1)); ?>
+                                    </div>
+                                    <div class="profile-details">
+                                        <strong><?php echo htmlspecialchars($p['name'] ?? '-'); ?></strong>
+                                        <?php if (!empty($p['local-address'])): ?>
+                                            <small><i class="fas fa-ip-address"></i> <?php echo htmlspecialchars($p['local-address']); ?></small>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </td>
+                            <td data-label="Rate Limit">
+                                <?php if (!empty($p['rate-limit'])): ?>
+                                    <span class="badge badge-info">
+                                        <i class="fas fa-tachometer-alt"></i> <?php echo htmlspecialchars($p['rate-limit']); ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge badge-muted">Tidak terbatas</span>
+                                <?php endif; ?>
+                            </td>
+                            <td data-label="PPP Profile">
+                                <span class="badge badge-purple">
+                                    <?php echo htmlspecialchars($p['profile'] ?? 'default'); ?>
+                                </span>
+                            </td>
+                            <td data-label="DNS Server">
+                                <?php if (!empty($p['dns-server'])): ?>
+                                    <code class="dns-value"><?php echo htmlspecialchars($p['dns-server']); ?></code>
+                                <?php else: ?>
+                                    <span class="text-muted">Default</span>
+                                <?php endif; ?>
+                            </td>
+                            <td data-label="Aksi">
+                                <div class="action-buttons">
+                                    <button onclick='editProfile(<?php echo json_encode($p); ?>)'
+                                        class="btn-icon" title="Edit Profile">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    
+                                    <form method="POST" class="inline-form" onsubmit="return confirmDelete('<?php echo htmlspecialchars($p['name'] ?? ''); ?>')">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="id" value="<?php echo htmlspecialchars($p['.id'] ?? ($p['name'] ?? '')); ?>">
+                                        <input type="hidden" name="name" value="<?php echo htmlspecialchars($p['name'] ?? ''); ?>">
+                                        <button type="submit" class="btn-icon danger" title="Hapus Profile" <?php echo !$isMikrotikConnected ? 'disabled' : ''; ?>>
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
     </div>
 </div>
 
-<script>
-    function editProfile(p) {
-        document.getElementById('formAction').value = 'edit';
-        document.getElementById('profileId').value = p['.id'] || '';
-        document.getElementById('pName').value = p['name'] || '';
-        document.getElementById('pppProfile').value = p['profile'] || 'none';
-        document.getElementById('pRate').value = p['rate-limit'] || '';
-        document.getElementById('pLocal').value = p['local-address'] || '';
-        document.getElementById('pPool').value = p['remote-address'] || 'none';
-        document.getElementById('pDns').value = p['dns-server'] || '';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+<style>
+/* Additional styles for PPPoE profiles page */
+.profile-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
 
-    function resetForm() {
-        document.getElementById('profileForm').reset();
-        document.getElementById('formAction').value = 'add';
-        document.getElementById('profileId').value = '';
+.profile-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: white;
+}
+
+.profile-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-details strong {
+    font-size: 14px;
+}
+
+.profile-details small {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.profile-details small i {
+    margin-right: 4px;
+    font-size: 10px;
+}
+
+.badge-purple {
+    background: rgba(188, 140, 255, 0.15);
+    color: var(--accent-purple);
+    border: 1px solid rgba(188, 140, 255, 0.3);
+}
+
+.dns-value {
+    font-family: monospace;
+    font-size: 12px;
+    background: var(--bg-tertiary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: var(--accent-blue);
+}
+
+.search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-wrapper i {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.search-wrapper .form-control {
+    padding-left: 36px;
+    width: 250px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.inline-form {
+    display: inline;
+}
+
+.btn-icon {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    font-size: 12px;
+}
+
+.btn-icon:hover {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--accent-blue);
+}
+
+.btn-icon.danger:hover {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+}
+
+.btn-icon:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 48px 20px !important;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.empty-state small {
+    font-size: 12px;
+}
+
+.text-muted {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    .profile-info {
+        flex-direction: column;
+        align-items: flex-start;
     }
+    
+    .search-wrapper {
+        width: 100%;
+        margin-top: 12px;
+    }
+    
+    .search-wrapper .form-control {
+        width: 100%;
+    }
+    
+    .action-buttons {
+        justify-content: flex-start;
+    }
+}
+</style>
+
+<script>
+function editProfile(p) {
+    document.getElementById('formAction').value = 'edit';
+    document.getElementById('profileId').value = p['.id'] || '';
+    document.getElementById('pName').value = p['name'] || '';
+    document.getElementById('pppProfile').value = p['profile'] || 'none';
+    document.getElementById('pRate').value = p['rate-limit'] || '';
+    document.getElementById('pDns').value = p['dns-server'] || '';
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Highlight form
+    const form = document.getElementById('profileForm');
+    form.style.transition = 'all 0.3s ease';
+    form.style.boxShadow = '0 0 0 2px var(--accent-blue)';
+    setTimeout(() => {
+        form.style.boxShadow = '';
+    }, 1000);
+}
+
+function resetForm() {
+    document.getElementById('profileForm').reset();
+    document.getElementById('formAction').value = 'add';
+    document.getElementById('profileId').value = '';
+    document.getElementById('pppProfile').value = 'none';
+}
+
+function confirmDelete(profileName) {
+    return confirm(`Hapus profile "${profileName}"?\n\nTindakan ini tidak dapat dibatalkan!`);
+}
+
+// Search functionality
+document.getElementById('searchProfile')?.addEventListener('input', function(e) {
+    const search = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('#profilesTable tbody tr');
+    
+    rows.forEach(row => {
+        if (row.querySelector('.empty-state')) return;
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(search) ? '' : 'none';
+    });
+});
+
+// Initialize form hints
+document.addEventListener('DOMContentLoaded', function() {
+    // Add placeholder formatting hints
+    const rateInput = document.getElementById('pRate');
+    if (rateInput) {
+        rateInput.addEventListener('input', function(e) {
+            let value = e.target.value.toUpperCase();
+            if (value && !value.includes('M') && !value.includes('K')) {
+                // Auto-suggest format
+                if (value.match(/^\d+$/)) {
+                    e.target.value = value + 'M/' + value + 'M';
+                }
+            }
+        });
+    }
+});
 </script>
 
 <?php
 $content = ob_get_clean();
 require_once '../includes/layout.php';
-

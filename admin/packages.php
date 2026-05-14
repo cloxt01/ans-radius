@@ -1,6 +1,6 @@
 <?php
 /**
- * Packages Management
+ * Packages Management - Elegant Dark Minimalis Theme
  */
 
 require_once '../includes/auth.php';
@@ -8,7 +8,7 @@ requireAdminLogin();
 
 $pageTitle = 'Paket Internet';
 
-
+// Migrasi database jika perlu
 try {
     $hasProductType = fetchOne("SHOW COLUMNS FROM packages LIKE 'product_type'");
     if (!$hasProductType) {
@@ -17,7 +17,6 @@ try {
 } catch (Exception $e) {
     // Ignore migration errors
 }
-
 
 $supportsPackageServices = false;
 try {
@@ -31,7 +30,7 @@ try {
     $supportsPackageServices = false;
 }
 
-
+// Proses form
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
         setFlash('error', 'Invalid CSRF token');
@@ -40,7 +39,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
-
             case 'add':
                 $data = [
                     'name' => sanitize($_POST['name']),
@@ -51,7 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'created_at' => date('Y-m-d H:i:s')
                 ];
 
-                
                 if (insert('packages', $data)) {
                     setFlash('success', 'Paket berhasil ditambahkan');
                     logActivity('ADD_PACKAGE', "Name: {$data['name']}");
@@ -126,171 +123,100 @@ if (empty($mikrotikProfiles)) {
     ];
 }
 
-// available_services removed
-$allAvailableServices = [];
-
 ob_start();
 ?>
 
-<!-- Display status connection mikrotik -->
+<!-- Warning Connection -->
 <?php if (!mikrotikConnect()): ?>
-<div style="background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-    <div style="display: flex; align-items: center; gap: 10px; color: #ff6666;">
-        <i class="fas fa-exclamation-triangle" style="font-size: 1.2rem;"></i>
-        <div>
-            <strong>Gagal terhubung ke MikroTik!</strong>
-            <p style="margin: 5px 0 0 0; font-size: 0.9rem; color: #f38282;">
-                Profile yang ditampilkan adalah profil default. 
-                Silakan periksa pengaturan MikroTik di <a href="settings.php" style="color: #66ccff;">Settings</a> 
-                untuk memastikan kredensial benar.
-            </p>
-        </div>
+<div class="alert alert-warning" style="margin-bottom: 24px;">
+    <i class="fas fa-exclamation-triangle"></i>
+    <div>
+        <strong>Gagal terhubung ke MikroTik!</strong>
+        <p style="margin: 4px 0 0 0; font-size: 13px;">
+            Profile yang ditampilkan adalah profil default. 
+            Silakan periksa pengaturan MikroTik di <a href="settings.php" style="color: var(--accent-blue);">Settings</a>.
+        </p>
     </div>
 </div>
 <?php endif; ?>
 
-<!-- Stats -->
-<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;">
+<!-- Stats Grid -->
+<div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-icon cyan">
-            <i class="fas fa-box"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo count($packages); ?></h3>
             <p>Total Paket</p>
         </div>
+        <div class="stat-icon blue">
+            <i class="fas fa-box"></i>
+        </div>
     </div>
     
     <div class="stat-card">
-        <div class="stat-icon green">
-            <i class="fas fa-users"></i>
-        </div>
         <div class="stat-info">
             <?php 
             $totalCustomers = array_sum(array_column($packages, 'customer_count'));
             ?>
-            <h3><?php echo $totalCustomers; ?></h3>
+            <h3><?php echo number_format($totalCustomers); ?></h3>
             <p>Pelanggan Aktif</p>
+        </div>
+        <div class="stat-icon green">
+            <i class="fas fa-users"></i>
         </div>
     </div>
     
     <div class="stat-card">
-        <div class="stat-icon purple">
-            <i class="fas fa-star"></i>
-        </div>
         <div class="stat-info">
             <?php 
             $mostPopularPackage = '-';
             $maxCustomers = 0;
-            $avgPrice = 0;
-            $totalPrice = 0;
-            $countPrice = 0;
             
             foreach ($packages as $p) {
                 if ($p['customer_count'] > $maxCustomers) {
                     $maxCustomers = $p['customer_count'];
                     $mostPopularPackage = $p['name'];
                 }
-                $totalPrice += $p['price'];
-                $countPrice++;
-            }
-            
-            if ($countPrice > 0) {
-                $avgPrice = $totalPrice / $countPrice;
             }
             ?>
-            <h3 style="font-size: 1.2rem;"><?php echo htmlspecialchars($mostPopularPackage); ?></h3>
+            <h3 style="font-size: 18px;"><?php echo htmlspecialchars($mostPopularPackage); ?></h3>
             <p>Paket Terlaris</p>
+        </div>
+        <div class="stat-icon purple">
+            <i class="fas fa-star"></i>
         </div>
     </div>
     
     <div class="stat-card">
-        <div class="stat-icon orange">
-            <i class="fas fa-check-double"></i>
-        </div>
         <div class="stat-info">
             <?php 
             $activePackages = 0;
             foreach ($packages as $p) {
-                if ($p['customer_count'] > 0) {
-                    $activePackages++;
-                }
+                if ($p['customer_count'] > 0) $activePackages++;
             }
             ?>
             <h3><?php echo $activePackages; ?></h3>
             <p>Paket Terpakai</p>
         </div>
+        <div class="stat-icon orange">
+            <i class="fas fa-check-double"></i>
+        </div>
     </div>
 </div>
 
-<style>
-    @media (max-width: 768px) {
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-        }
-        .stat-card {
-            padding: 15px;
-        }
-        .stat-icon {
-            width: 40px;
-            height: 40px;
-            font-size: 1.2rem;
-        }
-        .stat-info h3 {
-            font-size: 1.5rem;
-        }
-        .stat-info p {
-            font-size: 0.8rem;
-        }
-    }
-</style>
-
-<!-- Add Service Form
+<!-- Add Package Form -->
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-layer-group"></i> Tambah Service Paket</h3>
+        <h3 class="card-title">
+            <i class="fas fa-plus-circle"></i> Tambah Paket Baru
+        </h3>
     </div>
-
-    <form method="POST">
-        <input type="hidden" name="action" value="add_service">
-        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end;">
-            <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">Nama Service</label>
-                <input type="text" name="service_name" class="form-control" placeholder="Contoh: Free Instalasi" required>
-            </div>
-
-            <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">Service Key (opsional)</label>
-                <input type="text" name="service_key" class="form-control" placeholder="contoh: free_instalasi">
-            </div>
-
-            <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">Tipe Service</label>
-                <select name="service_type" class="form-control">
-                    <?php foreach ($productTypeOptions as $typeKey => $typeLabel): ?>
-                        <option value="<?php echo htmlspecialchars($typeKey); ?>"><?php echo htmlspecialchars($typeLabel); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group" style="margin-bottom: 0;">
-                <button type="submit" class="btn btn-secondary"><i class="fas fa-plus"></i> Tambah Service</button>
-            </div>
-        </div>
-    </form>
-    <!-- Add Package Form -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-plus-circle"></i> Tambah Paket Baru</h3>
-        </div>
-        
+    
+    <div class="card-body">
         <form method="POST">
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
             
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Nama Paket</label>
                     <input type="text" name="name" class="form-control" required placeholder="Misal: Paket 10 Mbps">
@@ -300,31 +226,33 @@ ob_start();
                     <label class="form-label">Harga per Bulan</label>
                     <input type="number" name="price" class="form-control" required placeholder="250000">
                 </div>
+            </div>
 
+            <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Profile MikroTik (Normal)</label>
-                    <select name="profile_normal" id="profile_normal" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                    <select name="profile_normal" id="profile_normal" class="form-control" required>
                         <?php foreach ($mikrotikProfiles as $profile): ?>
                             <option value="<?php echo htmlspecialchars($profile['name']); ?>">
                                 <?php echo htmlspecialchars($profile['name']); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <div id="profile_info_normal" class="profile-info-display" style="margin-top: 8px; font-size: 0.85rem; padding: 8px; border-radius: 6px; background: rgba(0,255,255,0.05); border: 1px dashed rgba(0,255,255,0.2); display: none;"></div>
-                    <small style="color: var(--text-muted);">Profile saat pelanggan aktif</small>
+                    <div id="profile_info_normal" class="profile-info"></div>
+                    <small class="form-hint">Digunakan saat pelanggan aktif</small>
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">Profile MikroTik (Isolir)</label>
-                    <select name="profile_isolir" id="profile_isolir" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                    <select name="profile_isolir" id="profile_isolir" class="form-control" required>
                         <?php foreach ($mikrotikProfiles as $profile): ?>
                             <option value="<?php echo htmlspecialchars($profile['name']); ?>">
                                 <?php echo htmlspecialchars($profile['name']); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <div id="profile_info_isolir" class="profile-info-display" style="margin-top: 8px; font-size: 0.85rem; padding: 8px; border-radius: 6px; background: rgba(255,150,0,0.05); border: 1px dashed rgba(255,150,0,0.2); display: none;"></div>
-                    <small style="color: var(--text-muted);">Profile saat pelanggan belum bayar</small>
+                    <div id="profile_info_isolir" class="profile-info"></div>
+                    <small class="form-hint">Digunakan saat pelanggan belum bayar</small>
                 </div>
             </div>
             
@@ -332,37 +260,29 @@ ob_start();
                 <label class="form-label">Keterangan</label>
                 <textarea name="description" class="form-control" rows="2" placeholder="Keterangan tambahan (opsional)"></textarea>
             </div>
-
-            <!-- <div class="form-group">
-                <label class="form-label">Daftar Service Paket</label>
-                <div class="service-checklist">
-                    <?php foreach ($availableServices as $serviceKey => $serviceLabel): ?>
-                        <label class="service-item">
-                            <input type="checkbox" name="services[]" value="<?php echo htmlspecialchars($serviceKey); ?>">
-                            <span><?php echo htmlspecialchars($serviceLabel); ?></span>
-                        </label>
-                    <?php endforeach; ?>
-                </div>
-                <small style="color: var(--text-muted);">Centang service yang tersedia pada paket ini. Service tidak dicentang akan line-through, kecuali tipenya sama dengan tipe produk paket (otomatis di-hide di landing).</small>
-            </div> -->
             
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> Simpan Paket
-            </button>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Simpan Paket
+                </button>
+            </div>
         </form>
     </div>
+</div>
 
-    <!-- Packages Table -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-list"></i> Daftar Paket</h3>
-        </div>
-        
+<!-- Packages Table -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-list"></i> Daftar Paket
+        </h3>
+    </div>
+    
+    <div class="table-responsive">
         <table class="data-table">
             <thead>
                 <tr>
                     <th>Nama Paket</th>
-                    <th>Tipe</th>
                     <th>Harga</th>
                     <th>Profile Normal</th>
                     <th>Profile Isolir</th>
@@ -373,8 +293,9 @@ ob_start();
             <tbody>
                 <?php if (empty($packages)): ?>
                     <tr>
-                        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                            Belum ada paket terdaftar
+                        <td colspan="6" class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>Belum ada paket terdaftar</p>
                         </td>
                     </tr>
                 <?php else: ?>
@@ -383,14 +304,11 @@ ob_start();
                         <td data-label="Nama Paket">
                             <strong><?php echo htmlspecialchars($pkg['name']); ?></strong>
                             <?php if ($pkg['description']): ?>
-                                <br><small style="color: var(--text-muted);"><?php echo htmlspecialchars($pkg['description']); ?></small>
+                                <br><small class="text-muted"><?php echo htmlspecialchars($pkg['description']); ?></small>
                             <?php endif; ?>
                         </td>
-                        <td data-label="Tipe"><span class="badge badge-info"><?php echo htmlspecialchars($pkg['product_type'] ?? 'general'); ?></span></td>
                         <td data-label="Harga">
-                            <strong style="color: var(--neon-green);">
-                                <?php echo formatCurrency($pkg['price']); ?>
-                            </strong>
+                            <strong class="price"><?php echo formatCurrency($pkg['price']); ?></strong>
                         </td>
                         <td data-label="Profile Normal">
                             <span class="badge badge-success"><?php echo htmlspecialchars($pkg['profile_normal']); ?></span>
@@ -398,14 +316,18 @@ ob_start();
                         <td data-label="Profile Isolir">
                             <span class="badge badge-warning"><?php echo htmlspecialchars($pkg['profile_isolir']); ?></span>
                         </td>
-                        <td data-label="Jumlah Pelanggan"><?php echo $pkg['customer_count']; ?> pelanggan</td>
+                        <td data-label="Pelanggan">
+                            <span class="badge badge-info"><?php echo $pkg['customer_count']; ?> pelanggan</span>
+                        </td>
                         <td data-label="Aksi">
-                            <button class="btn btn-secondary btn-sm" onclick="editPackage(<?php echo $pkg['id']; ?>)">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn btn-secondary btn-sm" onclick="deletePackage(<?php echo $pkg['id']; ?>)">
-                                <i class="fas fa-trash"></i>
-                            </button>
+                            <div class="action-buttons">
+                                <button class="btn-icon" onclick="editPackage(<?php echo $pkg['id']; ?>)" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn-icon danger" onclick="deletePackage(<?php echo $pkg['id']; ?>)" title="Hapus">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -413,114 +335,212 @@ ob_start();
             </tbody>
         </table>
     </div>
-
 </div>
 
-
-
-<!-- Edit Package Modal -->
-<div id="editModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; overflow-y: auto; padding: 40px 0;">
-    <div class="card" style="width: 500px; max-width: 90%; margin: 0 auto; position: relative;">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-edit"></i> Edit Paket</h3>
-            <button onclick="closeEditModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">
-                <i class="fas fa-times"></i>
-            </button>
+<!-- Edit Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> Edit Paket</h3>
+            <button class="close" onclick="closeEditModal()">&times;</button>
         </div>
         <form id="editForm" method="POST">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
             <input type="hidden" name="package_id" id="edit_package_id">
             
-            <div class="form-group">
-                <label class="form-label">Nama Paket</label>
-                <input type="text" name="name" id="edit_name" class="form-control" required>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Harga per Bulan</label>
-                <input type="number" name="price" id="edit_price" class="form-control" required>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">Profile Normal</label>
-                    <select name="profile_normal" id="edit_profile_normal" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
-                        <?php foreach ($mikrotikProfiles as $profile): ?>
-                            <option value="<?php echo htmlspecialchars($profile['name']); ?>">
-                                <?php echo htmlspecialchars($profile['name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div id="edit_profile_info_normal" class="profile-info-display" style="margin-top: 8px; font-size: 0.85rem; padding: 8px; border-radius: 6px; background: rgba(0,255,255,0.05); border: 1px dashed rgba(0,255,255,0.2); display: none;"></div>
+                    <label class="form-label">Nama Paket</label>
+                    <input type="text" name="name" id="edit_name" class="form-control" required>
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Profile Isolir</label>
-                    <select name="profile_isolir" id="edit_profile_isolir" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
-                        <?php foreach ($mikrotikProfiles as $profile): ?>
-                            <option value="<?php echo htmlspecialchars($profile['name']); ?>">
-                                <?php echo htmlspecialchars($profile['name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div id="edit_profile_info_isolir" class="profile-info-display" style="margin-top: 8px; font-size: 0.85rem; padding: 8px; border-radius: 6px; background: rgba(255,150,0,0.05); border: 1px dashed rgba(255,150,0,0.2); display: none;"></div>
+                    <label class="form-label">Harga per Bulan</label>
+                    <input type="number" name="price" id="edit_price" class="form-control" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Profile Normal</label>
+                        <select name="profile_normal" id="edit_profile_normal" class="form-control" required>
+                            <?php foreach ($mikrotikProfiles as $profile): ?>
+                                <option value="<?php echo htmlspecialchars($profile['name']); ?>">
+                                    <?php echo htmlspecialchars($profile['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div id="edit_profile_info_normal" class="profile-info"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Profile Isolir</label>
+                        <select name="profile_isolir" id="edit_profile_isolir" class="form-control" required>
+                            <?php foreach ($mikrotikProfiles as $profile): ?>
+                                <option value="<?php echo htmlspecialchars($profile['name']); ?>">
+                                    <?php echo htmlspecialchars($profile['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div id="edit_profile_info_isolir" class="profile-info"></div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Keterangan</label>
+                    <textarea name="description" id="edit_description" class="form-control" rows="2"></textarea>
                 </div>
             </div>
             
-            <div class="form-group">
-                <label class="form-label">Keterangan</label>
-                <textarea name="description" id="edit_description" class="form-control" rows="2"></textarea>
-            </div>
-
-            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+            <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Batal</button>
-                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Simpan
+                </button>
             </div>
         </form>
     </div>
 </div>
 
+<style>
+/* Additional styles for packages page */
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+    margin-top: 8px;
+}
+
+.form-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.profile-info {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    display: none;
+}
+
+.profile-info[style*="display: block"],
+.profile-info:not([style*="display: none"]) {
+    background: var(--bg-tertiary);
+    border-left: 3px solid var(--accent-blue);
+}
+
+.price {
+    color: var(--accent-green);
+    font-weight: 600;
+}
+
+.text-muted {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.btn-icon:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent-blue);
+}
+
+.btn-icon.danger:hover {
+    color: var(--accent-red);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 48px 20px !important;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.alert-warning {
+    background: rgba(210, 153, 34, 0.1);
+    border: 1px solid rgba(210, 153, 34, 0.3);
+    color: var(--accent-orange);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+}
+
+.alert-warning i {
+    font-size: 18px;
+}
+</style>
+
 <script>
 const packagesData = <?php echo json_encode($packages); ?>;
 const mikrotikProfiles = <?php echo json_encode($mikrotikProfiles); ?>;
 
-
 function updateProfileInfo(selectId, displayId) {
     const select = document.getElementById(selectId);
     const display = document.getElementById(displayId);
+    if (!select || !display) return;
+    
     const profileName = select.value;
+    const profile = mikrotikProfiles?.find(p => p.name === profileName);
     
-    if (!profileName || !mikrotikProfiles) {
-        display.style.display = 'none';
-        return;
-    }
-    
-    const profile = mikrotikProfiles.find(p => p.name === profileName);
-    
-    if (profile) {
-        let html = '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">';
-
+    if (profile && Object.keys(profile).length > 1) {
+        let html = '<div class="profile-details">';
         if (profile['rate-limit']) {
-            html += `<div><strong><i class="fas fa-tachometer-alt"></i> Limit:</strong> ${profile['rate-limit']}</div>`;
-        }
-        if (profile['local-address']) {
-            html += `<div><strong><i class="fas fa-server"></i> Local:</strong> ${profile['local-address']}</div>`;
-        }
-        if (profile['remote-address']) {
-            html += `<div><strong><i class="fas fa-globe"></i> Remote Pool:</strong> ${profile['remote-address']}</div>`;
+            html += `<span><i class="fas fa-tachometer-alt"></i> ${profile['rate-limit']}</span>`;
         }
         if (profile['session-timeout']) {
-            html += `<div><strong><i class="fas fa-clock"></i> Timeout:</strong> ${profile['session-timeout']}</div>`;
+            html += `<span><i class="fas fa-clock"></i> ${profile['session-timeout']}</span>`;
         }
         if (profile['only-one']) {
-            html += `<div><strong><i class="fas fa-user-lock"></i> Only One:</strong> ${profile['only-one']}</div>`;
+            html += `<span><i class="fas fa-user-lock"></i> ${profile['only-one']}</span>`;
         }
-        
         html += '</div>';
         
-        if (html === '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;"></div>') {
-            html = `<div><i class="fas fa-info-circle"></i> Profile: <strong>${profile.name}</strong></div>`;
+        if (html === '<div class="profile-details"></div>') {
+            html = `<span><i class="fas fa-tag"></i> ${profile.name}</span>`;
         }
         
         display.innerHTML = html;
@@ -530,19 +550,21 @@ function updateProfileInfo(selectId, displayId) {
     }
 }
 
-// Initial update for Add form
+// Initialize
 document.addEventListener('DOMContentLoaded', function() {
     updateProfileInfo('profile_normal', 'profile_info_normal');
     updateProfileInfo('profile_isolir', 'profile_info_isolir');
+    
+    const normalSelect = document.getElementById('profile_normal');
+    const isolirSelect = document.getElementById('profile_isolir');
+    
+    if (normalSelect) {
+        normalSelect.addEventListener('change', () => updateProfileInfo('profile_normal', 'profile_info_normal'));
+    }
+    if (isolirSelect) {
+        isolirSelect.addEventListener('change', () => updateProfileInfo('profile_isolir', 'profile_info_isolir'));
+    }
 });
-
-// Event listeners for Add form
-document.getElementById('profile_normal').addEventListener('change', () => updateProfileInfo('profile_normal', 'profile_info_normal'));
-document.getElementById('profile_isolir').addEventListener('change', () => updateProfileInfo('profile_isolir', 'profile_info_isolir'));
-
-// Event listeners for Edit modal
-document.getElementById('edit_profile_normal').addEventListener('change', () => updateProfileInfo('edit_profile_normal', 'edit_profile_info_normal'));
-document.getElementById('edit_profile_isolir').addEventListener('change', () => updateProfileInfo('edit_profile_isolir', 'edit_profile_info_isolir'));
 
 function editPackage(id) {
     const pkg = packagesData.find(p => p.id == id);
@@ -557,22 +579,24 @@ function editPackage(id) {
     document.getElementById('edit_profile_normal').value = pkg.profile_normal || '';
     document.getElementById('edit_profile_isolir').value = pkg.profile_isolir || '';
     document.getElementById('edit_description').value = pkg.description || '';
-
-    // package_services UI removed
     
-    // Update profile info in modal
     updateProfileInfo('edit_profile_normal', 'edit_profile_info_normal');
     updateProfileInfo('edit_profile_isolir', 'edit_profile_info_isolir');
     
-    document.getElementById('editForm').action = 'packages.php';
     document.getElementById('editModal').style.display = 'flex';
+    
+    // Add event listeners for edit modal
+    document.getElementById('edit_profile_normal').addEventListener('change', () => 
+        updateProfileInfo('edit_profile_normal', 'edit_profile_info_normal'));
+    document.getElementById('edit_profile_isolir').addEventListener('change', () => 
+        updateProfileInfo('edit_profile_isolir', 'edit_profile_info_isolir'));
 }
 
 function deletePackage(id) {
     const pkg = packagesData.find(p => p.id == id);
     if (!pkg) return;
     
-    if (confirm('Yakin ingin menghapus paket "' + pkg.name + '"?\n\nPelanggan yang menggunakan paket ini akan terpengaruh!')) {
+    if (confirm(`Yakin ingin menghapus paket "${pkg.name}"?\n\nPelanggan yang menggunakan paket ini akan terpengaruh!`)) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.innerHTML = `
@@ -585,72 +609,20 @@ function deletePackage(id) {
     }
 }
 
-function deleteService(id, name, usedCount) {
-    if (usedCount > 0) {
-        alert('Service "' + name + '" masih dipakai ' + usedCount + ' paket, tidak bisa dihapus.');
-        return;
-    }
-}
-
 function closeEditModal() {
     document.getElementById('editModal').style.display = 'none';
 }
 
-function openEditServiceModal(id, name, key, type) {
-    document.getElementById('edit_service_id').value = id;
-    document.getElementById('edit_service_name').value = name || '';
-    document.getElementById('edit_service_key').value = key || '';
-    document.getElementById('edit_service_type').value = (type || 'general');
-    document.getElementById('editServiceModal').style.display = 'flex';
-}
-
-function closeEditServiceModal() {
-    document.getElementById('editServiceModal').style.display = 'none';
-}
-
-document.getElementById('editModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeEditModal();
-    }
+// Close modal on outside click
+document.getElementById('editModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
 });
 
-document.getElementById('editServiceModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeEditServiceModal();
-    }
-});
-
+// Close on Escape key
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeEditModal();
-        closeEditServiceModal();
-    }
+    if (e.key === 'Escape') closeEditModal();
 });
 </script>
-
-<style>
-.service-checklist {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 8px 12px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 12px;
-}
-
-.service-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-primary);
-    font-size: 0.92rem;
-}
-
-.service-item input[type="checkbox"] {
-    accent-color: #3da8ff;
-}
-</style>
 
 <?php
 $content = ob_get_clean();

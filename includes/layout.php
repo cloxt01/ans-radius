@@ -1,6 +1,6 @@
 ﻿<?php
 /**
- * Layout Template
+ * Layout Template - Elegant Dark Minimalis Theme
  * Base layout for all pages
  */
 
@@ -37,7 +37,6 @@ if (isset($_GET['switch_router'])) {
 <html lang="id">
 
 <head>
-    <!-- TES -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($pageTitle); ?> - <?php echo htmlspecialchars($appName); ?></title>
@@ -45,8 +44,7 @@ if (isset($_GET['switch_router'])) {
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
 
     <!-- Font Awesome -->
     <link rel="apple-touch-icon" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
@@ -58,80 +56,46 @@ if (isset($_GET['switch_router'])) {
 
     <style>
         :root {
-            /* Dark Neon Theme (Premium) T*/
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: rgba(20, 20, 35, 0.6);
-            --bg-sidebar: rgba(13, 13, 21, 0.85);
-            --neon-cyan: #00f5ff;
-            --neon-purple: #bf00ff;
-            --neon-pink: #ff00aa;
-            --neon-green: #00ff88;
-            --neon-orange: #ff6b35;
-            --neon-red: #ff4757;
-            --gradient-primary: linear-gradient(135deg, #00f5ff 0%, #2c72ce 100%);
-            --gradient-success: linear-gradient(135deg, #00ff88 0%, #00d4aa 100%);
-            --gradient-warning: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
-            --text-primary: #ffffff;
-            --text-secondary: rgba(255, 255, 255, 0.75);
-            --text-muted: rgba(255, 255, 255, 0.4);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --border-glow: rgba(0, 245, 255, 0.4);
-            --shadow-neon: 0 0 15px rgba(0, 245, 255, 0.2);
-            --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.2);
+            /* GitHub Dark Theme */
+            --bg-canvas: #0d1117;
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --bg-card: #161b22;
+            --bg-sidebar: rgba(13, 17, 23, 0.95);
+            --bg-inset: #010409;
+            
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --text-link: #58a6ff;
+            
+            --border-color: #30363d;
+            --border-light: #21262d;
+            
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-red: #f85149;
+            --accent-orange: #d29922;
+            --accent-purple: #bc8cff;
+            --accent-pink: #db61a2;
+            
+            --gradient-primary: linear-gradient(135deg, #58a6ff 0%, #1f6feb 100%);
+            --gradient-success: linear-gradient(135deg, #3fb950 0%, #2ea043 100%);
+            --gradient-warning: linear-gradient(135deg, #d29922 0%, #9e6a03 100%);
+            
+            --shadow-sm: 0 1px 0 rgba(0,0,0,0.2);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+            
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            
             --sidebar-width: 260px;
-            --sidebar-collapsed: 70px;
-            --bg-input: rgba(255, 255, 255, 0.05);
-            --bg-submenu: rgba(0, 0, 0, 0.3);
-            --backdrop-blur: blur(12px);
-            --border-radius-md: 14px;
-            --border-radius-lg: 18px;
-        }
-
-        .alert {
-            height: 50px;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .alert-success {
-            background: rgba(0, 255, 136, 0.1);
-            border: 1px solid var(--neon-green);
-            color: var(--neon-green);
-        }
-
-        .alert-error, .alert-danger {
-            background: rgba(255, 71, 87, 0.1);
-            border: 1px solid var(--neon-red);
-            color: var(--neon-red);
-        }
-
-        .alert-info {
-            background: rgba(0, 245, 255, 0.1);
-            border: 1px solid var(--neon-cyan);
-            color: var(--neon-cyan);
-        }
-
-        :root.light-theme,
-        body.light-theme {
-            --bg-primary: #f8f9fa;
-            --bg-secondary: #ffffff;
-            --bg-card: rgba(255, 255, 255, 0.85);
-            --bg-sidebar: rgba(255, 255, 255, 0.95);
-            --neon-cyan: #0066ff;
-            --neon-purple: #7b2cbf;
-            --text-primary: #111827;
-            --text-secondary: #4b5563;
-            --text-muted: #9ca3af;
-            --border-color: rgba(0, 0, 0, 0.08);
-            --border-glow: rgba(0, 102, 255, 0.3);
-            --shadow-neon: 0 4px 15px rgba(0, 102, 255, 0.15);
-            --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.05);
-            --bg-input: #ffffff;
-            --bg-submenu: rgba(243, 244, 246, 0.8);
+            
+            --transition-fast: 0.1s ease;
+            --transition-base: 0.2s ease;
         }
 
         * {
@@ -141,14 +105,15 @@ if (isset($_GET['switch_router'])) {
         }
 
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background: var(--bg-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-canvas);
             color: var(--text-primary);
             min-height: 100vh;
-            line-height: 1.6;
+            line-height: 1.5;
+            font-size: 14px;
         }
 
-        /* Custom Scrollbar */
+        /* Custom Scrollbar - GitHub Style */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -157,24 +122,24 @@ if (isset($_GET['switch_router'])) {
             background: var(--bg-primary);
         }
         ::-webkit-scrollbar-thumb {
-            background: rgba(156, 163, 175, 0.3);
+            background: var(--border-color);
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(156, 163, 175, 0.5);
+            background: var(--text-muted);
         }
 
         a {
-            color: var(--neon-cyan);
+            color: var(--text-link);
             text-decoration: none;
-            transition: all 0.3s;
+            transition: color var(--transition-fast);
         }
 
         a:hover {
-            color: var(--neon-purple);
+            text-decoration: underline;
         }
 
-        /* Sidebar */
+        /* Sidebar - GitHub Style */
         .sidebar {
             position: fixed;
             left: 0;
@@ -182,688 +147,388 @@ if (isset($_GET['switch_router'])) {
             width: var(--sidebar-width);
             height: 100vh;
             background: var(--bg-sidebar);
-            backdrop-filter: var(--backdrop-blur);
-            -webkit-backdrop-filter: var(--backdrop-blur);
             border-right: 1px solid var(--border-color);
             z-index: 1000;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform var(--transition-base);
             display: flex;
             flex-direction: column;
         }
 
         .sidebar-header {
-            height:150px;
-            padding: 10px 5px;
+            padding: 20px 16px;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 10px;
+            gap: 12px;
         }
 
         .sidebar-header a {
-            width: 100%;
-            height: 100%;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 10px;
         }
 
         .sidebar-brand-logo {
-            box-shadow: 0 0 10px var(--primary);
-            width: clamp(110px, 72%, 160px);
-            height: auto;
+            width: 32px;
+            height: 32px;
             display: block;
-            margin: 0;
         }
 
-        .sidebar-logo {
-            font-size: 1.5rem;
-            font-weight: 800;
-            background: var(--neon-cyan);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .sidebar-brand-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
         }
 
         .sidebar-nav {
-            padding: 20px 0;
+            padding: 16px 8px;
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
+        }
+
+        .nav-section {
+            margin-bottom: 24px;
+        }
+
+        .nav-section-title {
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .menu-item {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 12px 20px;
-            margin: 4px 12px;
-            border-radius: 10px;
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: var(--radius-sm);
             color: var(--text-secondary);
-            transition: all 0.3s ease;
+            transition: all var(--transition-fast);
             cursor: pointer;
-            border-left: 3px solid transparent;
+            font-size: 14px;
             font-weight: 500;
         }
 
-        .menu-item:hover,
+        .menu-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
         .menu-item.active {
-            background: rgba(0, 245, 255, 0.1);
-            color: var(--neon-cyan);
-            border-left-color: var(--neon-cyan);
-            transform: translateX(4px);
+            background: var(--bg-tertiary);
+            color: var(--text-link);
         }
 
         .menu-item i {
             width: 20px;
+            font-size: 14px;
             text-align: center;
         }
 
         /* Main Content */
         .main-content {
             margin-left: var(--sidebar-width);
-            padding: 20px;
-            transition: all 0.3s;
+            min-height: 100vh;
         }
 
-        /* Header */
+        /* Header - GitHub Style */
         .header {
+            position: sticky;
+            top: 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
-            padding: 18px 24px;
-            background: var(--bg-card);
-            backdrop-filter: var(--backdrop-blur);
-            -webkit-backdrop-filter: var(--backdrop-blur);
-            border-radius: var(--border-radius-lg);
-            border: 1px solid var(--border-color);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 16px 24px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 100;
         }
 
         .header-title h1 {
-            font-size: 1.6rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
         }
 
         .header-actions {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             align-items: center;
         }
 
-        .menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 1.5rem;
-        }
-
-        /* Cards */
+        /* Cards - GitHub Style */
         .card {
             background: var(--bg-card);
-            backdrop-filter: var(--backdrop-blur);
-            -webkit-backdrop-filter: var(--backdrop-blur);
             border: 1px solid var(--border-color);
-            border-radius: var(--border-radius-md);
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: var(--shadow-card);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-radius: var(--radius-md);
+            margin-bottom: 16px;
+            transition: border-color var(--transition-fast);
         }
 
         .card:hover {
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            border-color: var(--text-muted);
         }
 
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05); /* Softer border */
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-light);
         }
 
         .card-title {
-            font-size: 1.1rem;
+            font-size: 14px;
             font-weight: 600;
-            color: var(--neon-cyan);
+            color: var(--text-primary);
         }
 
-        @media (max-width: 480px) {
-            .card-header {
-                flex-direction: column !important;
-                align-items: flex-start !important;
-                gap: 10px !important;
-            }
-
-            .card-header input[type="text"] {
-                width: 100% !important;
-            }
-        }
-
-        /* Responsive grids */
-        @media (max-width: 768px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-                gap: 15px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: 1fr !important;
-            }
+        .card-body {
+            padding: 20px;
         }
 
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        @media (max-width: 768px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-                gap: 15px;
-            }
-
-            .stat-card {
-                flex-direction: column;
-                text-align: center;
-                align-items: center;
-            }
-
-            .stat-info h3 {
-                font-size: 1.5rem;
-            }
-
-            /* Chart Containers */
-            #charts-container {
-                display: grid !important;
-                grid-template-columns: 1fr !important;
-            }
-        }
-
-        @media (min-width: 769px) {
-            #charts-container {
-                grid-template-columns: 1fr 1fr !important;
-            }
-        }
-
-        /* Quick Actions Grid */
-        @media (max-width: 480px) {
-            [style*="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))"] {
-                display: grid !important;
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
-                gap: 15px !important;
-            }
-        }
-
-        @media (min-width: 481px) {
-            [style*="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr))"] {
-                grid-template-columns: 1fr !important;
-            }
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
         }
 
         .stat-card {
             background: var(--bg-card);
-            backdrop-filter: var(--backdrop-blur);
-            -webkit-backdrop-filter: var(--backdrop-blur);
             border: 1px solid var(--border-color);
-            border-radius: var(--border-radius-md);
-            padding: 24px;
+            border-radius: var(--radius-md);
+            padding: 20px;
             display: flex;
             align-items: center;
-            gap: 18px;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            justify-content: space-between;
+            transition: border-color var(--transition-fast);
         }
 
         .stat-card:hover {
-            transform: translateY(-8px);
-            box-shadow: var(--shadow-neon);
-            border-color: rgba(0, 245, 255, 0.3);
-        }
-
-        .stat-icon {
-            width: 56px;
-            height: 56px;
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.6rem;
-        }
-
-        .stat-icon.cyan {
-            background: rgba(0, 245, 255, 0.2);
-            color: var(--neon-cyan);
-        }
-
-        .stat-icon.purple {
-            background: rgba(191, 0, 255, 0.2);
-            color: var(--neon-purple);
-        }
-
-        .stat-icon.green {
-            background: rgba(0, 255, 136, 0.2);
-            color: var(--neon-green);
-        }
-
-        .stat-icon.orange {
-            background: rgba(255, 107, 53, 0.2);
-            color: var(--neon-orange);
-        }
-
-        .stat-icon.red {
-            background: rgba(255, 71, 87, 0.2);
-            color: var(--neon-red);
-        }
-
-        .stat-icon.yellow {
-            background: rgba(255, 235, 59, 0.2);
-            color: #ffeb3b;
+            border-color: var(--text-muted);
         }
 
         .stat-info h3 {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 5px;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 4px;
         }
 
         .stat-info p {
             color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 12px;
         }
 
-        /* Buttons */
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .stat-icon.blue { color: var(--accent-blue); background: rgba(88, 166, 255, 0.1); }
+        .stat-icon.green { color: var(--accent-green); background: rgba(63, 185, 80, 0.1); }
+        .stat-icon.red { color: var(--accent-red); background: rgba(248, 81, 73, 0.1); }
+        .stat-icon.orange { color: var(--accent-orange); background: rgba(210, 153, 34, 0.1); }
+        .stat-icon.purple { color: var(--accent-purple); background: rgba(188, 140, 255, 0.1); }
+
+        /* Buttons - GitHub Style */
         .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all var(--transition-fast);
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            text-decoration: none;
+            gap: 6px;
+            border: 1px solid;
+            background: transparent;
         }
 
         .btn-primary {
             background: var(--gradient-primary);
+            border-color: rgba(88, 166, 255, 0.3);
             color: #fff;
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-neon);
+            background: #1f6feb;
+            border-color: var(--accent-blue);
         }
 
         .btn-secondary {
-            background: transparent;
-            border: 1px solid var(--border-color);
+            border-color: var(--border-color);
             color: var(--text-primary);
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--bg-tertiary);
+            border-color: var(--text-muted);
         }
 
         .btn-success {
             background: var(--gradient-success);
+            border-color: rgba(63, 185, 80, 0.3);
             color: #fff;
         }
 
         .btn-danger {
             background: var(--gradient-warning);
+            border-color: rgba(210, 153, 34, 0.3);
             color: #fff;
         }
 
         .btn-sm {
-            padding: 5px 10px;
-            font-size: 0.8rem;
+            padding: 4px 12px;
+            font-size: 12px;
         }
 
-        /* Forms */
+        /* Forms - GitHub Style */
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
         .form-label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 600;
+            font-size: 12px;
+            font-weight: 500;
             color: var(--text-secondary);
         }
 
         .form-control {
             width: 100%;
-            padding: 14px 16px;
-            background: var(--bg-input);
+            padding: 8px 12px;
+            background: var(--bg-primary);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: var(--radius-sm);
             color: var(--text-primary);
-            font-size: 1rem;
-            transition: all 0.3s ease;
+            font-size: 14px;
+            transition: all var(--transition-fast);
         }
 
         .form-control:focus {
             outline: none;
-            border-color: var(--neon-cyan);
-            box-shadow: 0 0 0 4px rgba(0, 245, 255, 0.15);
-            background: rgba(255, 255, 255, 0.08); /* slightly lighter on focus */
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
         }
 
-        select option {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
+        select.form-control {
+            background: var(--bg-primary);
+            cursor: pointer;
         }
 
-        /* Tables */
+        /* Tables - GitHub Style */
         .data-table {
             width: 100%;
             border-collapse: collapse;
         }
 
-        .data-table thead {
-            background: var(--bg-secondary);
-        }
-
-        .data-table th,
-        .data-table td {
-            padding: 12px;
-            text-align: left;
+        .data-table thead tr {
             border-bottom: 1px solid var(--border-color);
         }
 
         .data-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 12px;
             font-weight: 600;
             color: var(--text-secondary);
-            font-size: 0.9rem;
-            text-transform: uppercase;
+        }
+
+        .data-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 14px;
         }
 
         .data-table tbody tr:hover {
-            background: rgba(255, 255, 255, 0.02);
+            background: var(--bg-tertiary);
         }
 
-        /* Responsive table for mobile */
-        @media (max-width: 768px) {
-            .table-responsive {
-                width: 100%;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-            .data-table {
-                min-width: 600px;
-            }
-        }
-
-        @media (max-width: 580px) {
-            .data-table,
-            .data-table thead,
-            .data-table tbody,
-            .data-table th,
-            .data-table td,
-            .data-table tr {
-                display: block !important;
-                min-width: auto !important;
-            }
-
-            .data-table thead tr {
-                position: absolute;
-                top: -9999px;
-                left: -9999px;
-            }
-
-            .data-table tr {
-                border: 1px solid var(--border-color);
-                margin-bottom: 10px;
-                padding: 10px;
-                border-radius: 8px;
-                position: relative;
-                background: var(--bg-card);
-            }
-
-            .data-table td {
-                border: none;
-                position: relative;
-                padding-left: 45% !important;
-                text-align: right;
-                min-height: 40px;
-                border-bottom: 1px solid var(--border-color);
-            }
-
-            .data-table td:last-child {
-                border-bottom: none;
-            }
-
-            .data-table td:before {
-                content: attr(data-label);
-                position: absolute;
-                left: 10px;
-                width: 40%;
-                text-align: left;
-                font-weight: 600;
-                color: var(--text-secondary);
-                top: 12px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-        }
-
-        /* Badges */
+        /* Badges - GitHub Style */
         .badge {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            padding: 4px 12px;
+            gap: 4px;
+            padding: 4px 10px;
             border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
+            font-size: 12px;
+            font-weight: 500;
         }
 
         .badge-success {
-            background: rgba(0, 255, 136, 0.2);
-            color: var(--neon-green);
-            border: 1px solid var(--neon-green);
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(63, 185, 80, 0.3);
+        }
+
+        .badge-warning {
+            background: rgba(210, 153, 34, 0.15);
+            color: var(--accent-orange);
+            border: 1px solid rgba(210, 153, 34, 0.3);
+        }
+
+        .badge-danger {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--accent-red);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+        }
+
+        .badge-info {
+            background: rgba(88, 166, 255, 0.15);
+            color: var(--accent-blue);
+            border: 1px solid rgba(88, 166, 255, 0.3);
         }
 
         .badge-muted {
-            background: rgba(156, 163, 175, 0.2);
+            background: var(--bg-tertiary);
             color: var(--text-muted);
             border: 1px solid var(--border-color);
         }
 
-        .badge-warning {
-            background: rgba(255, 107, 53, 0.2);
-            color: var(--neon-orange);
-            border: 1px solid var(--neon-orange);
-        }
-
-        .badge-danger {
-            background: rgba(255, 71, 87, 0.2);
-            color: var(--neon-red);
-            border: 1px solid var(--neon-red);
-        }
-
-        .badge-info {
-            background: rgba(0, 245, 255, 0.2);
-            color: var(--neon-cyan);
-            border: 1px solid var(--neon-cyan);
-        }
-
-        /* Alerts */
-        
-
-        
-
-        
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            body {
-                padding-bottom: 70px; /* Space for bottom nav */
-            }
-
-            .sidebar {
-                display: none; /* Hide sidebar on mobile */
-            }
-
-            .main-content {
-                margin-left: 0;
-                padding: 15px;
-            }
-
-            .header {
-                padding: 15px;
-            }
-
-            .header-title h1 {
-                font-size: 1.3rem;
-            }
-
-            .header-actions {
-                gap: 10px;
-            }
-            
-            /* Hide menu toggle since we use bottom nav */
-            .menu-toggle {
-                display: none !important;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-                gap: 15px;
-            }
-
-            .card {
-                padding: 15px;
-                margin-bottom: 15px;
-            }
-
-            .card-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
-
-            .data-table {
-                display: block;
-                overflow-x: auto;
-                white-space: nowrap;
-            }
-
-            .form-group {
-                margin-bottom: 15px;
-            }
-
-            .btn {
-                padding: 8px 16px;
-                font-size: 0.9rem;
-            }
-
-            .btn-sm {
-                padding: 4px 8px;
-                font-size: 0.75rem;
-            }
-            
-            /* Bottom Navigation */
-            .bottom-nav {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                width: 100%;
-                background: var(--bg-sidebar);
-                display: flex;
-                justify-content: space-around;
-                align-items: center;
-                padding: 10px 0;
-                box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-                z-index: 1000;
-                border-top: 1px solid var(--border-color);
-            }
-
-            .nav-item {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                text-decoration: none;
-                color: var(--text-secondary);
-                font-size: 0.75rem;
-                gap: 4px;
-                transition: all 0.3s;
-            }
-
-            .nav-item i {
-                font-size: 1.2rem;
-                margin-bottom: 2px;
-            }
-
-            .nav-item.active {
-                color: var(--neon-cyan);
-            }
-            
-            .nav-item.active i {
-                transform: translateY(-2px);
-            }
-        }
-
-        /* Improved Mobile Overlay */
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            z-index: 999;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        .sidebar-overlay.active { 
-            display: block; 
-            opacity: 1;
-        }
-
-        .theme-toggle-btn {
-            background: none;
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
+        /* Alerts - GitHub Style */
+        .alert {
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-right: 15px;
-        }
-        .theme-toggle-btn:hover {
-            border-color: var(--neon-cyan);
-            color: var(--neon-cyan);
-        }
-        @media (max-width: 768px) {
-            .bottom-nav {
-                display: flex !important;
-            }
+            gap: 10px;
+            font-size: 14px;
         }
 
-        /* ===== Modal Popup ===== */
+        .alert-success {
+            background: rgba(63, 185, 80, 0.1);
+            border: 1px solid rgba(63, 185, 80, 0.3);
+            color: var(--accent-green);
+        }
+
+        .alert-error, .alert-danger {
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+            color: var(--accent-red);
+        }
+
+        .alert-info {
+            background: rgba(88, 166, 255, 0.1);
+            border: 1px solid rgba(88, 166, 255, 0.3);
+            color: var(--accent-blue);
+        }
+
+        /* Modal - GitHub Style */
         .modal {
             display: none;
             position: fixed;
@@ -872,173 +537,188 @@ if (isset($_GET['switch_router'])) {
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
             z-index: 2000;
             justify-content: center;
             align-items: center;
             padding: 20px;
-            animation: modalFadeIn 0.3s ease;
-        }
-
-        @keyframes modalFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @keyframes modalSlideIn {
-            from { opacity: 0; transform: translateY(-30px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         .modal-content {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            border-radius: var(--border-radius-lg);
-            padding: 30px;
+            border-radius: var(--radius-lg);
             width: 100%;
-            max-width: 520px;
+            max-width: 500px;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 245, 255, 0.1);
-            animation: modalSlideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
         }
 
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
-            padding-bottom: 16px;
+            padding: 16px 20px;
             border-bottom: 1px solid var(--border-color);
         }
 
         .modal-header h3 {
-            font-size: 1.2rem;
-            font-weight: 700;
-            background: var(--gradient-primary);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 16px;
+            font-weight: 600;
         }
 
         .modal-header .close {
-            font-size: 1.8rem;
+            font-size: 24px;
             cursor: pointer;
             color: var(--text-muted);
-            transition: all 0.3s ease;
-            line-height: 1;
-            border: none;
-            background: none;
-            width: 36px;
-            height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
+            transition: color var(--transition-fast);
         }
 
         .modal-header .close:hover {
-            color: var(--neon-red);
-            background: rgba(255, 71, 87, 0.15);
-            transform: rotate(90deg);
+            color: var(--text-primary);
         }
 
-        /* Modal scrollbar */
-        .modal-content::-webkit-scrollbar {
-            width: 6px;
-        }
-        .modal-content::-webkit-scrollbar-thumb {
-            background: rgba(0, 245, 255, 0.3);
-            border-radius: 3px;
+        .modal-body {
+            padding: 20px;
         }
 
-        /* Global Form Loading Overlay */
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        /* Loading Overlay */
         .global-loading-overlay {
             position: fixed;
             inset: 0;
             display: none;
             align-items: center;
             justify-content: center;
-            background: rgba(10, 10, 15, 0.82);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
+            background: rgba(13, 17, 23, 0.9);
             z-index: 99999;
-            opacity: 0.8;
-            transition: opacity 0.2s ease;
         }
 
         .global-loading-overlay.active {
             display: flex;
-            opacity: 1;
         }
 
         .global-loading-box {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 18px 22px;
+            border-radius: var(--radius-md);
+            padding: 16px 24px;
             display: flex;
             align-items: center;
             gap: 12px;
-            box-shadow: var(--shadow-card);
         }
 
         .global-loading-spinner {
-            width: 22px;
-            height: 22px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-top-color: var(--neon-cyan);
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-blue);
             animation: spin 0.8s linear infinite;
         }
 
-        .global-loading-text {
-            color: var(--text-primary);
-            font-weight: 600;
-            letter-spacing: 0.2px;
-            white-space: nowrap;
-        }
-
-        body.form-loading {
-            cursor: progress;
-        }
-
         @keyframes spin {
-            to {
-                transform: rotate(360deg);
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-title h1 {
+                font-size: 18px;
+            }
+            
+            .menu-toggle {
+                display: block !important;
+            }
+            
+            .bottom-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                background: var(--bg-secondary);
+                border-top: 1px solid var(--border-color);
+                display: flex;
+                justify-content: space-around;
+                padding: 8px 0;
+                z-index: 1000;
+            }
+            
+            .nav-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                font-size: 11px;
+                color: var(--text-secondary);
+            }
+            
+            .nav-item.active {
+                color: var(--accent-blue);
+            }
+            
+            .nav-item i {
+                font-size: 18px;
+            }
+            
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 999;
+            }
+            
+            .sidebar-overlay.active {
+                display: block;
             }
         }
 
-        /* Modal responsive */
-        @media (max-width: 768px) {
-            .modal {
-                padding: 15px;
-                align-items: flex-end;
+        @media (min-width: 769px) {
+            .bottom-nav,
+            .menu-toggle {
+                display: none !important;
             }
+        }
 
-            .modal-content {
-                max-width: 100%;
-                max-height: 85vh;
-                border-radius: 18px 18px 0 0;
-                padding: 24px 20px;
-                animation: modalSlideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-            }
+        /* Utility Classes */
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
 
-            @keyframes modalSlideUp {
-                from { opacity: 0; transform: translateY(100%); }
-                to { opacity: 1; transform: translateY(0); }
-            }
+        .page-content {
+            padding: 24px;
         }
     </style>
     <script>
-        // Apply theme immediately to prevent flash
-        const initialTheme = localStorage.getItem('theme');
-        if (initialTheme === 'light') {
-            document.documentElement.classList.add('light-theme');
-        } else {
-            document.documentElement.classList.remove('light-theme');
+        // Apply theme
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
         }
     </script>
 </head>
@@ -1046,235 +726,119 @@ if (isset($_GET['switch_router'])) {
 <body>
     <?php if (isAdminLoggedIn()): ?>
         <!-- Mobile Bottom Navigation -->
-        <div class="bottom-nav d-md-none" style="display: none;">
+        <div class="bottom-nav">
             <a href="<?php echo APP_URL; ?>/admin/dashboard.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : ''; ?>">
                 <i class="fas fa-home"></i>
                 <span>Home</span>
             </a>
-            
             <a href="<?php echo APP_URL; ?>/admin/customers.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) === 'customers.php' ? 'active' : ''; ?>">
                 <i class="fas fa-users"></i>
                 <span>Pelanggan</span>
             </a>
-            
             <a href="<?php echo APP_URL; ?>/admin/pay.php" class="nav-item <?php echo (basename($_SERVER['PHP_SELF']) === 'pay.php' || basename($_SERVER['PHP_SELF']) === 'pay_process.php') ? 'active' : ''; ?>">
-                <i class="fas fa-money-bill-wave"></i>
+                <i class="fas fa-credit-card"></i>
                 <span>Bayar</span>
             </a>
-            
             <a href="<?php echo APP_URL; ?>/admin/menu.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) === 'menu.php' ? 'active' : ''; ?>">
                 <i class="fas fa-bars"></i>
                 <span>Menu</span>
             </a>
         </div>
 
-        <!-- Sidebar Overlay for mobile -->
+        <!-- Sidebar Overlay -->
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
-        <!-- Admin Sidebar -->
+        <!-- Sidebar -->
         <div class="sidebar" id="mainSidebar">
-            <div class="sidebar-header align-items-center py-3">
+            <div class="sidebar-header">
                 <a href="<?php echo APP_URL; ?>">
-                <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" class="sidebar-brand-logo" alt="Icon">
+                    <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" class="sidebar-brand-logo" alt="Icon">
+                    <span class="sidebar-brand-text"><?php echo htmlspecialchars($appName); ?></span>
                 </a>
             </div>
 
             <div class="sidebar-nav">
-                <a href="<?php echo APP_URL; ?>/admin/dashboard.php"
-                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>Dashboard</span>
-                </a>
-
-                <a href="<?php echo APP_URL; ?>/admin/customers.php"
-                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'customers.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-users"></i>
-                    <span>Pelanggan</span>
-                </a>
-
-                <a href="<?php echo APP_URL; ?>/admin/packages.php"
-                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'packages.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-box"></i>
-                    <span>Paket Layanan</span>
-                </a>
-
-                <a href="<?php echo APP_URL; ?>/admin/invoices.php"
-                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'invoices.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-file-invoice"></i>
-                    <span>Invoice</span>
-                </a>
-
-                <!-- <div class="menu-item <?php echo (strpos(basename($_SERVER['PHP_SELF']), 'sales') !== false) ? 'active' : ''; ?>"
-                    onclick="toggleSubmenu(this)">
-                    <i class="fas fa-user-tie"></i>
-                    <span>Sales / Agen</span>
-                    <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.7rem;"></i>
-                </div> -->
-                <!-- <div class="submenu"
-                    style="<?php echo (strpos(basename($_SERVER['PHP_SELF']), 'sales') !== false) ? 'display: block;' : 'display: none;'; ?> background: var(--bg-submenu);">
-                    <a href="<?php echo APP_URL; ?>/admin/sales-users.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'sales-users.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-users"></i> <span>Data Sales</span>
+                <div class="nav-section">
+                    <div class="nav-section-title">Overview</div>
+                    <a href="<?php echo APP_URL; ?>/admin/dashboard.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Dashboard</span>
                     </a>
-                    <a href="<?php echo APP_URL; ?>/admin/sales-report.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'sales-report.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-chart-line"></i> <span>Laporan Penjualan</span>
+                    <a href="<?php echo APP_URL; ?>/admin/customers.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'customers.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-users"></i>
+                        <span>Pelanggan</span>
                     </a>
-                    <a href="<?php echo APP_URL; ?>/admin/sales-history.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'sales-history.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-history"></i> <span>Riwayat Transaksi</span>
+                    <a href="<?php echo APP_URL; ?>/admin/packages.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'packages.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-box"></i>
+                        <span>Paket Layanan</span>
                     </a>
-                </div> -->
-
-                <div class="menu-item <?php echo (basename($_SERVER['PHP_SELF']) === 'mikrotik.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-active.php') ? 'active' : ''; ?>"
-                    onclick="toggleSubmenu(this)">
-                    <i class="fas fa-network-wired"></i>
-                    <span>PPPOE</span>
-                    <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.7rem;"></i>
-                </div>
-                <div class="submenu"
-                    style="<?php echo (basename($_SERVER['PHP_SELF']) === 'mikrotik.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php' || basename($_SERVER['PHP_SELF']) === 'pppoe-active.php') ? 'display: block;' : 'display: none;'; ?> background: var(--bg-submenu);">
-                    <a href="<?php echo APP_URL; ?>/admin/mikrotik.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'mikrotik.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-server"></i> <span>PPPoE User</span>
-                    </a>
-                    <a href="<?php echo APP_URL; ?>/admin/pppoe-active.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-active.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-server"></i> <span>PPPoE Active</span>
-                    </a>
-                    <a href="<?php echo APP_URL; ?>/admin/pppoe-profile.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-id-card"></i> <span>PPPoE Profiles</span>
+                    <a href="<?php echo APP_URL; ?>/admin/invoices.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'invoices.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-file-invoice"></i>
+                        <span>Invoice</span>
                     </a>
                 </div>
 
-                <!-- <div class="menu-item <?php echo strpos(basename($_SERVER['PHP_SELF']), 'hotspot') !== false ? 'active' : ''; ?>"
-                    onclick="toggleSubmenu(this)">
-                    <i class="fas fa-wifi"></i>
-                    <span>Hotspot</span>
-                    <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.7rem;"></i>
+                <div class="nav-section">
+                    <div class="nav-section-title">Network</div>
+                    <div class="menu-item" onclick="toggleSubmenu(this)">
+                        <i class="fas fa-network-wired"></i>
+                        <span>PPPoE</span>
+                        <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 10px;"></i>
+                    </div>
+                    <div class="submenu" style="display: none; padding-left: 32px;">
+                        <a href="<?php echo APP_URL; ?>/admin/mikrotik.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'mikrotik.php' ? 'active' : ''; ?>">
+                            <i class="fas fa-user"></i>
+                            <span>PPPoE User</span>
+                        </a>
+                        <a href="<?php echo APP_URL; ?>/admin/pppoe-active.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-active.php' ? 'active' : ''; ?>">
+                            <i class="fas fa-plug"></i>
+                            <span>Active Sessions</span>
+                        </a>
+                        <a href="<?php echo APP_URL; ?>/admin/pppoe-profile.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php' ? 'active' : ''; ?>">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>Profiles</span>
+                        </a>
+                    </div>
                 </div>
-                <div class="submenu"
-                    style="<?php echo strpos(basename($_SERVER['PHP_SELF']), 'hotspot') !== false ? 'display: block;' : 'display: none;'; ?> background: var(--bg-submenu);">
-                    <a href="<?php echo APP_URL; ?>/admin/hotspot-user.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'hotspot-user.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-users"></i> <span>Hotspot Users</span>
-                    </a>
-                    <a href="<?php echo APP_URL; ?>/admin/hotspot-profile.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'hotspot-profile.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-id-card"></i> <span>Hotspot Profiles</span>
-                    </a>
-                    <a href="<?php echo APP_URL; ?>/admin/hotspot-active.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'hotspot-active.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-signal"></i> <span>Hotspot Active</span>
-                    </a>
-                    <a href="<?php echo APP_URL; ?>/admin/hotspot-cookies.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'hotspot-cookies.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-cookie-bite"></i> <span>Hotspot Cookies</span>
-                    </a>
-                    <a href="<?php echo APP_URL; ?>/admin/hotspot-scheduler.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'hotspot-scheduler.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-clock"></i> <span>Schedulers</span>
-                    </a>
-                    <a href="<?php echo APP_URL; ?>/admin/hotspot-login-export.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'hotspot-login-export.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-right-to-bracket"></i> <span>Login Template</span>
-                    </a>
-                    <a href="<?php echo APP_URL; ?>/admin/export-rsc.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'export-rsc.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-file-export"></i> <span>Export RSC</span>
-                    </a>
-                </div> -->
 
-                <!-- <div class="menu-item <?php echo strpos(basename($_SERVER['PHP_SELF']), 'voucher') !== false ? 'active' : ''; ?>"
-                    onclick="toggleSubmenu(this)">
-                    <i class="fas fa-ticket-alt"></i>
-                    <span>Voucher</span>
-                    <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.7rem;"></i>
+                <div class="nav-section">
+                    <div class="nav-section-title">Management</div>
+                    <a href="<?php echo APP_URL; ?>/admin/genieacs.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'genieacs.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-satellite-dish"></i>
+                        <span>GenieACS</span>
+                    </a>
+                    <a href="<?php echo APP_URL; ?>/admin/trouble.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'trouble.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Gangguan</span>
+                    </a>
+                    <a href="<?php echo APP_URL; ?>/admin/technicians.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'technicians.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-tools"></i>
+                        <span>Teknisi</span>
+                    </a>
                 </div>
-                <div class="submenu"
-                    style="<?php echo strpos(basename($_SERVER['PHP_SELF']), 'voucher') !== false ? 'display: block;' : 'display: none;'; ?> background: var(--bg-submenu);">
-                    <a href="<?php echo APP_URL; ?>/admin/voucher.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'voucher.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-plus"></i>
-                        <span>Buat Voucher</span>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">System</div>
+                    <a href="<?php echo APP_URL; ?>/admin/settings.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'settings.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
                     </a>
-
-                    <a href="<?php echo APP_URL; ?>/admin/voucher-orders.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'voucher-orders.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-receipt"></i>
-                        <span>Data Voucher</span>
+                    <a href="<?php echo APP_URL; ?>/admin/update.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'update.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Update</span>
                     </a>
-
-                    <a href="<?php echo APP_URL; ?>/admin/voucher-editor.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'voucher-editor.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-magic"></i>
-                        <span>Template Voucher</span>
+                    <a href="<?php echo APP_URL; ?>/admin/routers.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'routers.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-server"></i>
+                        <span>Manajemen Router</span>
                     </a>
-                
-                </div> -->
+                </div>
 
-                <a href="<?php echo APP_URL; ?>/admin/genieacs.php"
-                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'genieacs.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-satellite-dish"></i>
-                    <span>GenieACS</span>
-                </a>
-
-                
-                
-
-                <a href="<?php echo APP_URL; ?>/admin/trouble.php"
-                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'trouble.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>Gangguan</span>
-                </a>
-
-                <a href="<?php echo APP_URL; ?>/admin/technicians.php"
-                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'technicians.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-tools"></i>
-                    <span>Teknisi</span>
-                </a>
-
-                <a href="<?php echo APP_URL; ?>/admin/settings.php"
-                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'settings.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </a>
-
-                <a href="<?php echo APP_URL; ?>/admin/update.php"
-                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'update.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-sync-alt"></i>
-                    <span>Update</span>
-                </a>
-
-                <a href="<?php echo APP_URL; ?>/admin/routers.php"
-                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'routers.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-server"></i>
-                    <span>Manajemen Router</span>
-                </a>
-
-                <div style="margin-top: 20px; border-top: 1px solid var(--border-color);"></div>
-
-                <a href="<?php echo APP_URL; ?>/admin/logout.php" class="menu-item">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Logout</span>
-                </a>
+                <div style="margin-top: auto; border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 8px;">
+                    <a href="<?php echo APP_URL; ?>/admin/logout.php" class="menu-item">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Logout</span>
+                    </a>
+                </div>
             </div>
         </div>
     <?php endif; ?>
@@ -1284,73 +848,72 @@ if (isset($_GET['switch_router'])) {
         <?php if (isAdminLoggedIn()): ?>
             <div class="header">
                 <div class="header-title">
+                    <button class="menu-toggle" onclick="toggleSidebar()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-right: 12px;">
+                        <i class="fas fa-bars"></i>
+                    </button>
                     <h1><?php echo htmlspecialchars($pageTitle); ?></h1>
                 </div>
                 <div class="header-actions">
-                    <!-- Theme Toggle -->
-                    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
-                        <i class="fas fa-moon" id="themeIcon"></i>
-                    </button>
-
-                    <!-- Router Switcher -->
-                    <?php if (count($allRouters) > 1): ?>
-                    <div class="router-switcher" style="margin-right: 15px;">
-                        <select onchange="window.location.href='?switch_router=' + this.value" 
-                                style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--neon-cyan); padding: 5px 10px; border-radius: 6px; cursor: pointer;">
-                            <?php foreach ($allRouters as $r): ?>
-                                <option value="<?php echo $r['id']; ?>" <?php echo $currentRouter['id'] == $r['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($r['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div class="router-switcher">
+                        <?php if (count($allRouters) > 1): ?>
+                            <select onchange="window.location.href='?switch_router=' + this.value" 
+                                style="background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 10px; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer;">
+                                <?php foreach ($allRouters as $r): ?>
+                                    <option value="<?php echo $r['id']; ?>" <?php echo $currentRouter['id'] == $r['id'] ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($r['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php endif; ?>
                     </div>
-                    <?php endif; ?>
-
-                    <button class="menu-toggle" onclick="toggleSidebar()"
-                        style="display: none; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem;">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <span class="badge badge-muted" style="margin-left: 10px; color: var(--text-primary); border-color: var(--text-primary); height: 35px;">
+                    
+                    <span class="badge badge-muted">
                         <i class="fas fa-user-circle"></i>
                         <?php echo htmlspecialchars(getCurrentAdmin()['username']); ?>
                     </span>
-                    <span class="badge badge-info" style="margin-left: 10px;">
-                        <i class="fas fa-server"></i> <?php echo htmlspecialchars($currentRouter['name'] ?? 'Default'); ?>
-                    </span>
+                    
+                    <?php if (count($allRouters) > 0): ?>
+                        <span class="badge badge-info">
+                            <i class="fas fa-server"></i> <?php echo htmlspecialchars($currentRouter['name'] ?? 'Default'); ?>
+                        </span>
+                    <?php endif; ?>
                 </div>
             </div>
         <?php endif; ?>
 
-        <!-- Flash Messages -->
-        <?php if (hasFlash('success')): ?>
-            <div class="alert alert-success" style="margin-bottom: 1rem;">
-                <i class="fas fa-check-circle"></i>
-                <?php echo htmlspecialchars(getFlash('success')); ?>
-            </div>
-        <?php endif; ?>
+        <div class="page-content">
+            <!-- Flash Messages -->
+            <?php if (hasFlash('success')): ?>
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    <?php echo htmlspecialchars(getFlash('success')); ?>
+                </div>
+            <?php endif; ?>
 
-        <?php if (hasFlash('error')): ?>
-            <div class="alert alert-error" style="margin-bottom: 1rem;">
-                <i class="fas fa-exclamation-circle"></i>
-                <?php echo htmlspecialchars(getFlash('error')); ?>
-            </div>
-        <?php endif; ?>
+            <?php if (hasFlash('error')): ?>
+                <div class="alert alert-error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <?php echo htmlspecialchars(getFlash('error')); ?>
+                </div>
+            <?php endif; ?>
 
-        <?php if (hasFlash('info')): ?>
-            <div class="alert alert-info" style="margin-bottom: 1rem;">
-                <i class="fas fa-info-circle"></i>
-                <?php echo htmlspecialchars(getFlash('info')); ?>
-            </div>
-        <?php endif; ?>
+            <?php if (hasFlash('info')): ?>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <?php echo htmlspecialchars(getFlash('info')); ?>
+                </div>
+            <?php endif; ?>
 
-        <!-- Page Content -->
-        <?php echo isset($content) ? $content : ''; ?>
+            <!-- Page Content -->
+            <?php echo isset($content) ? $content : ''; ?>
+        </div>
     </div>
-    <!-- Global Form Loading -->
-    <div id="globalFormLoading" class="global-loading-overlay" aria-live="polite" aria-hidden="true">
-        <div class="global-loading-box" role="status" aria-label="Memproses form">
+
+    <!-- Global Loading -->
+    <div id="globalFormLoading" class="global-loading-overlay">
+        <div class="global-loading-box">
             <div class="global-loading-spinner"></div>
-            <span class="global-loading-text">Memproses, mohon tunggu...</span>
+            <span>Memproses...</span>
         </div>
     </div>
 
@@ -1364,23 +927,6 @@ if (isset($_GET['switch_router'])) {
             overlay.classList.toggle('active');
         }
 
-        function toggleTheme() {
-            document.documentElement.classList.toggle('light-theme');
-            document.body.classList.toggle('light-theme', document.documentElement.classList.contains('light-theme'));
-            const isLight = document.documentElement.classList.contains('light-theme');
-            localStorage.setItem('theme', isLight ? 'light' : 'dark');
-            updateThemeIcon();
-        }
-
-        function updateThemeIcon() {
-            const icon = document.getElementById('themeIcon');
-            if (!icon) {
-                return;
-            }
-            const isLight = document.documentElement.classList.contains('light-theme');
-            icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon';
-        }
-
         function toggleSubmenu(el) {
             const submenu = el.nextElementSibling;
             const icon = el.querySelector('.fa-chevron-down');
@@ -1392,79 +938,26 @@ if (isset($_GET['switch_router'])) {
                 icon.style.transform = 'rotate(0deg)';
             }
         }
-        function setupGlobalFormLoading() {
-            const overlay = document.getElementById('globalFormLoading');
-            if (!overlay) {
-                return;
-            }
 
-            let isShown = false;
-
-            function showLoading() {
-                if (isShown) {
-                    return;
-                }
-                isShown = true;
+        // Global form loading
+        const overlay = document.getElementById('globalFormLoading');
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+            if (form instanceof HTMLFormElement && form.dataset.noLoading !== 'true') {
                 overlay.classList.add('active');
-                overlay.setAttribute('aria-hidden', 'false');
-                document.body.classList.add('form-loading');
             }
-
-            function hideLoading() {
-                isShown = false;
-                overlay.classList.remove('active');
-                overlay.setAttribute('aria-hidden', 'true');
-                document.body.classList.remove('form-loading');
-            }
-
-            window.addEventListener('pageshow', hideLoading);
-
-            document.addEventListener('submit', function (event) {
-                const form = event.target;
-                if (!(form instanceof HTMLFormElement)) {
-                    return;
-                }
-
-                if (form.dataset.noLoading === 'true') {
-                    return;
-                }
-
-                const submitter = event.submitter || document.activeElement;
-                if (submitter && submitter.dataset && submitter.dataset.noLoading === 'true') {
-                    return;
-                }
-
-                showLoading();
-
-                const submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
-                submitButtons.forEach(function (btn) {
-                    btn.disabled = true;
-                });
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            // Keep body class in sync with html class for legacy selectors.
-            document.body.classList.toggle('light-theme', document.documentElement.classList.contains('light-theme'));
-            updateThemeIcon();
-            
-            // Show mobile menu toggle button
-            const menuToggle = document.querySelector('.menu-toggle');
-            if (window.innerWidth <= 768) {
-                menuToggle.style.display = 'block';
-            }
-
-            window.addEventListener('resize', function () {
-                if (window.innerWidth <= 768) {
-                    menuToggle.style.display = 'block';
-                } else {
-                    menuToggle.style.display = 'none';
-                    document.querySelector('.sidebar').classList.remove('active');
-                }
-            });
         });
 
-        setupGlobalFormLoading();
+        // Initialize submenus
+        document.querySelectorAll('.submenu').forEach(sub => {
+            sub.style.display = 'none';
+        });
+
+        // Close sidebar on overlay click
+        document.getElementById('sidebarOverlay')?.addEventListener('click', function() {
+            document.getElementById('mainSidebar')?.classList.remove('active');
+            this.classList.remove('active');
+        });
     </script>
 </body>
 
