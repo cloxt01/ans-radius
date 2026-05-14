@@ -1,6 +1,6 @@
 <?php
 /**
- * GenieACS Device Management
+ * GenieACS Device Management - Elegant Dark Minimalis Theme
  */
 
 require_once '../includes/auth.php';
@@ -27,7 +27,6 @@ $offlineCount = 0;
 $weakSignalCount = 0;
 
 foreach ($devices as $device) {
-    // Determine online/offline status
     $lastInform = $device['_lastInform'] ?? null;
     if ($lastInform && (time() - strtotime($lastInform)) < 300) {
         $onlineCount++;
@@ -35,14 +34,12 @@ foreach ($devices as $device) {
         $offlineCount++;
     }
 
-    // Check RX Power
     $rxPower = $device['VirtualParameters']['RXPower']['_value'] ?? $device['VirtualParameters']['RXPower'] ?? null;
     if (is_numeric($rxPower) && $rxPower < -25 && $rxPower != 0) {
         $weakSignalCount++;
     }
 }
 
-// Helper to safely get value whether it's direct or wrapped in _value
 function getVal($data, $path) {
     $parts = explode('.', $path);
     $current = $data;
@@ -66,89 +63,93 @@ ob_start();
 ?>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-<style>
-    .map-container { height: 400px; width: 100%; border-radius: 8px; margin-bottom: 15px; }
-</style>
 
-<!-- Stats -->
-<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 30px;">
+<!-- Stats Grid -->
+<div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-icon cyan">
-            <i class="fas fa-satellite-dish"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $totalDevices; ?></h3>
             <p>Total Device</p>
         </div>
+        <div class="stat-icon blue">
+            <i class="fas fa-satellite-dish"></i>
+        </div>
     </div>
 
     <div class="stat-card">
-        <div class="stat-icon green">
-            <i class="fas fa-check-circle"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $onlineCount; ?></h3>
             <p>Online</p>
         </div>
+        <div class="stat-icon green">
+            <i class="fas fa-check-circle"></i>
+        </div>
     </div>
 
     <div class="stat-card">
-        <div class="stat-icon orange">
-            <i class="fas fa-times-circle"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $offlineCount; ?></h3>
             <p>Offline</p>
         </div>
+        <div class="stat-icon orange">
+            <i class="fas fa-circle"></i>
+        </div>
     </div>
 
     <div class="stat-card">
-        <div class="stat-icon purple">
-            <i class="fas fa-exclamation-triangle"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $weakSignalCount; ?></h3>
             <p>Signal Lemah</p>
         </div>
+        <div class="stat-icon red">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
     </div>
 </div>
 
-<!-- Connection Status -->
-<div class="card" style="width: 100%; margin-bottom: 20px;">
-    <div class="card-header" style="width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; box-sizing: border-box;">
-        <h3 class="card-title" style="margin: 0;"><i class="fas fa-plug"></i> Status Koneksi</h3>
-        <?php if (!empty(GENIEACS_URL)): ?>
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary);">
-                <span style="width: 15px; height: 15px; border-radius: 50%; background: #22c55e; display: inline-block;"></span>
-                <span style="font-size: 0.8rem;">Connected</span>
-                <a href="<?php echo htmlspecialchars(GENIEACS_URL); ?>" target="_blank" rel="noopener noreferrer" style="font-size: 0.8rem; color: var(--text-secondary); text-decoration: underline;">
-                    <?php echo htmlspecialchars(GENIEACS_URL); ?>
+<!-- Connection Status Card -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-plug"></i> Status Koneksi
+        </h3>
+        <div class="connection-status">
+            <?php if (!empty(GENIEACS_URL)): ?>
+                <span class="badge badge-success">
+                    <i class="fas fa-circle"></i> Connected
+                </span>
+                <a href="<?php echo htmlspecialchars(GENIEACS_URL); ?>" target="_blank" class="connection-link">
+                    <i class="fas fa-external-link-alt"></i> <?php echo htmlspecialchars(parse_url(GENIEACS_URL, PHP_URL_HOST)); ?>
                 </a>
-            </div>
-        <?php else: ?>
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary);">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
-                <span style="font-size: 0.8rem;">Not Connected</span>
-                <span style="font-size: 0.8rem;">GenieACS belum terkonfigurasi</span>
-            </div>
-        <?php endif; ?>
+            <?php else: ?>
+                <span class="badge badge-danger">
+                    <i class="fas fa-circle"></i> Not Connected
+                </span>
+                <span class="text-muted">GenieACS belum terkonfigurasi</span>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 
 <!-- Devices Table -->
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-server"></i> Monitoring ONU (Virtual Parameters)</h3>
-        <div style="display: flex; gap: 10px;">
-            <input type="text" id="searchDevice" class="form-control" placeholder="Cari ID, IP, SN..." style="width: 250px;">
-            <button class="btn btn-primary btn-sm" onclick="loadDevices()">
-                <i class="fas fa-sync-alt"></i> Refresh
+        <h3 class="card-title">
+            <i class="fas fa-server"></i> Monitoring ONU
+        </h3>
+        <div class="table-controls">
+            <div class="search-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchDevice" class="form-control" placeholder="Cari ID, IP, SN...">
+            </div>
+            <button class="btn-icon" onclick="loadDevices()" title="Refresh Data">
+                <i class="fas fa-sync-alt"></i>
             </button>
         </div>
     </div>
-
-    <div style="overflow-x: auto;">
-        <table class="data-table" style="font-size: 0.85rem; white-space: nowrap;">
+    
+    <div class="table-responsive">
+        <table class="data-table" id="devicesTable">
             <thead>
                 <tr>
                     <th>Status</th>
@@ -162,9 +163,7 @@ ob_start();
                     <th>Uptime</th>
                     <th>IP PPPoE</th>
                     <th>IP WAN</th>
-                    <th>PON Mode</th>
                     <th>SN</th>
-                    <th>MAC</th>
                     <th>Last Inform</th>
                     <th>Aksi</th>
                 </tr>
@@ -172,24 +171,22 @@ ob_start();
             <tbody>
                 <?php if (empty($devices)): ?>
                     <tr>
-                        <td colspan="15" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                            <i class="fas fa-server" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                            Tidak ada device ditemukan atau GenieACS tidak terkoneksi
+                        <td colspan="14" class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>Tidak ada device ditemukan</p>
+                            <small>atau GenieACS tidak terkoneksi</small>
                         </td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($devices as $device):
-                        // Extract standard values
-                        $realDeviceId = $device['_id'] ?? ''; // Use ID for reliable API calls
+                        $realDeviceId = $device['_id'] ?? '';
                         $serialNumber = $device['_deviceId']['_SerialNumber'] ?? getVal($device, 'DeviceID.SerialNumber') ?? '-';
-                        if (empty($realDeviceId)) $realDeviceId = $serialNumber; // Fallback
+                        if (empty($realDeviceId)) $realDeviceId = $serialNumber;
                         $lastInform = $device['_lastInform'] ?? null;
                         $isOnline = $lastInform && (time() - strtotime($lastInform)) < 300;
 
-                        // Extract Virtual Parameters
                         $pppoeUser2 = getVal($device, 'VirtualParameters.pppoeUsername2') ?? '-';
                         $ssid = getVal($device, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID') ?? '-';
-                        $wifiPass = getVal($device, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase') ?? '';
                         $totalAssoc = getVal($device, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations') ?? '0';
                         $hotspotActive = getVal($device, 'VirtualParameters.activedevices') ?? '-';
                         $rxPower = getVal($device, 'VirtualParameters.RXPower') ?? '-';
@@ -197,91 +194,94 @@ ob_start();
                         $uptime = getVal($device, 'VirtualParameters.getdeviceuptime') ?? '-';
                         $pppoeIp = getVal($device, 'VirtualParameters.pppoeIP') ?? '-';
                         $wanIp = getVal($device, 'VirtualParameters.IPTR069') ?? '-';
-                        $ponMode = getVal($device, 'VirtualParameters.getponmode') ?? '-';
-                        $ponMac = getVal($device, 'VirtualParameters.PonMac') ?? getVal($device, 'VirtualParameters.pppoeMac') ?? '-';
                         $sn = getVal($device, 'VirtualParameters.getSerialNumber') ?? $serialNumber;
 
-                        // Format uptime if it's in seconds
                         if (is_numeric($uptime)) {
                             $days = floor($uptime / 86400);
                             $hours = floor(($uptime % 86400) / 3600);
                             $uptime = "{$days}d {$hours}h";
                         }
+                        
+                        $rxVal = floatval($rxPower);
+                        $rxColor = ($rxVal < -25) ? 'signal-weak' : (($rxVal < -20) ? 'signal-medium' : 'signal-good');
+                        $hasLoc = isset($locMap[$serialNumber]);
+                        $locName = $hasLoc ? $locMap[$serialNumber]['name'] : $pppoeUser2;
                     ?>
                     <tr>
-                        <td>
+                        <td data-label="Status">
                             <?php if ($isOnline): ?>
-                                <span class="badge badge-success">Online</span>
+                                <span class="badge badge-success">
+                                    <i class="fas fa-circle"></i> Online
+                                </span>
                             <?php else: ?>
-                                <span class="badge badge-danger">Offline</span>
+                                <span class="badge badge-danger">
+                                    <i class="fas fa-circle"></i> Offline
+                                </span>
                             <?php endif; ?>
                         </td>
-                        <td style="text-align: center;">
-                            <?php 
-                                $hasLoc = isset($locMap[$serialNumber]);
-                                $lat = $hasLoc ? $locMap[$serialNumber]['lat'] : '';
-                                $lng = $hasLoc ? $locMap[$serialNumber]['lng'] : '';
-                                $locName = $hasLoc ? $locMap[$serialNumber]['name'] : $pppoeUser2;
-                            ?>
-                            <button class="btn btn-sm <?php echo $hasLoc ? 'btn-success' : 'btn-secondary'; ?>" 
-                                    onclick="openMapModal('<?php echo $serialNumber; ?>', '<?php echo $lat; ?>', '<?php echo $lng; ?>', '<?php echo htmlspecialchars($locName); ?>')"
-                                    title="<?php echo $hasLoc ? 'Lokasi Tersimpan' : 'Set Lokasi'; ?>"
-                                    style="padding: 2px 6px;">
+                        <td data-label="Lokasi">
+                            <button class="btn-icon location-btn <?php echo $hasLoc ? 'has-location' : ''; ?>" 
+                                    onclick="openMapModal('<?php echo $serialNumber; ?>', '<?php echo $hasLoc ? $locMap[$serialNumber]['lat'] : ''; ?>', '<?php echo $hasLoc ? $locMap[$serialNumber]['lng'] : ''; ?>', '<?php echo htmlspecialchars($locName); ?>')"
+                                    title="<?php echo $hasLoc ? 'Lihat Lokasi' : 'Set Lokasi'; ?>">
                                 <i class="fas fa-map-marker-alt"></i>
                             </button>
                         </td>
-                        <td>
-                            <strong style="color: var(--neon-cyan);"><?php echo htmlspecialchars($pppoeUser2); ?></strong>
+                        <td data-label="ID (PPPoE)">
+                            <strong class="pppoe-user"><?php echo htmlspecialchars($pppoeUser2); ?></strong>
                         </td>
-                        <td>
-                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 5px;">
+                        <td data-label="SSID">
+                            <div class="ssid-info">
                                 <span><?php echo htmlspecialchars($ssid); ?></span>
-                                <button class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 0.7rem;" 
-                                        onclick="openWifiEdit('<?php echo htmlspecialchars($realDeviceId); ?>', '<?php echo htmlspecialchars($ssid); ?>', '<?php echo htmlspecialchars($wifiPass); ?>')" 
-                                        title="Edit SSID & Password">
+                                <button class="btn-icon" onclick="openWifiEdit('<?php echo htmlspecialchars($realDeviceId); ?>', '<?php echo htmlspecialchars($ssid); ?>')" title="Edit WiFi">
                                     <i class="fas fa-pencil-alt"></i>
                                 </button>
                             </div>
                         </td>
-                        <td style="text-align: center;"><?php echo htmlspecialchars($totalAssoc); ?></td>
-                        <td style="text-align: center;"><?php echo htmlspecialchars($hotspotActive); ?></td>
-                        <td>
-                            <?php 
-                            $rxVal = floatval($rxPower);
-                            $rxColor = ($rxVal < -25) ? 'red' : (($rxVal < -20) ? 'orange' : 'green');
-                            echo "<span style='color: $rxColor; font-weight: bold;'>" . htmlspecialchars($rxPower) . " dBm</span>"; 
-                            ?>
+                        <td data-label="Active" class="text-center"><?php echo htmlspecialchars($totalAssoc); ?></td>
+                        <td data-label="Hotspot" class="text-center"><?php echo htmlspecialchars($hotspotActive); ?></td>
+                        <td data-label="RX Power">
+                            <span class="signal-badge <?php echo $rxColor; ?>">
+                                <i class="fas fa-signal"></i> <?php echo htmlspecialchars($rxPower); ?> dBm
+                            </span>
                         </td>
-                        <td><?php echo htmlspecialchars($temp); ?> °C</td>
-                        <td><?php echo htmlspecialchars($uptime); ?></td>
-                        <td>
+                        <td data-label="Temp"><?php echo htmlspecialchars($temp); ?> °C</td>
+                        <td data-label="Uptime">
+                            <span class="uptime-badge">
+                                <i class="fas fa-clock"></i> <?php echo htmlspecialchars($uptime); ?>
+                            </span>
+                        </td>
+                        <td data-label="IP PPPoE">
                             <?php if ($pppoeIp !== '-'): ?>
-                                <a href="http://<?php echo htmlspecialchars($pppoeIp); ?>" target="_blank" style="color: var(--neon-blue);">
-                                    <?php echo htmlspecialchars($pppoeIp); ?>
+                                <a href="http://<?php echo htmlspecialchars($pppoeIp); ?>" target="_blank" class="ip-link pppoe">
+                                    <i class="fas fa-network-wired"></i> <?php echo htmlspecialchars($pppoeIp); ?>
                                 </a>
                             <?php else: ?>
-                                -
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </td>
-                        <td>
+                        <td data-label="IP WAN">
                             <?php if ($wanIp !== '-'): ?>
-                                <a href="http://<?php echo htmlspecialchars($wanIp); ?>" target="_blank" style="color: var(--neon-purple);">
-                                    <?php echo htmlspecialchars($wanIp); ?>
+                                <a href="http://<?php echo htmlspecialchars($wanIp); ?>" target="_blank" class="ip-link wan">
+                                    <i class="fas fa-globe"></i> <?php echo htmlspecialchars($wanIp); ?>
                                 </a>
                             <?php else: ?>
-                                -
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </td>
-                        <td><?php echo htmlspecialchars($ponMode); ?></td>
-                        <td>
-                            <code><?php echo htmlspecialchars($sn); ?></code>
+                        <td data-label="SN">
+                            <code class="sn-code"><?php echo htmlspecialchars($sn); ?></code>
                         </td>
-                        <td><?php echo htmlspecialchars($ponMac); ?></td>
-                        <td><?php echo $lastInform ? formatDate($lastInform, 'd M H:i') : '-'; ?></td>
-                        <td>
-                            <button class="btn btn-secondary btn-sm" onclick="rebootDevice('<?php echo htmlspecialchars($realDeviceId); ?>')">
-                                <i class="fas fa-redo"></i>
-                            </button>
+                        <td data-label="Last Inform">
+                            <span class="last-inform">
+                                <i class="fas fa-clock"></i> <?php echo $lastInform ? date('d/m/Y H:i', strtotime($lastInform)) : '-'; ?>
+                            </span>
+                        </td>
+                        <td data-label="Aksi">
+                            <div class="action-buttons">
+                                <button class="btn-icon" onclick="rebootDevice('<?php echo htmlspecialchars($realDeviceId); ?>')" title="Reboot Device">
+                                    <i class="fas fa-power-off"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -292,81 +292,343 @@ ob_start();
 </div>
 
 <!-- WiFi Edit Modal -->
-<div id="wifiModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;">
-    <div class="card" style="width: 400px; max-width: 90%;">
-        <div class="card-header">
-            <h3 class="card-title">Edit WiFi</h3>
-            <button onclick="closeWifiModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">&times;</button>
+<div id="wifiModal" class="modal">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-wifi"></i> Edit WiFi</h3>
+            <button class="close" onclick="closeWifiModal()">&times;</button>
         </div>
-        
         <input type="hidden" id="editSerial">
-
-        <div class="form-group" style="margin-bottom: 20px;">
-            <label class="form-label">SSID</label>
-            <div style="display: flex; gap: 10px;">
-                <input type="text" id="editSsid" class="form-control">
-                <button class="btn btn-primary" onclick="saveSsid()" title="Simpan SSID">
-                    <i class="fas fa-save"></i>
-                </button>
-            </div>
-        </div>
-
-        <div class="form-group" style="margin-bottom: 20px;">
-            <label class="form-label">Password</label>
-            <div style="display: flex; gap: 10px;">
-                <div style="position: relative; flex: 1;">
-                    <input type="password" id="editPassword" class="form-control" style="padding-right: 35px;">
-                    <i class="fas fa-eye" id="togglePass" onclick="togglePasswordVisibility()" 
-                       style="position: absolute; right: 10px; top: 12px; cursor: pointer; color: var(--text-secondary);"></i>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">SSID</label>
+                <div class="input-with-button">
+                    <input type="text" id="editSsid" class="form-control" placeholder="Nama WiFi">
+                    <button class="btn btn-primary" onclick="saveSsid()">
+                        <i class="fas fa-save"></i> Simpan
+                    </button>
                 </div>
-                <button class="btn btn-primary" onclick="savePassword()" title="Simpan Password">
-                    <i class="fas fa-save"></i>
-                </button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <div class="input-with-button">
+                    <div class="password-wrapper">
+                        <input type="password" id="editPassword" class="form-control" placeholder="Password WiFi">
+                        <i class="fas fa-eye" id="togglePass" onclick="togglePasswordVisibility()"></i>
+                    </div>
+                    <button class="btn btn-primary" onclick="savePassword()">
+                        <i class="fas fa-save"></i> Simpan
+                    </button>
+                </div>
+                <small class="form-hint">Minimal 8 karakter</small>
             </div>
         </div>
-
-        <div style="text-align: right; margin-top: 15px;">
+        <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeWifiModal()">Tutup</button>
         </div>
     </div>
 </div>
 
 <!-- Map Modal -->
-<div id="mapModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2005; align-items: center; justify-content: center; padding: 10px;">
-    <div class="card" style="width: 600px; max-width: 100%; display: flex; flex-direction: column; max-height: 90vh; overflow: hidden; padding: 0;">
-        <div class="card-header" style="flex-shrink: 0; padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
-            <h3 class="card-title" style="margin: 0;"><i class="fas fa-map-marked-alt"></i> Set Lokasi ONU</h3>
-            <button onclick="closeMapModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem; line-height: 1;">&times;</button>
+<div id="mapModal" class="modal">
+    <div class="modal-content" style="max-width: 650px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-map-marked-alt"></i> Lokasi ONU</h3>
+            <button class="close" onclick="closeMapModal()">&times;</button>
         </div>
-        
-        <div style="flex: 1; overflow-y: auto; padding: 15px;">
+        <div class="modal-body">
             <input type="hidden" id="mapSerial">
-            
             <div class="form-group">
                 <label class="form-label">Nama Lokasi</label>
-                <input type="text" id="mapName" class="form-control" placeholder="Nama Pelanggan/Lokasi">
+                <input type="text" id="mapName" class="form-control" placeholder="Nama Pelanggan / Alamat">
             </div>
-
-            <div id="map" class="map-container" style="height: 300px; width: 100%; border-radius: 8px; margin-bottom: 15px; min-height: 200px;"></div>
-            
-            <div class="form-group" style="display: flex; gap: 10px;">
-                <div style="flex: 1;">
+            <div id="map" class="map-container"></div>
+            <div class="form-row">
+                <div class="form-group">
                     <label class="form-label">Latitude</label>
-                    <input type="text" id="mapLat" class="form-control" style="font-size: 0.85rem;" onchange="updateMarkerFromInput()">
+                    <input type="text" id="mapLat" class="form-control" placeholder="-6.252471" onchange="updateMarkerFromInput()">
                 </div>
-                <div style="flex: 1;">
+                <div class="form-group">
                     <label class="form-label">Longitude</label>
-                    <input type="text" id="mapLng" class="form-control" style="font-size: 0.85rem;" onchange="updateMarkerFromInput()">
+                    <input type="text" id="mapLng" class="form-control" placeholder="107.920660" onchange="updateMarkerFromInput()">
                 </div>
             </div>
         </div>
-
-        <div style="flex-shrink: 0; padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); text-align: right; background: var(--bg-card);">
+        <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeMapModal()">Batal</button>
-            <button class="btn btn-primary" onclick="saveLocation()">Simpan Lokasi</button>
+            <button class="btn btn-primary" onclick="saveLocation()">
+                <i class="fas fa-save"></i> Simpan Lokasi
+            </button>
         </div>
     </div>
 </div>
+
+<style>
+/* Additional styles for GenieACS page */
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.connection-link {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.connection-link:hover {
+    color: var(--accent-blue);
+    text-decoration: underline;
+}
+
+.table-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-wrapper i {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.search-wrapper .form-control {
+    padding-left: 36px;
+    width: 250px;
+}
+
+.pppoe-user {
+    color: var(--accent-blue);
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.ssid-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ssid-info span {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.signal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.signal-good {
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--accent-green);
+}
+
+.signal-medium {
+    background: rgba(210, 153, 34, 0.15);
+    color: var(--accent-orange);
+}
+
+.signal-weak {
+    background: rgba(248, 81, 73, 0.15);
+    color: var(--accent-red);
+}
+
+.uptime-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.ip-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    text-decoration: none;
+    font-family: monospace;
+}
+
+.ip-link.pppoe {
+    color: var(--accent-blue);
+}
+
+.ip-link.wan {
+    color: var(--accent-purple);
+}
+
+.ip-link:hover {
+    text-decoration: underline;
+}
+
+.sn-code {
+    font-family: monospace;
+    font-size: 11px;
+    background: var(--bg-tertiary);
+    padding: 4px 6px;
+    border-radius: 4px;
+}
+
+.last-inform {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.location-btn {
+    background: transparent;
+    border: 1px solid var(--border-light);
+    padding: 6px 10px;
+}
+
+.location-btn.has-location {
+    background: rgba(88, 166, 255, 0.15);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+
+.input-with-button {
+    display: flex;
+    gap: 10px;
+}
+
+.input-with-button .form-control {
+    flex: 1;
+}
+
+.password-wrapper {
+    position: relative;
+    flex: 1;
+}
+
+.password-wrapper .form-control {
+    padding-right: 35px;
+}
+
+.password-wrapper i {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: color var(--transition-fast);
+}
+
+.password-wrapper i:hover {
+    color: var(--text-primary);
+}
+
+.map-container {
+    height: 350px;
+    width: 100%;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    background: var(--bg-tertiary);
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-icon {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.btn-icon:hover {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--accent-blue);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px !important;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.empty-state small {
+    font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    .table-controls {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .search-wrapper {
+        width: 100%;
+    }
+    
+    .search-wrapper .form-control {
+        width: 100%;
+    }
+    
+    .ssid-info {
+        flex-wrap: wrap;
+    }
+    
+    .input-with-button {
+        flex-direction: column;
+    }
+    
+    .connection-status {
+        flex-wrap: wrap;
+    }
+    
+    .map-container {
+        height: 250px;
+    }
+}
+</style>
 
 <script>
 let map, marker;
@@ -374,26 +636,21 @@ let map, marker;
 function initMap() {
     if (map) return;
     
-    // Default Alijaya net
     map = L.map('map').setView([-6.252471, 107.920660], 16);
     
-    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+    });
+    
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
     });
-
-    var googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
-        maxZoom: 20,
-        subdomains:['mt0','mt1','mt2','mt3']
-    });
-
+    
     googleSat.addTo(map);
-
-    var baseMaps = {
-        "Satelit": googleSat,
-        "OpenStreetMap": osm
-    };
-    L.control.layers(baseMaps).addTo(map);
-
+    
+    L.control.layers({ "Satelit": googleSat, "OpenStreetMap": osm }).addTo(map);
+    
     map.on('click', function(e) {
         setMarker(e.latlng.lat, e.latlng.lng);
     });
@@ -403,10 +660,10 @@ function setMarker(lat, lng) {
     if (marker) {
         marker.setLatLng([lat, lng]);
     } else {
-        marker = L.marker([lat, lng], {draggable: true}).addTo(map);
+        marker = L.marker([lat, lng], { draggable: true }).addTo(map);
         marker.on('dragend', function(e) {
-            var position = marker.getLatLng();
-            updateInputs(position.lat, position.lng);
+            const pos = marker.getLatLng();
+            updateInputs(pos.lat, pos.lng);
         });
     }
     updateInputs(lat, lng);
@@ -414,8 +671,8 @@ function setMarker(lat, lng) {
 }
 
 function updateInputs(lat, lng) {
-    document.getElementById('mapLat').value = lat;
-    document.getElementById('mapLng').value = lng;
+    document.getElementById('mapLat').value = lat.toFixed(6);
+    document.getElementById('mapLng').value = lng.toFixed(6);
 }
 
 function updateMarkerFromInput() {
@@ -433,8 +690,6 @@ function openMapModal(serial, lat, lng, name) {
     document.getElementById('mapSerial').value = serial;
     document.getElementById('mapName').value = name || serial;
     
-    // Initialize map if needed
-    // We use setTimeout to ensure modal is visible so Leaflet can calculate size
     setTimeout(() => {
         if (map) {
             map.remove();
@@ -447,20 +702,10 @@ function openMapModal(serial, lat, lng, name) {
         
         if (lat && lng && lat != 0 && lng != 0) {
             setMarker(parseFloat(lat), parseFloat(lng));
-        } else {
-            // Try geolocation or default
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function(position) {
-                    map.setView([position.coords.latitude, position.coords.longitude], 16);
-                }, function() {
-                    map.setView([-6.252471, 107.920660], 16);
-                });
-            } else {
-                map.setView([-6.252471, 107.920660], 16);
-            }
-            
-            document.getElementById('mapLat').value = '';
-            document.getElementById('mapLng').value = '';
+        } else if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(pos) {
+                map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+            });
         }
     }, 200);
 }
@@ -488,12 +733,7 @@ function saveLocation() {
     fetch('<?php echo APP_URL; ?>/api/onu_locations.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            serial: serial,
-            name: name,
-            lat: lat,
-            lng: lng
-        })
+        body: JSON.stringify({ serial, name, lat, lng })
     })
     .then(response => response.json())
     .then(data => {
@@ -501,7 +741,7 @@ function saveLocation() {
             alert('Lokasi berhasil disimpan');
             location.reload();
         } else {
-            alert('Gagal simpan: ' + data.message);
+            alert('Gagal: ' + data.message);
         }
     })
     .catch(error => alert('Error: ' + error));
@@ -512,33 +752,27 @@ function loadDevices() {
 }
 
 function rebootDevice(serial) {
-    if (!confirm('Reboot device ' + serial + '?')) {
+    if (!confirm('Reboot device ' + serial + '?\n\nProses ini akan memakan waktu sekitar 2-3 menit.')) {
         return;
     }
 
     fetch('<?php echo APP_URL; ?>/api/genieacs.php?action=reboot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serial: serial })
+        body: JSON.stringify({ serial })
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            alert('Reboot berhasil dijalankan untuk device ' + serial);
-        } else {
-            alert('Gagal reboot: ' + data.message);
-        }
+        alert(data.success ? 'Reboot berhasil dijalankan' : 'Gagal: ' + data.message);
+        if (data.success) setTimeout(() => loadDevices(), 30000);
     })
-    .catch(error => {
-        alert('Terjadi kesalahan: ' + error.message);
-    });
+    .catch(error => alert('Error: ' + error.message));
 }
 
-// WiFi Modal Functions
-function openWifiEdit(serial, ssid, password) {
+function openWifiEdit(serial, ssid) {
     document.getElementById('editSerial').value = serial;
     document.getElementById('editSsid').value = ssid;
-    document.getElementById('editPassword').value = password;
+    document.getElementById('editPassword').value = '';
     document.getElementById('wifiModal').style.display = 'flex';
 }
 
@@ -572,7 +806,7 @@ function saveSsid() {
     fetch('<?php echo APP_URL; ?>/api/onu_wifi.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serial: serial, ssid: ssid })
+        body: JSON.stringify({ serial, ssid })
     })
     .then(response => response.json())
     .then(data => {
@@ -580,7 +814,7 @@ function saveSsid() {
             alert('SSID berhasil diperbarui');
             location.reload();
         } else {
-            alert('Gagal update SSID: ' + data.message);
+            alert('Gagal: ' + data.message);
         }
     })
     .catch(error => alert('Error: ' + error));
@@ -600,7 +834,7 @@ function savePassword() {
     fetch('<?php echo APP_URL; ?>/api/onu_wifi.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serial: serial, password: password })
+        body: JSON.stringify({ serial, password })
     })
     .then(response => response.json())
     .then(data => {
@@ -608,18 +842,20 @@ function savePassword() {
             alert('Password berhasil diperbarui');
             location.reload();
         } else {
-            alert('Gagal update Password: ' + data.message);
+            alert('Gagal: ' + data.message);
         }
     })
     .catch(error => alert('Error: ' + error));
 }
 
-document.getElementById('searchDevice').addEventListener('input', function(e) {
+// Search functionality
+document.getElementById('searchDevice')?.addEventListener('input', function(e) {
     const search = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('.data-table tbody tr');
-
+    const rows = document.querySelectorAll('#devicesTable tbody tr');
+    
     rows.forEach(row => {
-        const text = row.innerText.toLowerCase();
+        if (row.querySelector('.empty-state')) return;
+        const text = row.textContent.toLowerCase();
         row.style.display = text.includes(search) ? '' : 'none';
     });
 });

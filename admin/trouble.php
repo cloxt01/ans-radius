@@ -1,6 +1,6 @@
 <?php
 /**
- * Trouble Tickets Management
+ * Trouble Tickets Management - Elegant Dark Minimalis Theme
  */
 
 require_once '../includes/auth.php';
@@ -13,7 +13,6 @@ $technicians = fetchAll("SELECT * FROM technician_users WHERE status = 'active' 
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Verify CSRF token
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
         setFlash('error', 'Invalid CSRF token');
         redirect('trouble.php');
@@ -40,22 +39,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo = getDB();
                     $ticketId = $pdo->lastInsertId();
                     
-                    // Send WhatsApp notification to customer
                     $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
                     if ($customer && $customer['phone']) {
                         $message = "Halo {$customer['name']},\n\nLaporan gangguan Anda telah kami terima:\n\nTicket ID: #{$ticketId}\nMasalah: " . substr($description, 0, 100) . "...\n\nTim kami akan segera menindaklanjuti. Terima kasih.";
-                        // Assuming sendWhatsApp is defined in includes/functions.php or we need to require whatsapp.php
                         if (function_exists('sendWhatsApp')) {
-                             sendWhatsApp($customer['phone'], $message);
+                            sendWhatsApp($customer['phone'], $message);
                         } elseif (function_exists('sendWhatsAppMessage')) {
-                             sendWhatsAppMessage($customer['phone'], $message);
+                            sendWhatsAppMessage($customer['phone'], $message);
                         } else {
-                             require_once '../includes/whatsapp.php';
-                             sendWhatsAppMessage($customer['phone'], $message);
+                            require_once '../includes/whatsapp.php';
+                            sendWhatsAppMessage($customer['phone'], $message);
                         }
                     }
                     
-                    // Notify Technician if assigned
                     if ($technicianId) {
                         $tech = fetchOne("SELECT phone, name FROM technician_users WHERE id = ?", [$technicianId]);
                         if ($tech && !empty($tech['phone'])) {
@@ -63,11 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $msg = "🚨 *TUGAS GANGGUAN BARU*\n\n";
                             $msg .= "Ticket: #{$ticketId}\n";
                             $msg .= "Pelanggan: " . ($customer['name'] ?? 'N/A') . "\n";
-                            $msg .= "Alamat: " . ($customer['address'] ?? '-') . "\n";
                             $msg .= "Masalah: {$description}\n";
                             $msg .= "Prioritas: " . strtoupper($priority) . "\n\n";
-                            $msg .= "Mohon segera dicek. Terima kasih.";
-                            
+                            $msg .= "Mohon segera dicek.";
                             sendWhatsAppMessage($tech['phone'], $msg);
                         }
                     }
@@ -102,7 +96,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     update('trouble_tickets', $updateData, 'id = ?', [$ticketId]);
                     
-                    // Send WhatsApp notification to customer
                     $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$ticket['customer_id']]);
                     if ($customer && $customer['phone']) {
                         $statusText = [
@@ -120,12 +113,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                         
                         if (function_exists('sendWhatsApp')) {
-                             sendWhatsApp($customer['phone'], $message);
+                            sendWhatsApp($customer['phone'], $message);
                         } elseif (function_exists('sendWhatsAppMessage')) {
-                             sendWhatsAppMessage($customer['phone'], $message);
+                            sendWhatsAppMessage($customer['phone'], $message);
                         } else {
-                             require_once '../includes/whatsapp.php';
-                             sendWhatsAppMessage($customer['phone'], $message);
+                            require_once '../includes/whatsapp.php';
+                            sendWhatsAppMessage($customer['phone'], $message);
                         }
                     }
                     
@@ -139,7 +132,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'delete':
                 $ticketId = (int)$_POST['ticket_id'];
-                
                 delete('trouble_tickets', 'id = ?', [$ticketId]);
                 setFlash('success', 'Tiket berhasil dihapus');
                 logActivity('DELETE_TROUBLE_TICKET', "Ticket #{$ticketId}");
@@ -149,7 +141,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get tickets with customer info
 $tickets = fetchAll("
     SELECT t.*, c.name as customer_name, c.phone as customer_phone, c.pppoe_username,
            p.name as package_name
@@ -165,10 +156,8 @@ $tickets = fetchAll("
         t.created_at DESC
 ");
 
-// Get active customers for dropdown
 $customers = fetchAll("SELECT id, name, pppoe_username FROM customers WHERE status = 'active' ORDER BY name");
 
-// Calculate stats
 $totalTickets = count($tickets);
 $pendingTickets = count(array_filter($tickets, fn($t) => $t['status'] === 'pending'));
 $inProgressTickets = count(array_filter($tickets, fn($t) => $t['status'] === 'in_progress'));
@@ -177,45 +166,45 @@ $resolvedTickets = count(array_filter($tickets, fn($t) => $t['status'] === 'reso
 ob_start();
 ?>
 
-<!-- Stats -->
-<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 30px;">
+<!-- Stats Grid -->
+<div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-icon cyan">
-            <i class="fas fa-ticket-alt"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $totalTickets; ?></h3>
             <p>Total Laporan</p>
         </div>
+        <div class="stat-icon blue">
+            <i class="fas fa-ticket-alt"></i>
+        </div>
     </div>
     
     <div class="stat-card">
-        <div class="stat-icon orange">
-            <i class="fas fa-hourglass-half"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $pendingTickets; ?></h3>
             <p>Pending</p>
         </div>
+        <div class="stat-icon orange">
+            <i class="fas fa-clock"></i>
+        </div>
     </div>
     
     <div class="stat-card">
-        <div class="stat-icon purple">
-            <i class="fas fa-tools"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $inProgressTickets; ?></h3>
             <p>In Progress</p>
         </div>
+        <div class="stat-icon purple">
+            <i class="fas fa-tools"></i>
+        </div>
     </div>
     
     <div class="stat-card">
-        <div class="stat-icon green">
-            <i class="fas fa-check-circle"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $resolvedTickets; ?></h3>
-            <p>Resolved</p>
+            <p>Selesai</p>
+        </div>
+        <div class="stat-icon green">
+            <i class="fas fa-check-circle"></i>
         </div>
     </div>
 </div>
@@ -223,220 +212,297 @@ ob_start();
 <!-- Add Ticket Form -->
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-plus"></i> Tambah Laporan Gangguan</h3>
+        <h3 class="card-title">
+            <i class="fas fa-plus-circle"></i> Tambah Laporan Gangguan
+        </h3>
     </div>
-    
-    <form method="POST">
-        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-        <input type="hidden" name="action" value="add">
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <input type="hidden" name="action" value="add">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-user"></i> Pelanggan
+                    </label>
+                    <select name="customer_id" class="form-control" required>
+                        <option value="">-- Pilih Pelanggan --</option>
+                        <?php foreach ($customers as $c): ?>
+                            <option value="<?php echo $c['id']; ?>">
+                                <?php echo htmlspecialchars($c['name']); ?> (<?php echo htmlspecialchars($c['pppoe_username']); ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-flag"></i> Prioritas
+                    </label>
+                    <select name="priority" class="form-control" required>
+                        <option value="low">Low - Tidak Urgent</option>
+                        <option value="medium" selected>Medium - Normal</option>
+                        <option value="high">High - Urgent</option>
+                    </select>
+                </div>
+            </div>
+            
             <div class="form-group">
-                <label class="form-label">Pelanggan</label>
-                <select name="customer_id" class="form-control" required>
-                    <option value="">Pilih Pelanggan</option>
-                    <?php foreach ($customers as $c): ?>
-                        <option value="<?php echo $c['id']; ?>">
-                            <?php echo htmlspecialchars($c['name']); ?> (<?php echo htmlspecialchars($c['pppoe_username']); ?>)
+                <label class="form-label">
+                    <i class="fas fa-comment-alt"></i> Deskripsi Masalah
+                </label>
+                <textarea name="description" class="form-control" rows="3" required 
+                          placeholder="Jelaskan masalah yang dialami pelanggan secara detail..."></textarea>
+                <small class="form-hint">Semakin detail deskripsi, semakin cepat penanganan</small>
+            </div>
+            
+            <?php if (!empty($technicians)): ?>
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-user-cog"></i> Assign Teknisi (Opsional)
+                </label>
+                <select name="technician_id" class="form-control">
+                    <option value="">-- Belum Ditugaskan --</option>
+                    <?php foreach ($technicians as $tech): ?>
+                        <option value="<?php echo $tech['id']; ?>">
+                            <?php echo htmlspecialchars($tech['name']); ?> (<?php echo htmlspecialchars($tech['phone'] ?? '-'); ?>)
                         </option>
                     <?php endforeach; ?>
                 </select>
             </div>
+            <?php endif; ?>
             
-            <div class="form-group">
-                <label class="form-label">Prioritas</label>
-                <select name="priority" class="form-control" required>
-                    <option value="low">Low - Tidak Urgent</option>
-                    <option value="medium" selected>Medium - Normal</option>
-                    <option value="high">High - Urgent</option>
-                </select>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Simpan Laporan
+                </button>
             </div>
-        </div>
-        
-        <div class="form-group">
-            <label class="form-label">Deskripsi Masalah</label>
-            <textarea name="description" class="form-control" rows="3" required placeholder="Jelaskan masalah yang dialami..."></textarea>
-        </div>
-        
-        <button type="submit" class="btn btn-primary">
-            <i class="fas fa-save"></i> Simpan Laporan
-        </button>
-    </form>
+        </form>
+    </div>
 </div>
 
 <!-- Tickets Table -->
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-exclamation-triangle"></i> Daftar Laporan</h3>
-        <input type="text" id="searchTicket" class="form-control" placeholder="Cari laporan..." style="width: 250px;">
+        <h3 class="card-title">
+            <i class="fas fa-exclamation-triangle"></i> Daftar Laporan Gangguan
+        </h3>
+        <div class="search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchTicket" class="form-control" placeholder="Cari laporan...">
+        </div>
     </div>
     
-    <table class="data-table" id="ticketTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Pelanggan</th>
-                <th>Masalah</th>
-                <th>Status</th>
-                <th>Prioritas</th>
-                <th>Tanggal</th>
-                <th>Aksi</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (empty($tickets)): ?>
+    <div class="table-responsive">
+        <table class="data-table" id="ticketTable">
+            <thead>
                 <tr>
-                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
-                        <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 10px; display: block; color: var(--neon-green);"></i>
-                        Tidak ada laporan gangguan
-                    </td>
+                    <th>ID</th>
+                    <th>Pelanggan</th>
+                    <th>Masalah</th>
+                    <th>Status</th>
+                    <th>Prioritas</th>
+                    <th>Tanggal</th>
+                    <th>Aksi</th>
                 </tr>
-            <?php else: ?>
-                <?php foreach ($tickets as $ticket): ?>
-                <tr>
-                    <td data-label="ID">#<?php echo $ticket['id']; ?></td>
-                    <td data-label="Pelanggan">
-                        <strong><?php echo htmlspecialchars($ticket['customer_name'] ?? 'N/A'); ?></strong><br>
-                        <small style="color: var(--text-muted);"><?php echo htmlspecialchars($ticket['pppoe_username'] ?? ''); ?></small>
-                    </td>
-                    <td data-label="Deskripsi">
-                        <?php echo htmlspecialchars(substr($ticket['description'], 0, 50)); ?>
-                        <?php if (strlen($ticket['description']) > 50): ?>...<?php endif; ?>
-                    </td>
-                    <td data-label="Status">
+            </thead>
+            <tbody>
+                <?php if (empty($tickets)): ?>
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <i class="fas fa-check-circle"></i>
+                            <p>Tidak ada laporan gangguan</p>
+                            <small>Semua sistem berjalan normal</small>
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($tickets as $ticket): ?>
                         <?php
-                        $statusClass = 'badge-warning';
+                        $statusClass = 'warning';
+                        $statusIcon = 'clock';
                         $statusText = 'Pending';
                         if ($ticket['status'] === 'resolved') {
-                            $statusClass = 'badge-success';
-                            $statusText = 'Resolved';
+                            $statusClass = 'success';
+                            $statusIcon = 'check-circle';
+                            $statusText = 'Selesai';
                         } elseif ($ticket['status'] === 'in_progress') {
-                            $statusClass = 'badge-info';
-                            $statusText = 'In Progress';
+                            $statusClass = 'info';
+                            $statusIcon = 'tools';
+                            $statusText = 'Proses';
+                        }
+                        
+                        $priorityClass = 'info';
+                        $priorityIcon = 'info-circle';
+                        if ($ticket['priority'] === 'high') {
+                            $priorityClass = 'danger';
+                            $priorityIcon = 'exclamation-triangle';
+                        } elseif ($ticket['priority'] === 'medium') {
+                            $priorityClass = 'warning';
+                            $priorityIcon = 'exclamation-circle';
                         }
                         ?>
-                        <span class="badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span>
-                    </td>
-                    <td data-label="Prioritas">
-                        <?php
-                        $priorityClass = 'badge-info';
-                        if ($ticket['priority'] === 'high') $priorityClass = 'badge-danger';
-                        if ($ticket['priority'] === 'medium') $priorityClass = 'badge-warning';
-                        ?>
-                        <span class="badge <?php echo $priorityClass; ?>">
-                            <?php echo ucfirst($ticket['priority']); ?>
-                        </span>
-                    </td>
-                    <td data-label="Tanggal"><?php echo formatDate($ticket['created_at']); ?></td>
-                    <td data-label="Aksi">
-                        <div style="display: flex; gap: 5px;">
-                            <button class="btn btn-secondary btn-sm" onclick="viewTicket(<?php echo htmlspecialchars(json_encode($ticket)); ?>)" title="Detail">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <?php if ($ticket['status'] !== 'resolved'): ?>
-                                <button class="btn btn-primary btn-sm" onclick="updateStatus(<?php echo $ticket['id']; ?>, '<?php echo $ticket['status']; ?>')" title="Update Status">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                            <?php endif; ?>
-                            <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus tiket ini?');">
-                                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>">
-                                <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </form>
-                            <?php if ($ticket['customer_phone']): ?>
-                                <button class="btn btn-secondary btn-sm" onclick="sendWhatsAppTicket('<?php echo $ticket['customer_phone']; ?>', '<?php echo $ticket['id']; ?>')" title="Kirim WA">
-                                    <i class="fab fa-whatsapp"></i>
-                                </button>
-                            <?php endif; ?>
-                        </div>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </tbody>
-    </table>
+                        <tr>
+                            <td data-label="ID">
+                                <span class="ticket-id">#<?php echo $ticket['id']; ?></span>
+                            </td>
+                            <td data-label="Pelanggan">
+                                <div class="customer-info">
+                                    <strong><?php echo htmlspecialchars($ticket['customer_name'] ?? 'N/A'); ?></strong>
+                                    <small><?php echo htmlspecialchars($ticket['pppoe_username'] ?? ''); ?></small>
+                                </div>
+                            </td>
+                            <td data-label="Masalah">
+                                <div class="issue-preview">
+                                    <?php echo htmlspecialchars(substr($ticket['description'], 0, 60)); ?>
+                                    <?php if (strlen($ticket['description']) > 60): ?>...<?php endif; ?>
+                                </div>
+                            </td>
+                            <td data-label="Status">
+                                <span class="badge badge-<?php echo $statusClass; ?>">
+                                    <i class="fas fa-<?php echo $statusIcon; ?>"></i> <?php echo $statusText; ?>
+                                </span>
+                             </td>
+                            <td data-label="Prioritas">
+                                <span class="badge badge-<?php echo $priorityClass; ?> priority-<?php echo $ticket['priority']; ?>">
+                                    <i class="fas fa-<?php echo $priorityIcon; ?>"></i> 
+                                    <?php echo ucfirst($ticket['priority']); ?>
+                                </span>
+                             </td>
+                            <td data-label="Tanggal">
+                                <span class="date-info">
+                                    <i class="fas fa-calendar-alt"></i> <?php echo formatDate($ticket['created_at']); ?>
+                                </span>
+                             </td>
+                            <td data-label="Aksi">
+                                <div class="action-buttons">
+                                    <button class="btn-icon" onclick='viewTicket(<?php echo json_encode($ticket); ?>)' title="Detail">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    
+                                    <?php if ($ticket['status'] !== 'resolved'): ?>
+                                        <button class="btn-icon" onclick='editTicket(<?php echo json_encode($ticket); ?>)' title="Update Status">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                    
+                                    <form method="POST" class="inline-form" onsubmit="return confirmDelete(<?php echo $ticket['id']; ?>)">
+                                        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>">
+                                        <button type="submit" class="btn-icon danger" title="Hapus">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                    
+                                    <?php if (!empty($ticket['customer_phone'])): ?>
+                                        <button class="btn-icon whatsapp" onclick="sendWhatsAppTicket('<?php echo $ticket['customer_phone']; ?>', <?php echo $ticket['id']; ?>)" title="Kirim WA">
+                                            <i class="fab fa-whatsapp"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                             </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- View Ticket Modal -->
-<div id="viewModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;">
-    <div class="card" style="width: 500px; max-width: 90%; margin: 2rem; max-height: 90vh; overflow-y: auto;">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-ticket-alt"></i> Detail Tiket #<span id="view_id">-</span></h3>
-            <button onclick="closeViewModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">
-                <i class="fas fa-times"></i>
-            </button>
+<div id="viewModal" class="modal">
+    <div class="modal-content" style="max-width: 550px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-ticket-alt"></i> Detail Tiket #<span id="view_id">-</span></h3>
+            <button class="close" onclick="closeViewModal()">&times;</button>
         </div>
-        
-        <div id="viewDetails">
-            <div style="display: grid; gap: 15px;">
-                <div>
-                    <strong>Pelanggan:</strong>
-                    <p id="view_customer" style="color: var(--neon-cyan);">-</p>
+        <div class="modal-body">
+            <div class="ticket-details">
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-user"></i> Pelanggan:</span>
+                    <span class="detail-value" id="view_customer">-</span>
                 </div>
-                <div>
-                    <strong>Status:</strong>
-                    <p id="view_status">-</p>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-tag"></i> Username:</span>
+                    <span class="detail-value" id="view_username">-</span>
                 </div>
-                <div>
-                    <strong>Prioritas:</strong>
-                    <p id="view_priority">-</p>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-flag"></i> Prioritas:</span>
+                    <span class="detail-value" id="view_priority">-</span>
                 </div>
-                <div>
-                    <strong>Deskripsi Masalah:</strong>
-                    <p id="view_description" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">-</p>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-chart-line"></i> Status:</span>
+                    <span class="detail-value" id="view_status">-</span>
                 </div>
-                <div>
-                    <strong>Catatan Teknisi:</strong>
-                    <p id="view_notes" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">-</p>
+                <div class="detail-row full-width">
+                    <span class="detail-label"><i class="fas fa-comment-alt"></i> Deskripsi:</span>
+                    <div class="detail-box" id="view_description">-</div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div>
-                        <strong>Dibuat:</strong>
-                        <p id="view_created" style="color: var(--text-secondary);">-</p>
-                    </div>
-                    <div>
-                        <strong>Selesai:</strong>
-                        <p id="view_resolved" style="color: var(--text-secondary);">-</p>
-                    </div>
+                <div class="detail-row full-width">
+                    <span class="detail-label"><i class="fas fa-sticky-note"></i> Catatan Teknisi:</span>
+                    <div class="detail-box" id="view_notes">-</div>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-calendar-plus"></i> Dibuat:</span>
+                    <span class="detail-value" id="view_created">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-calendar-check"></i> Selesai:</span>
+                    <span class="detail-value" id="view_resolved">-</span>
                 </div>
             </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeViewModal()">Tutup</button>
         </div>
     </div>
 </div>
 
-<!-- Update Status Modal -->
-<div id="statusModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;">
-    <div class="card" style="width: 400px; max-width: 90%; margin: 2rem;">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-edit"></i> Update Status Tiket</h3>
-            <button onclick="closeStatusModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">
-                <i class="fas fa-times"></i>
-            </button>
+<!-- Edit/Update Status Modal -->
+<div id="statusModal" class="modal">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> Update Status Tiket</h3>
+            <button class="close" onclick="closeStatusModal()">&times;</button>
         </div>
-        
         <form method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
             <input type="hidden" name="action" value="update_status">
             <input type="hidden" name="ticket_id" id="status_ticket_id">
             
-            <div class="form-group">
-                <label class="form-label">Status</label>
-                <select name="status" id="status_select" class="form-control" required>
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                </select>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select name="status" id="status_select" class="form-control" required>
+                        <option value="pending">🟡 Pending - Menunggu</option>
+                        <option value="in_progress">🔵 In Progress - Sedang Diproses</option>
+                        <option value="resolved">🟢 Resolved - Selesai</option>
+                    </select>
+                </div>
+                
+                <?php if (!empty($technicians)): ?>
+                <div class="form-group">
+                    <label class="form-label">Assign Teknisi</label>
+                    <select name="technician_id" id="technician_id" class="form-control">
+                        <option value="">-- Pilih Teknisi --</option>
+                        <?php foreach ($technicians as $tech): ?>
+                            <option value="<?php echo $tech['id']; ?>">
+                                <?php echo htmlspecialchars($tech['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php endif; ?>
+                
+                <div class="form-group">
+                    <label class="form-label">Catatan Penanganan</label>
+                    <textarea name="notes" id="status_notes" class="form-control" rows="3" 
+                              placeholder="Masukkan catatan tentang penanganan masalah..."></textarea>
+                </div>
             </div>
             
-            <div class="form-group">
-                <label class="form-label">Catatan Teknisi</label>
-                <textarea name="notes" class="form-control" rows="3" placeholder="Catatan penanganan..."></textarea>
-            </div>
-            
-            <div style="display: flex; gap: 10px;">
+            <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeStatusModal()">Batal</button>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save"></i> Simpan
@@ -446,70 +512,236 @@ ob_start();
     </div>
 </div>
 
-<script>
-// Search functionality
-document.getElementById('searchTicket').addEventListener('input', function(e) {
-    const search = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('#ticketTable tbody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(search) ? '' : 'none';
-    });
-});
+<style>
+/* Additional styles for trouble tickets */
+.ticket-id {
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--accent-blue);
+    background: var(--bg-tertiary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
 
-// View ticket details
+.customer-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.customer-info small {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.issue-preview {
+    font-size: 13px;
+    color: var(--text-secondary);
+    max-width: 250px;
+}
+
+.priority-high {
+    background: rgba(248, 81, 73, 0.15);
+    border-color: rgba(248, 81, 73, 0.3);
+}
+
+.priority-medium {
+    background: rgba(210, 153, 34, 0.15);
+    border-color: rgba(210, 153, 34, 0.3);
+}
+
+.priority-low {
+    background: rgba(88, 166, 255, 0.15);
+    border-color: rgba(88, 166, 255, 0.3);
+}
+
+.date-info {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.date-info i {
+    margin-right: 4px;
+}
+
+.search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-wrapper i {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.search-wrapper .form-control {
+    padding-left: 36px;
+    width: 250px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.inline-form {
+    display: inline;
+}
+
+.btn-icon {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    font-size: 12px;
+}
+
+.btn-icon:hover {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--accent-blue);
+}
+
+.btn-icon.danger:hover {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+}
+
+.btn-icon.whatsapp:hover {
+    color: #25D366;
+    border-color: #25D366;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px !important;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.empty-state small {
+    font-size: 12px;
+}
+
+/* Ticket Details Modal */
+.ticket-details {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.detail-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.detail-row.full-width {
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-label {
+    width: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.detail-value {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.detail-box {
+    background: var(--bg-tertiary);
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .detail-row {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .detail-label {
+        width: auto;
+    }
+    
+    .search-wrapper {
+        width: 100%;
+        margin-top: 12px;
+    }
+    
+    .search-wrapper .form-control {
+        width: 100%;
+    }
+    
+    .action-buttons {
+        justify-content: flex-start;
+    }
+    
+    .issue-preview {
+        max-width: 200px;
+    }
+}
+</style>
+
+<script>
 function viewTicket(ticket) {
     document.getElementById('view_id').textContent = ticket.id;
-    document.getElementById('view_customer').textContent = ticket.customer_name + ' (' + ticket.pppoe_username + ')';
-    
-    const statusMap = {
-        'pending': '<span class="badge badge-warning">Pending</span>',
-        'in_progress': '<span class="badge badge-info">In Progress</span>',
-        'resolved': '<span class="badge badge-success">Resolved</span>'
-    };
-    document.getElementById('view_status').innerHTML = statusMap[ticket.status] || ticket.status;
+    document.getElementById('view_customer').textContent = ticket.customer_name || 'N/A';
+    document.getElementById('view_username').textContent = ticket.pppoe_username || '-';
     
     const priorityMap = {
-        'low': '<span class="badge badge-info">Low</span>',
-        'medium': '<span class="badge badge-warning">Medium</span>',
-        'high': '<span class="badge badge-danger">High</span>'
+        'low': '<span class="badge badge-info priority-low">Low</span>',
+        'medium': '<span class="badge badge-warning priority-medium">Medium</span>',
+        'high': '<span class="badge badge-danger priority-high">High</span>'
     };
     document.getElementById('view_priority').innerHTML = priorityMap[ticket.priority] || ticket.priority;
     
+    const statusMap = {
+        'pending': '<span class="badge badge-warning"><i class="fas fa-clock"></i> Pending</span>',
+        'in_progress': '<span class="badge badge-info"><i class="fas fa-tools"></i> In Progress</span>',
+        'resolved': '<span class="badge badge-success"><i class="fas fa-check-circle"></i> Resolved</span>'
+    };
+    document.getElementById('view_status').innerHTML = statusMap[ticket.status] || ticket.status;
+    
     document.getElementById('view_description').textContent = ticket.description || '-';
     document.getElementById('view_notes').textContent = ticket.notes || 'Belum ada catatan';
-    document.getElementById('view_created').textContent = ticket.created_at || '-';
-    document.getElementById('view_resolved').textContent = ticket.resolved_at || '-';
+    document.getElementById('view_created').textContent = ticket.created_at ? formatDate(ticket.created_at) : '-';
+    document.getElementById('view_resolved').textContent = ticket.resolved_at ? formatDate(ticket.resolved_at) : '-';
     
     document.getElementById('viewModal').style.display = 'flex';
 }
 
-function closeViewModal() {
-    document.getElementById('viewModal').style.display = 'none';
-}
-
-// Update status
-function updateStatus(ticketId, currentStatus) {
-    document.getElementById('status_ticket_id').value = ticketId;
-    document.getElementById('status_select').value = currentStatus;
-    
-    // Reset notes
-    const notesField = document.querySelector('#statusModal textarea[name="notes"]');
-    if (notesField) notesField.value = '';
-    
-    document.getElementById('statusModal').style.display = 'flex';
-}
-
-// Edit ticket with full object (for future use)
 function editTicket(ticket) {
     document.getElementById('status_ticket_id').value = ticket.id;
     document.getElementById('status_select').value = ticket.status;
+    document.getElementById('status_notes').value = ticket.notes || '';
     
-    const notesField = document.querySelector('#statusModal textarea[name="notes"]');
-    if (notesField) notesField.value = ticket.notes || '';
-    
-    // Set technician if field exists
     const techSelect = document.getElementById('technician_id');
     if (techSelect) {
         techSelect.value = ticket.technician_id || '';
@@ -518,28 +750,59 @@ function editTicket(ticket) {
     document.getElementById('statusModal').style.display = 'flex';
 }
 
-function closeStatusModal() {
-    document.getElementById('statusModal').style.display = 'none';
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 
-// Send WhatsApp
+function confirmDelete(ticketId) {
+    return confirm(`Hapus tiket #${ticketId}?\n\nTindakan ini tidak dapat dibatalkan!`);
+}
+
 function sendWhatsAppTicket(phone, ticketId) {
-    phone = phone.replace(/[^0-9]/g, '');
-    if (phone.startsWith('0')) {
-        phone = '62' + phone.substring(1);
+    let cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) {
+        cleanPhone = '62' + cleanPhone.substring(1);
     }
     
     const message = `Halo,\n\nKami ingin mengkonfirmasi status tiket gangguan Anda (Ticket #${ticketId}).\n\nApakah masalah sudah teratasi? Jika masih ada kendala, silakan informasikan kepada kami.\n\nTerima kasih.`;
     
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
 }
 
+function closeViewModal() {
+    document.getElementById('viewModal').style.display = 'none';
+}
+
+function closeStatusModal() {
+    document.getElementById('statusModal').style.display = 'none';
+}
+
+// Search functionality
+document.getElementById('searchTicket')?.addEventListener('input', function(e) {
+    const search = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('#ticketTable tbody tr');
+    
+    rows.forEach(row => {
+        if (row.querySelector('.empty-state')) return;
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(search) ? '' : 'none';
+    });
+});
+
 // Close modals on outside click
-document.getElementById('viewModal').addEventListener('click', function(e) {
+document.getElementById('viewModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeViewModal();
 });
 
-document.getElementById('statusModal').addEventListener('click', function(e) {
+document.getElementById('statusModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeStatusModal();
 });
 

@@ -1,12 +1,12 @@
 <?php
 /**
- * MikroTik Management
+ * MikroTik PPPoE Management - Elegant Dark Minimalis Theme
  */
 
 require_once '../includes/auth.php';
 requireAdminLogin();
 
-$pageTitle = 'MikroTik PPPoE';
+$pageTitle = 'PPPoE Management';
 
 // Get MikroTik settings
 $mikrotikSettings = getMikrotikSettings();
@@ -82,7 +82,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             redirect('mikrotik.php');
             break;
-
     }
 }
 
@@ -90,11 +89,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $mikrotikUsers = mikrotikGetPppoeUsers();
 $totalUsers = count($mikrotikUsers);
 
-// Get active PPPoE sessions (currently online)
+// Get active PPPoE sessions
 $activeSessions = mikrotikGetActiveSessionsAllRouter();
 $onlineCount = count($activeSessions);
-
-// Create list of online usernames
 $onlineUsernames = array_column($activeSessions, 'name');
 
 // Calculate stats
@@ -110,62 +107,59 @@ if (empty($mikrotikProfiles)) {
 ob_start();
 ?>
 
-<!-- Display status connection mikrotik -->
+<!-- Warning Connection -->
 <?php if (!mikrotikConnect()): ?>
-<div style="background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-    <div style="display: flex; align-items: center; gap: 10px; color: #ff6666;">
-        <i class="fas fa-exclamation-triangle" style="font-size: 1.2rem;"></i>
-        <div>
-            <strong>Gagal terhubung ke MikroTik!</strong>
-            <p style="margin: 5px 0 0 0; font-size: 0.9rem; color: #f38282;">
-                Profile yang ditampilkan adalah profil default. 
-                Silakan periksa pengaturan MikroTik di <a href="settings.php" style="color: #66ccff;">Settings</a> 
-                untuk memastikan kredensial benar.
-            </p>
-        </div>
+<div class="alert alert-warning" style="margin-bottom: 24px;">
+    <i class="fas fa-exclamation-triangle"></i>
+    <div>
+        <strong>Gagal terhubung ke MikroTik!</strong>
+        <p style="margin: 4px 0 0 0; font-size: 13px;">
+            Profile yang ditampilkan adalah profil default. 
+            Silakan periksa pengaturan MikroTik di <a href="settings.php" style="color: var(--accent-blue);">Settings</a>.
+        </p>
     </div>
 </div>
 <?php endif; ?>
 
-<!-- Stats -->
-<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 30px;">
+<!-- Stats Grid -->
+<div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-icon cyan">
-            <i class="fas fa-users"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $totalUsers; ?></h3>
             <p>Total User</p>
         </div>
+        <div class="stat-icon blue">
+            <i class="fas fa-users"></i>
+        </div>
     </div>
     
     <div class="stat-card">
-        <div class="stat-icon green">
-            <i class="fas fa-signal"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $onlineCount; ?></h3>
             <p>Online</p>
         </div>
+        <div class="stat-icon green">
+            <i class="fas fa-signal"></i>
+        </div>
     </div>
     
     <div class="stat-card">
-        <div class="stat-icon orange">
-            <i class="fas fa-info-circle"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $offlineCount; ?></h3>
             <p>Offline</p>
         </div>
+        <div class="stat-icon orange">
+            <i class="fas fa-circle"></i>
+        </div>
     </div>
     
     <div class="stat-card">
-        <div class="stat-icon red">
-            <i class="fas fa-user-slash"></i>
-        </div>
         <div class="stat-info">
             <h3><?php echo $disabledCount; ?></h3>
             <p>Disabled</p>
+        </div>
+        <div class="stat-icon red">
+            <i class="fas fa-ban"></i>
         </div>
     </div>
 </div>
@@ -173,222 +167,467 @@ ob_start();
 <!-- Add User Form -->
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-plus"></i> Tambah PPPoE User</h3>
+        <h3 class="card-title"><i class="fas fa-plus-circle"></i> Tambah PPPoE User</h3>
     </div>
-    
-    <form method="POST">
-        <input type="hidden" name="action" value="add">
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-            <div class="form-group">
-                <label class="form-label">Username</label>
-                <input type="text" name="username" class="form-control" required placeholder="Username PPPoE">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Password</label>
-                <input type="text" name="password" class="form-control" required placeholder="Password PPPoE">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Profile</label>
-                <select name="profile" class="form-control" required>
-                    <?php foreach ($mikrotikProfiles as $profile): ?>
-                        <option value="<?php echo htmlspecialchars($profile['name']); ?>">
-                            <?php echo htmlspecialchars($profile['name']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Service</label>
-                <select name="service" class="form-control" required>
-                    <option value="pppoe">PPPoE</option>
-                    <option value="any">Any</option>
-                </select>
-            </div>
-        </div>
-        
-        <button type="submit" class="btn btn-primary" style="margin-top: 20px;<?php echo !mikrotikConnect() ? 'cursor: not-allowed;" disabled' : ''; ?>>
-            <i class="fas fa-save"></i> Tambah User
-        </button>
-    </form>
-</div>
-
-<!-- Users Table -->
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-network-wired"></i> Daftar PPPoE User</h3>
-        <input type="text" id="searchUser" class="form-control" placeholder="Cari user..." style="width: 250px;">
-    </div>
-    
-    <table class="data-table">
-        <thead>
-            <tr>
-<!--                <th>ID</th>-->
-                <th>Username</th>
-                <th>Profile</th>
-<!--                <th>Service</th>-->
-                <th>Status</th>
-                <th>Active</th>
-                <th>Last Login</th>
-                <th>Aksi</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (empty($mikrotikUsers)): ?>
-                <tr>
-                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
-                        <i class="fas fa-network-wired" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                        Belum ada PPPoE user atau tidak terkoneksi ke MikroTik
-                    </td>
-                </tr>
-            <?php else: ?>
-                <?php foreach ($mikrotikUsers as $user): ?>
-                <?php 
-                    $isOnline = in_array($user['name'] ?? '', $onlineUsernames);
-                    $isDisabled = ($user['disabled'] ?? 'false') === 'true';
-                ?>
-                <tr>
-                    <td data-label="Username">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <div style="width: 32px; height: 32px; background: var(--gradient-primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.8rem; position: relative;">
-                                <?php echo strtoupper(substr($user['name'] ?? 'U', 0, 1)); ?>
-                                <?php if ($isOnline && !$isDisabled): ?>
-                                    <span style="position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background: #00ff00; border-radius: 50%; border: 2px solid var(--bg-secondary);"></span>
-                                <?php endif; ?>
-                            </div>
-                            <div>
-                                <strong><?php echo htmlspecialchars($user['name'] ?? 'N/A'); ?></strong>
-                                <?php if (!empty($user['password'])): ?>
-                                    <br><small style="color: var(--text-muted);">Pass: <?php echo htmlspecialchars($user['password']); ?></small>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </td>
-                    <td data-label="Profile">
-                        <span class="badge badge-info"><?php echo htmlspecialchars($user['profile'] ?? 'default'); ?></span>
-                    </td>
-                    <!-- <td data-label="Service"><?php echo htmlspecialchars($user['service'] ?? 'pppoe'); ?></td> -->
-                   <td data-label="Status">
-                      <?php if ($isDisabled): ?>
-                           <span class="badge badge-danger">Disabled</span>
-                      <?php elseif ($isOnline): ?>
-                           <span class="badge badge-success"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 4px;"></i> Online</span>
-                      <?php else: ?>
-                           <span class="badge badge-warning">Offline</span>
-                      <?php endif; ?>
-                   </td>
-                   
-                    <td data-label="Active">
-                        <?php if ($isDisabled): ?>
-                            <span class="badge badge-danger">No</span>
-                        <?php else: ?>
-                            <span class="badge badge-success">Yes</span>
-                        <?php endif; ?>
-                    </td>
-                    <td data-label="Last Login"><?php echo $user['last-login'] ?? 'Never'; ?></td>
-                    <td data-label="Aksi">
-                        <div style="display: flex; gap: 5px;">
-                            <button class="btn btn-secondary btn-sm" onclick="editUser('<?php echo htmlspecialchars($user['.id'] ?? ''); ?>', '<?php echo htmlspecialchars($user['name'] ?? '', ENT_QUOTES); ?>', '<?php echo htmlspecialchars($user['password'] ?? '', ENT_QUOTES); ?>', '<?php echo htmlspecialchars($user['profile'] ?? 'default'); ?>', '<?php echo htmlspecialchars($user['service'] ?? 'pppoe'); ?>')" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <form method="POST" style="display: inline;" onsubmit="return confirm('Toggle status user ini?')">
-                                <input type="hidden" name="action" value="toggle">
-                                <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['.id'] ?? ''); ?>">
-                                <input type="hidden" name="current_status" value="<?php echo $user['disabled'] ?? 'false'; ?>">
-                                <button type="submit" class="btn btn-sm <?php echo ($user['disabled'] ?? 'false') === 'true' ? 'btn-primary' : 'btn-warning'; ?>" title="<?php echo ($user['disabled'] ?? 'false') === 'true' ? 'Enable' : 'Disable'; ?>">
-                                    <i class="fas fa-<?php echo ($user['disabled'] ?? 'false') === 'true' ? 'check' : 'ban'; ?>"></i>
-                                </button>
-                            </form>
-                            <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus user <?php echo htmlspecialchars($user['name'] ?? ''); ?>?')">
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['.id'] ?? ''); ?>">
-                                <button type="submit" class="btn btn-danger btn-sm" title="Delete">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </tbody>
-    </table>
-</div>
-
-<!-- Edit Modal -->
-<div id="editModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;">
-    <div class="card" style="width: 450px; max-width: 90%; margin: 2rem;">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-edit"></i> Edit PPPoE User</h3>
-            <button onclick="closeEditModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
+    <div class="card-body">
         <form method="POST">
-            <input type="hidden" name="action" value="edit">
-            <input type="hidden" name="user_id" id="edit_user_id">
+            <input type="hidden" name="action" value="add">
             
-            <div class="form-group">
-                <label class="form-label">Username</label>
-                <input type="text" name="username" id="edit_username" class="form-control" readonly required>
-                <small>Username dapat diubah hanya melalui halaman <a href="<?php echo APP_URL; ?>/admin/customers.php">pelanggan</a></small>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" class="form-control" required placeholder="Contoh: pelanggan001">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="text" name="password" class="form-control" required placeholder="Password PPPoE">
+                </div>
             </div>
             
-            <div class="form-group">
-                <label class="form-label">Password</label>
-                <input type="text" name="password" id="edit_password" class="form-control" required>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Profile</label>
-                    <select name="profile" id="edit_profile" class="form-control" required>
+                    <select name="profile" id="add_profile" class="form-control" required>
                         <?php foreach ($mikrotikProfiles as $profile): ?>
                             <option value="<?php echo htmlspecialchars($profile['name']); ?>">
                                 <?php echo htmlspecialchars($profile['name']); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <div id="add_profile_info" class="profile-info"></div>
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">Service</label>
-                    <select name="service" id="edit_service" class="form-control" required>
+                    <select name="service" class="form-control" required>
                         <option value="pppoe">PPPoE</option>
-                        <option value="any">Any</option>
+                        <option value="any">Any (PPPoE / Hotspot)</option>
                     </select>
+                    <small class="form-hint">Tipe layanan yang digunakan</small>
                 </div>
             </div>
             
-            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
-                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Batal</button>
-                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan</button>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" <?php echo !mikrotikConnect() ? 'disabled' : ''; ?>>
+                    <i class="fas fa-save"></i> Tambah User
+                </button>
             </div>
         </form>
     </div>
 </div>
 
-<script>
-const usersData = <?php echo json_encode($mikrotikUsers); ?>;
+<!-- Users Table -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-network-wired"></i> Daftar PPPoE User</h3>
+        <div class="search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchUser" class="form-control" placeholder="Cari username...">
+        </div>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Profile</th>
+                    <th>Status</th>
+                    <th>Aktif</th>
+                    <th>Last Login</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($mikrotikUsers)): ?>
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>Belum ada PPPoE user</p>
+                            <small>atau tidak terhubung ke MikroTik</small>
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($mikrotikUsers as $user): ?>
+                    <?php 
+                        $isOnline = in_array($user['name'] ?? '', $onlineUsernames);
+                        $isDisabled = ($user['disabled'] ?? 'false') === 'true';
+                        $userInitial = strtoupper(substr($user['name'] ?? 'U', 0, 1));
+                    ?>
+                    <tr>
+                        <td data-label="Username">
+                            <div class="user-avatar">
+                                <div class="avatar <?php echo $isOnline && !$isDisabled ? 'online' : ($isDisabled ? 'disabled' : 'offline'); ?>">
+                                    <?php echo $userInitial; ?>
+                                </div>
+                                <div class="user-details">
+                                    <strong><?php echo htmlspecialchars($user['name'] ?? 'N/A'); ?></strong>
+                                    <?php if (!empty($user['password'])): ?>
+                                        <small><i class="fas fa-lock"></i> <?php echo str_repeat('•', 8); ?></small>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </td>
+                        <td data-label="Profile">
+                            <span class="badge badge-info"><?php echo htmlspecialchars($user['profile'] ?? 'default'); ?></span>
+                        </td>
+                        <td data-label="Status">
+                            <?php if ($isDisabled): ?>
+                                <span class="badge badge-danger">
+                                    <i class="fas fa-ban"></i> Disabled
+                                </span>
+                            <?php elseif ($isOnline): ?>
+                                <span class="badge badge-success">
+                                    <i class="fas fa-circle"></i> Online
+                                </span>
+                            <?php else: ?>
+                                <span class="badge badge-warning">
+                                    <i class="fas fa-circle"></i> Offline
+                                </span>
+                            <?php endif; ?>
+                        </td>
+                        <td data-label="Aktif">
+                            <?php if ($isDisabled): ?>
+                                <span class="badge badge-muted">Tidak</span>
+                            <?php else: ?>
+                                <span class="badge badge-success">Ya</span>
+                            <?php endif; ?>
+                        </td>
+                        <td data-label="Last Login">
+                            <span class="last-login">
+                                <?php echo !empty($user['last-login']) && $user['last-login'] !== 'never' 
+                                    ? date('d/m/Y H:i', strtotime($user['last-login'])) 
+                                    : '<i class="fas fa-minus-circle"></i> Tidak pernah'; ?>
+                            </span>
+                        </td>
+                        <td data-label="Aksi">
+                            <div class="action-buttons">
+                                <button class="btn-icon" onclick='editUser(<?php echo json_encode($user); ?>)' title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                
+                                <form method="POST" class="inline-form" onsubmit="return confirmToggle('<?php echo htmlspecialchars($user['name'] ?? ''); ?>', <?php echo $isDisabled ? 'true' : 'false'; ?>)">
+                                    <input type="hidden" name="action" value="toggle">
+                                    <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['.id'] ?? ''); ?>">
+                                    <input type="hidden" name="current_status" value="<?php echo $user['disabled'] ?? 'false'; ?>">
+                                    <button type="submit" class="btn-icon <?php echo $isDisabled ? 'success' : 'warning'; ?>" title="<?php echo $isDisabled ? 'Enable' : 'Disable'; ?>">
+                                        <i class="fas fa-<?php echo $isDisabled ? 'play' : 'pause'; ?>"></i>
+                                    </button>
+                                </form>
+                                
+                                <form method="POST" class="inline-form" onsubmit="return confirmDelete('<?php echo htmlspecialchars($user['name'] ?? ''); ?>')">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['.id'] ?? ''); ?>">
+                                    <button type="submit" class="btn-icon danger" title="Hapus">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
 
-document.getElementById('searchUser').addEventListener('input', function(e) {
+<!-- Edit Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> Edit PPPoE User</h3>
+            <button class="close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="user_id" id="edit_user_id">
+            
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" id="edit_username" class="form-control" readonly required>
+                    <small class="form-hint">
+                        <i class="fas fa-info-circle"></i> Username hanya dapat diubah melalui halaman 
+                        <a href="<?php echo APP_URL; ?>/admin/customers.php">pelanggan</a>
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="text" name="password" id="edit_password" class="form-control" required>
+                    <small class="form-hint">Masukkan password baru untuk mengubah</small>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Profile</label>
+                        <select name="profile" id="edit_profile" class="form-control" required>
+                            <?php foreach ($mikrotikProfiles as $profile): ?>
+                                <option value="<?php echo htmlspecialchars($profile['name']); ?>">
+                                    <?php echo htmlspecialchars($profile['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div id="edit_profile_info" class="profile-info"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Service</label>
+                        <select name="service" id="edit_service" class="form-control" required>
+                            <option value="pppoe">PPPoE</option>
+                            <option value="any">Any</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Batal</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Simpan Perubahan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+/* Additional styles for mikrotik page */
+.user-avatar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    position: relative;
+    transition: all var(--transition-fast);
+}
+
+.avatar.online {
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--accent-green);
+    box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.2);
+}
+
+.avatar.offline {
+    background: rgba(210, 153, 34, 0.15);
+    color: var(--accent-orange);
+}
+
+.avatar.disabled {
+    background: rgba(248, 81, 73, 0.15);
+    color: var(--accent-red);
+    opacity: 0.6;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-details strong {
+    font-size: 14px;
+}
+
+.user-details small {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.user-details small i {
+    margin-right: 4px;
+}
+
+.last-login {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.last-login i {
+    margin-right: 4px;
+    font-size: 10px;
+}
+
+.profile-info {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-left: 3px solid var(--accent-blue);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    display: none;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.inline-form {
+    display: inline;
+}
+
+.btn-icon {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    font-size: 12px;
+}
+
+.btn-icon:hover {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--accent-blue);
+}
+
+.btn-icon.success:hover {
+    color: var(--accent-green);
+    border-color: var(--accent-green);
+}
+
+.btn-icon.warning:hover {
+    color: var(--accent-orange);
+    border-color: var(--accent-orange);
+}
+
+.btn-icon.danger:hover {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+}
+
+.search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-wrapper i {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.search-wrapper .form-control {
+    padding-left: 36px;
+    width: 250px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 48px 20px !important;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.empty-state small {
+    font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    .search-wrapper {
+        width: 100%;
+        margin-top: 12px;
+    }
+    
+    .search-wrapper .form-control {
+        width: 100%;
+    }
+    
+    .action-buttons {
+        justify-content: flex-start;
+    }
+    
+    .user-avatar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+</style>
+
+<script>
+const mikrotikProfiles = <?php echo json_encode($mikrotikProfiles); ?>;
+
+function updateProfileInfo(selectId, displayId) {
+    const select = document.getElementById(selectId);
+    const display = document.getElementById(displayId);
+    if (!select || !display) return;
+    
+    const profileName = select.value;
+    const profile = mikrotikProfiles?.find(p => p.name === profileName);
+    
+    if (profile && Object.keys(profile).length > 1) {
+        let html = '<div class="profile-details" style="display: flex; gap: 12px; flex-wrap: wrap;">';
+        if (profile['rate-limit']) {
+            html += `<span><i class="fas fa-tachometer-alt"></i> Limit: ${profile['rate-limit']}</span>`;
+        }
+        if (profile['session-timeout']) {
+            html += `<span><i class="fas fa-clock"></i> Timeout: ${profile['session-timeout']}</span>`;
+        }
+        if (profile['only-one']) {
+            html += `<span><i class="fas fa-user-lock"></i> Only One: ${profile['only-one']}</span>`;
+        }
+        html += '</div>';
+        
+        if (html === '<div class="profile-details" style="display: flex; gap: 12px; flex-wrap: wrap;"></div>') {
+            html = `<span><i class="fas fa-tag"></i> ${profile.name}</span>`;
+        }
+        
+        display.innerHTML = html;
+        display.style.display = 'block';
+    } else {
+        display.style.display = 'none';
+    }
+}
+
+// Search functionality
+document.getElementById('searchUser')?.addEventListener('input', function(e) {
     const search = e.target.value.toLowerCase();
     const rows = document.querySelectorAll('.data-table tbody tr');
     
     rows.forEach(row => {
+        if (row.querySelector('.empty-state')) return;
         const text = row.textContent.toLowerCase();
         row.style.display = text.includes(search) ? '' : 'none';
     });
 });
 
-function editUser(id, name, password, profile, service) {
-    document.getElementById('edit_user_id').value = id;
-    document.getElementById('edit_username').value = name;
-    document.getElementById('edit_password').value = password;
-    document.getElementById('edit_profile').value = profile;
-    document.getElementById('edit_service').value = service;
+function editUser(user) {
+    document.getElementById('edit_user_id').value = user['.id'] || '';
+    document.getElementById('edit_username').value = user.name || '';
+    document.getElementById('edit_password').value = user.password || '';
+    document.getElementById('edit_profile').value = user.profile || 'default';
+    document.getElementById('edit_service').value = user.service || 'pppoe';
+    
+    updateProfileInfo('edit_profile', 'edit_profile_info');
+    
     document.getElementById('editModal').style.display = 'flex';
 }
 
@@ -396,16 +635,32 @@ function closeEditModal() {
     document.getElementById('editModal').style.display = 'none';
 }
 
-document.getElementById('editModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeEditModal();
-    }
+function confirmToggle(username, isDisabled) {
+    const action = isDisabled ? 'enable' : 'disable';
+    return confirm(`Yakin ingin ${action} user "${username}"?`);
+}
+
+function confirmDelete(username) {
+    return confirm(`Hapus user "${username}"?\n\nTindakan ini tidak dapat dibatalkan!`);
+}
+
+// Initialize profile info for add form
+document.addEventListener('DOMContentLoaded', function() {
+    updateProfileInfo('add_profile', 'add_profile_info');
+    document.getElementById('add_profile')?.addEventListener('change', () => 
+        updateProfileInfo('add_profile', 'add_profile_info'));
+    document.getElementById('edit_profile')?.addEventListener('change', () => 
+        updateProfileInfo('edit_profile', 'edit_profile_info'));
 });
 
+// Close modal on outside click
+document.getElementById('editModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+});
+
+// Close on Escape key
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeEditModal();
-    }
+    if (e.key === 'Escape') closeEditModal();
 });
 </script>
 
