@@ -771,6 +771,8 @@ function generateMikrotikClientScript()
     # RADIUS
     $script .= "/radius incoming set accept=yes port=3799;\n";
     $script .= "/radius rem [find comment~\"".$appName."\"];\n";
+
+    logError("/radius add address=".$OvpnIP." comment=\"".$appName."\" authentication-port=1812 accounting-port=1813 secret=\"".$radiusCredential['nas_secret']."\" service=ppp timeout=3s require-message-auth=no;");
     $script .= "/radius add address=".$OvpnIP." comment=\"".$appName."\" authentication-port=1812 accounting-port=1813 secret=\"".$radiusCredential['nas_secret']."\" service=ppp timeout=3s require-message-auth=no;\n";
 
     # POOL
