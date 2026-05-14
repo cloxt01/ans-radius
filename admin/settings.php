@@ -42,24 +42,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         readfile($fullPath);
         exit;
     }
-
-    if (isset($_GET['download_vpn_config'])) {
-        if ($_GET['download_vpn_config'] === '1') {
-            $configContent = trim((string) shell_exec("sudo /usr/local/bin/wg-provision.sh 1"));
-            header('Content-Type: text/plain');
-            header('Content-Disposition: attachment; filename="client.conf"');
-            echo $configContent;
-            exit;
-        }
-        if ($_GET['download_vpn_config'] === '2') {
-            $configContent = trim((string) shell_exec("sudo /usr/local/bin/wg-provision.sh 2"));
-            header('Content-Type: text/plain');
-            echo $configContent;
-            exit;
-        }
-        setFlash('error', 'Invalid VPN config type');
-        redirect('settings.php');
-    }
 }
 
 // Handle form submissions
@@ -89,6 +71,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
                 
+            case 'add_mikrotik_client':
+                $script = generateMikrotikClientScript();
+                if(isset($script['error'])) {
+                    setFlash('error', $script['error']);
+                } else {
+                    $clientVpn = getClientOvpnByUsername($script['vpn']['username']);
+                    if (!$clientVpn) {
+                        setFlash('error', $clientVpn['error'] ?? 'Pengguna VPN tidak ditemukan');
+                        redirect('settings.php');
+                        break;
+                    }
+                    radiusAddNas($script['radius']['nas_name'], $clientVpn['address'], $script['radius']['nas_secret']);
+                    $_SESSION['generated_script'] = $script['script'];
+                    setFlash('success', 'Script MikroTik berhasil digenerate. Silahkan Restart Radius Server');
+                }
+                redirect('settings.php');
+                break;
+            case 'save_server':
+                $serverIp = sanitize($_POST['server_ip']);
+                if (filter_var($serverIp, FILTER_VALIDATE_IP)) {
+                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['server_ip']);
+                    if ($existing) {
+                        update('settings', ['setting_value' => $serverIp], 'setting_key = ?', ['server_ip']);
+                    } else {
+                        insert('settings', ['setting_key' => 'server_ip', 'setting_value' => $serverIp]);
+                    }
+                    setFlash('success', 'Server IP berhasil disimpan');
+                } else {
+                    setFlash('error', 'Server IP tidak valid');
+                }
+                redirect('settings.php');
+                break;
             case 'save_system':
                 $systemSettings = [
                     'app_name' => sanitize($_POST['app_name']),
@@ -656,6 +670,26 @@ ob_start();
     </div>
 </div>
 
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-cog"></i> Pengaturan Server
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="action" value="save_server">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+
+            <div class="form-group">
+                <label class="form-label">Server IP</label>
+                <input type="text" name="server_ip" class="form-control" value="<?php echo htmlspecialchars($settings['server_ip'] ?? '127.0.0.1'); ?>">
+            </div>
+            <button type="submit" class="btn btn-primary">Simpan</button>
+        </form>
+    </div>
+</div>
+
 <!-- Service Management -->
 <div class="card">
     <div class="card-header">
@@ -722,7 +756,7 @@ ob_start();
                 <div class="form-group">
                     <label class="form-label">Nama Aplikasi</label>
                     <input type="text" name="app_name" class="form-control" 
-                           value="<?php echo htmlspecialchars($settings['app_name'] ?? 'GEMBOK'); ?>">
+                           value="<?php echo htmlspecialchars($settings['app_name'] ?? 'ANS Radius'); ?>">
                 </div>
                 
                 <div class="form-group">
@@ -825,6 +859,32 @@ ob_start();
         </form>
     </div>
 </div>
+<!-- MikroTik Settings -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-network-wired"></i> Generate Script (Mikrotik Client)
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="action" value="add_mikrotik_client">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <textarea name="script" class="form-control" placeholder="Script MikroTik akan muncul di sini..." rows="10" id="mikrotik_script" readonly>
+                <?php if(isset($_SESSION['generated_script'])) { echo htmlspecialchars($_SESSION['generated_script']); } ?>
+            </textarea>
+            <textarea name="" id="">
+                <?php  echo generateMikrotikClientScript();  ?>
+            </textarea>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Generate
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="copyToClipboard('mikrotik_script')">
+                <i class="fas fa-copy"></i> Salin Script
+            </button>
+        </form>
+    </div>
+</div>
 
 <!-- NAS Settings -->
 <div class="card">
@@ -913,6 +973,8 @@ ob_start();
         </div>
     </div>
 </div>
+
+
 
 <!-- Mikrotik Radius Script Generator -->
 <div class="card">
