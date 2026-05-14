@@ -72,11 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
                 
             case 'add_mikrotik_client':
-                $script = generateMikrotikClientScript();
+                $version = sanitize($_POST['mikrotik_version']);
+                $script = generateMikrotikClientScript($version);
                 $nextAddress = nextAddressOvpnClient();
 
                 if(!$nextAddress){
                     logError('Gagal mendapatkan IP berikutnya untuk client OVPN. Pastikan subnet OVPN benar dan tidak penuh.');
+                    setFlash('error', 'Gagal mendapatkan IP berikutnya untuk client OVPN. Pastikan subnet OVPN benar dan tidak penuh.');
                     redirect('settings.php');
                     break;
                 }
@@ -872,11 +874,12 @@ ob_start();
         <form method="POST">
             <input type="hidden" name="action" value="add_mikrotik_client">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <select name="mikrotik_version" id="mikrotik_version" class="form-control">
+                <option value="7">MikroTik 7.15 (Keatas)</option>
+                <option value="6">MikroTik 6 - 7.14 (Kebawah)</option>
+            </select>
             <textarea name="script" class="form-control" placeholder="Script MikroTik akan muncul di sini..." rows="10" id="mikrotik_script" readonly>
                 <?php if(isset($_SESSION['generated_script'])) { echo htmlspecialchars($_SESSION['generated_script']); } ?>
-            </textarea>
-            <textarea name="" id="">
-                <?php  echo generateMikrotikClientScript();  ?>
             </textarea>
             <button type="submit" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Generate
