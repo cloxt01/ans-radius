@@ -837,10 +837,11 @@ function getOpenVpnActiveClients() {
             $name = $data[0];
             $results[$name] = [
                 'username'      => $name,
+                'real_address'  => $data[1],
                 'bytes_received'=> round($data[2] / 1024, 2) . " KB",
                 'bytes_sent'    => round($data[3] / 1024, 2) . " KB",
                 'connected_since'=> $data[4],
-                'address'    => '-'
+                'virtual_ip'    => '-'
             ];
         }
 
@@ -855,7 +856,43 @@ function getOpenVpnActiveClients() {
 
     return array_values($results); 
 }
+function nextAddressOvpnClient() {
+    $clients = getOpenVpnActiveClients();
 
+    if (isset($clients['error'])) {
+        return $clients;
+    }
+
+    $maxIp = null;
+    $maxLong = 0;
+
+    foreach ($clients as $client) {
+        if (empty($client['virtual_ip'])) {
+            continue;
+        }
+
+        $ip = trim($client['virtual_ip']);
+
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+            continue;
+        }
+
+        $long = ip2long($ip);
+
+        if ($long > $maxLong) {
+            $maxLong = $long;
+            $maxIp = $ip;
+        }
+    }
+
+    if (!$maxIp) {
+        return null;
+    }
+
+    $nextIp = long2ip($maxLong + 4);
+
+    return $nextIp;
+}
 function getClientOvpnByUsername($username)
 {
     $clients = getOpenVpnActiveClients();
