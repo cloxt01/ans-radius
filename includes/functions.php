@@ -754,13 +754,13 @@ function generateMikrotikClientScript()
     }
 
     $radiusCredential = [
-        'nas_name' => $appName . "-" . generateRandomString(6, 'alpha'),
-        'nas_secret' => generateRandomString(16, 'mixed')
+        'nas_name' => $appName . "-" . trim(generateRandomString(6, 'alpha')),
+        'nas_secret' => trim(generateRandomString(16, 'mixed'))
     ];
 
     $vpnCredential = [
-        'username' => generateRandomString(10, 'mixed'),
-        'password' => generateRandomString(12, 'mixed')
+        'username' => trim(generateRandomString(10, 'mixed')),
+        'password' => trim(generateRandomString(12, 'mixed'))
     ];
     
     $script .= "# CLIENT - ".getSetting('app_name')."\n";
