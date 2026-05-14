@@ -73,16 +73,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'add_mikrotik_client':
                 $script = generateMikrotikClientScript();
+                $nextAddress = nextAddressOvpnClient();
+
+                if(!$nextAddress){
+                    logError('Gagal mendapatkan IP berikutnya untuk client OVPN. Pastikan subnet OVPN benar dan tidak penuh.');
+                    return [
+                        'error' => 'Gagal mendapatkan IP berikutnya untuk client OVPN. Pastikan subnet OVPN benar dan tidak penuh.'
+                    ];
+                }
+                
                 if(isset($script['error'])) {
                     setFlash('error', $script['error']);
                 } else {
-                    $clientVpn = getClientOvpnByUsername($script['vpn']['username']);
-                    if (!$clientVpn) {
-                        setFlash('error', $clientVpn['error'] ?? 'Pengguna VPN tidak ditemukan');
-                        redirect('settings.php');
-                        break;
-                    }
-                    radiusAddNas($script['radius']['nas_name'], $clientVpn['address'], $script['radius']['nas_secret']);
+                    radiusAddNas($script['radius']['nas_name'], $nextAddress, $script['radius']['nas_secret']);
                     $_SESSION['generated_script'] = $script['script'];
                     setFlash('success', 'Script MikroTik berhasil digenerate. Silahkan Restart Radius Server');
                 }
