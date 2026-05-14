@@ -773,9 +773,9 @@ function generateMikrotikClientScript($version = 7.15)
     $script .= "/radius rem [find comment~\"".$appName."\"];\n";
 
     if ($version === '7') {
-        $script .= "/radius add address=".$OvpnIP." comment=".$appName." authentication-port=1812 accounting-port=1813 secret=\"".trim($radiusCredential['nas_secret'])."\" service=ppp,hotspot timeout=3s require-message-auth=no;\n";
+        $script .= "/radius add address=".$OvpnIP." comment=\"".$appName."\" authentication-port=1812 accounting-port=1813 secret=\"".trim($radiusCredential['nas_secret'])."\" service=ppp,hotspot timeout=3s require-message-auth=no;\n";
     } else if($version === '6') {
-        $script .= "/radius add address=".$OvpnIP." comment=".$appName." authentication-port=1812 accounting-port=1813 secret=\"".trim($radiusCredential['nas_secret'])."\" service=ppp,hotspot timeout=3s;\n";
+        $script .= "/radius add address=".$OvpnIP." comment=\"".$appName."\" authentication-port=1812 accounting-port=1813 secret=\"".trim($radiusCredential['nas_secret'])."\" service=ppp,hotspot timeout=3s;\n";
     } else {
         logError('Versi MikroTik tidak dikenali untuk generate script. Harap gunakan versi 6 atau 7.');
         return [
