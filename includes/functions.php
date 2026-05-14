@@ -701,7 +701,171 @@ function syncRadiusTimeoutForCustomer($pppoeUsername, $customerId)
         return false;
     }
 }
+function getOVPNIP()
+{
+    $ip = trim(shell_exec(
+        "ip -4 -o addr show tun0 2>/dev/null | awk '{print \$4}' | cut -d/ -f1"
+    ));
+    return $ip ?: null;
+}
 
+function upsertVPNclient($name, $username, $password)
+{
+    require_once __DIR__ . '/vpn.php';
+
+    $upserted = upsertVpnUser([
+        'name' => $name,
+        'username' => $username,
+        'password' => $password
+    ]);
+
+    logActivity('UPSERT_VPN_CLIENT', "Name: {$name}, Username: {$username}");
+
+    return $upserted;
+}
+
+function generateMikrotikClientScript()
+{
+
+    $appName = getSetting('app_name', null);
+    $serverIP = getSetting('server_ip', null);
+    $OvpnIP = getOVPNIP();
+
+    $rangeIsolir = "11.7.0.2-11.7.10.254";
+
+    
+    if (!$appName) {
+        logError('App name belum diatur. Tidak dapat generate script MikroTik OVPN client.');
+        return [
+            'error' => 'App name belum diatur. Tidak dapat generate script MikroTik OVPN client.'
+        ];
+    }
+    if (!$OvpnIP) {
+        logError('OVPN IP tidak ditemukan. Pastikan tun0 sudah aktif dan memiliki IP.');
+        return [
+            'error' => 'OVPN IP tidak ditemukan. Pastikan tun0 sudah aktif dan memiliki IP.'
+        ];
+    }
+    if (!$serverIP) {
+        logError('Server IP belum diatur. Tidak dapat generate script MikroTik OVPN client.');
+        return [
+            'error' => 'Server IP belum diatur. Tidak dapat generate script MikroTik OVPN client.'
+        ];
+    }
+
+    $radiusCredential = [
+        'nas_name' => $appName . "-" . generateRandomString(6, 'alpha'),
+        'nas_secret' => generateRandomString(16, 'mixed')
+    ];
+
+    $vpnCredential = [
+        'username' => generateRandomString(10, 'mixed'),
+        'password' => generateRandomString(12, 'mixed')
+    ];
+    
+    $script = "# CLIENT - ".getSetting('app_name')."\n";
+    $script .= "# Generated at: " . date('Y-m-d H:i:s') . "\n";
+    $script .= "\n";
+    $script .= "/ip dns set allow-remote-requests=yes;\n";
+    $script .= "/ppp aaa set interim-update=18m use-radius=yes accounting=yes;\n";
+
+    # RADIUS
+    $script .= "/radius incoming set accept=yes port=3799;\n";
+    $script .= "/radius incoming authentication-port=3799 accounting;\n";
+    $script .= "/radius rem [find comment~\"".$appName."\"];\n";
+    $script .= "/radius add address=".$OvpnIP." comment=\"".$appName."\" authentication-port=1812 accounting-port=1813 secret=\"".$radiusCredential['nas_secret']."\" service=ppp timeout=3s  require-message-auth=no ;\n";
+    
+    # POOL
+    $script .= "/ip pool remove [find name=\"".$appName."\"];\n";
+    $script .= "/ip pool add name=\"".$appName."\" ranges=".$rangeIsolir."\n";
+
+    $script .= "/ip pool remove [find name=\"".$appName."-ISOLIR\"];\n";
+    $script .= "/ip pool add name=\"".$appName."-ISOLIR\" ranges=".$rangeIsolir."\n";
+
+    # PPP PROFILE
+    $script .= "/ppp profile remove [find name=".$appName."];\n";
+    $script .= "/ppp profile add name=\"".$appName."\" local-address=11.7.0.1 remote-address=\"".$appName."\"";
+    
+    # PPP PROFILE (VPN)
+    $script .= "/ppp profile remove [find name=\"".$appName."-VPN\"];\n";
+    $script .= "/ppp profile add change-tcp-mss=yes comment=\"DEFAULT BY " . $appName . " (DON'T CHANGE IT)\" name=\"".$appName."-VPN\" only-one=default use-encryption=yes;\n";
+    
+    # INTERFACE (OVPN)
+    $script .= "/interface ovpn-client add disabled=no  connect-to=" . $serverIP . " name=\"".$appName."-OVPN\" profile=\"".$appName."-VPN\" user=\"".$vpnCredential['username']."\" password=\"".$vpnCredential['password']."\" comment=\"".$appName."- OVPN Client\";\n";
+    
+    # FIREWALL
+    $script .= "/ip firewall filter add action=drop chain=input comment=\"ANSISOLIR\" src-address=".$rangeIsolir.";\n";
+    
+    return [
+        'script' => $script,
+        'vpn' => $vpnCredential,
+        'radius' => $radiusCredential
+    ];
+}
+function getOpenVpnActiveClients() {
+    $path = '/var/log/openvpn/openvpn-status.log';
+    
+    if (!file_exists($path)) {
+        return ["error" => "File log tidak ditemukan."];
+    }
+
+    $content = file_get_contents($path);
+    $lines = explode("\n", $content);
+    
+    $results = [];
+    $mode = '';
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (empty($line) || $line === 'END') continue;
+
+        if (str_contains($line, 'Common Name,Real Address')) {
+            $mode = 'CLIENTS';
+            continue;
+        } 
+        if (str_contains($line, 'Virtual Address,Common Name')) {
+            $mode = 'ROUTING';
+            continue;
+        }
+        if (str_contains($line, 'GLOBAL STATS')) {
+            break; 
+        }
+
+        $data = explode(',', $line);
+
+        if ($mode === 'CLIENTS' && count($data) >= 5) {
+            $name = $data[0];
+            $results[$name] = [
+                'username'      => $name,
+                'bytes_received'=> round($data[2] / 1024, 2) . " KB",
+                'bytes_sent'    => round($data[3] / 1024, 2) . " KB",
+                'connected_since'=> $data[4],
+                'address'    => '-'
+            ];
+        }
+
+        if ($mode === 'ROUTING' && count($data) >= 3) {
+            $name = $data[1];
+            if (isset($results[$name])) {
+                $results[$name]['virtual_ip'] = $data[0];
+                $results[$name]['last_ref']   = $data[3] ?? '';
+            }
+        }
+    }
+
+    return array_values($results); 
+}
+
+function getClientOvpnByUsername($username)
+{
+    $clients = getOpenVpnActiveClients();
+    foreach ($clients as $client) {
+        if ($client['username'] === $username) {
+            return $client;
+        }
+    }
+    return null;
+}
 function getAllRouters()
 {
     if (!tableExists('routers')) {
