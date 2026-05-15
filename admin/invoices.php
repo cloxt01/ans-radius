@@ -375,7 +375,7 @@ ob_start();
                     <th>Jumlah</th>
                     <th>Status</th>
                     <th>Jatuh Tempo</th>
-                    <th>Online</th>
+                    <!-- <th>Online</th> -->
                     <th>Aksi</th>
                 </tr>
             </thead>
