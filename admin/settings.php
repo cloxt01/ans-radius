@@ -109,17 +109,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
             case 'save_server':
                 $serverIp = sanitize($_POST['server_ip']);
-                if (filter_var($serverIp, FILTER_VALIDATE_IP)) {
-                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['server_ip']);
-                    if ($existing) {
-                        update('settings', ['setting_value' => $serverIp], 'setting_key = ?', ['server_ip']);
-                    } else {
-                        insert('settings', ['setting_key' => 'server_ip', 'setting_value' => $serverIp]);
-                    }
-                    setFlash('success', 'Server IP berhasil disimpan');
-                } else {
+                $shortAppName = sanitize($_POST['short_app_name']);
+
+                if(empty($serverIp)) {
+                    setFlash('error', 'Server IP tidak boleh kosong');
+                }
+                if(empty($shortAppName)) {
+                    setFlash('error', 'Short App Name tidak boleh kosong');
+                }
+                if (!filter_var($serverIp, FILTER_VALIDATE_IP)) {
                     setFlash('error', 'Server IP tidak valid');
                 }
+
+                # Update or insert settings
+                $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['server_ip']);
+                if ($existing) {
+                    update('settings', ['setting_value' => $serverIp], 'setting_key = ?', ['server_ip']);
+                } else {
+                    insert('settings', ['setting_key' => 'server_ip', 'setting_value' => $serverIp]);
+                }
+                $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['short_app_name']);
+                if ($existing) {
+                    update('settings', ['setting_value' => $shortAppName], 'setting_key = ?', ['short_app_name']);
+                } else {
+                    insert('settings', ['setting_key' => 'short_app_name', 'setting_value' => $shortAppName]);
+                }
+                setFlash('success', 'Pengaturan server berhasil disimpan');
                 redirect('settings.php');
                 break;
             case 'save_system':
@@ -703,6 +718,10 @@ ob_start();
             <div class="form-group">
                 <label class="form-label">Server IP</label>
                 <input type="text" name="server_ip" class="form-control" value="<?php echo htmlspecialchars($settings['server_ip'] ?? '127.0.0.1'); ?>">
+            </div>
+             <div class="form-group">
+                <label class="form-label">Short App Name</label>
+                <input type="text" name="short_app_name" placeholder="ANS" class="form-control" value="<?php echo htmlspecialchars($settings['short_app_name'] ?? ''); ?>">
             </div>
             <button type="submit" class="btn btn-primary">Simpan</button>
         </form>
