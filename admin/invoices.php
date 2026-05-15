@@ -439,12 +439,12 @@ ob_start();
                                     : '<span class="badge badge-secondary">Tidak</span>';
 
                                 if ($inv['status'] === 'unpaid' && $isOnline) {
-                                    $payStmt = $pdo->prepare("
-                                        UPDATE invoices 
-                                        SET status='paid', paid_at=NOW(), payment_method='Auto Online' 
-                                        WHERE id=? AND status='unpaid'
-                                    ");
-                                    $payStmt->execute([$inv['id']]);
+                                    update('invoices', [
+                                        'status' => 'paid',
+                                        'paid_at' => date('Y-m-d H:i:s'),
+                                        'payment_method' => 'Manual',
+                                        'updated_at' => date('Y-m-d H:i:s')
+                                    ], 'id = ?', [$inv['id']]);
                                     echo '<span class="badge badge-success">Auto Paid</span>';
                                 }
                             ?>
