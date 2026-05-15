@@ -10,7 +10,7 @@ requireAdminLogin();
 
 header('Content-Type: application/json; charset=utf-8');
 
-function jsonResponse(array $payload, int $statusCode = 200): void
+function serviceJsonResponse(array $payload, int $statusCode = 200): void
 {
     http_response_code($statusCode);
     echo json_encode($payload);
@@ -25,7 +25,7 @@ $allowedActions = [
 ];
 
 if (!in_array($action, $allowedActions, true)) {
-    jsonResponse([
+    serviceJsonResponse([
         'success' => false,
         'message' => 'Invalid action specified'
     ], 400);
@@ -34,20 +34,20 @@ if (!in_array($action, $allowedActions, true)) {
 switch ($action) {
     case 'restart_radius':
         $output = shell_exec('sudo /bin/systemctl restart freeradius 2>&1');
-        jsonResponse([
+        serviceJsonResponse([
             'success' => true,
             'message' => 'Radius Server restarted',
             'output' => trim((string) $output)
         ]);
 
     case 'clear_peer':
-        jsonResponse([
+        serviceJsonResponse([
             'success' => false,
             'message' => 'Action clear_peer belum diimplementasikan'
         ], 501);
 }
 
-jsonResponse([
+serviceJsonResponse([
     'success' => false,
     'message' => 'Unknown action'
 ], 400);
