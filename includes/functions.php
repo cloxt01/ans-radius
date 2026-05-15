@@ -906,7 +906,12 @@ function nextAddressOvpnClient() {
     }
 
     if (!$maxIp) {
-        return null;
+        $ip = getOVPNIP();
+        if (!$ip) {
+            return null;
+        }
+        $nextIp = preg_replace('/1$/', '4', $ip);
+        return $nextIp;
     }
 
     $nextIp = long2ip($maxLong + 4);
