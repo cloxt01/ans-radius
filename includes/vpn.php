@@ -41,6 +41,6 @@ function checkVpnUser($username)
 function upsertVpnUser($data)
 {
     $pdo = vpnDbConnection();
-    $stmt = $pdo->prepare("INSERT INTO users (vpn_username, vpn_password, created_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE vpn_password = VALUES(vpn_password), updated_at = VALUES(updated_at)");
-    return $stmt->execute([$data['username'], $data['password'], date('Y-m-d H:i:s')]) ? true : false;
+    $stmt = $pdo->prepare("INSERT INTO users (name, vpn_username, vpn_password, created_at) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), vpn_password = VALUES(vpn_password), updated_at = VALUES(updated_at)");
+    return $stmt->execute([$data['name'], $data['username'], $data['password'], date('Y-m-d H:i:s')]) ? true : false;
 }

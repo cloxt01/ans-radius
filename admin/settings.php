@@ -93,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     require_once '../includes/vpn.php';
                     $clientVpnAdded = upsertVpnUser([
+                        'name' => $script['vpn']['name'],
                         'username' => $script['vpn']['username'],
                         'password' => $script['vpn']['password']
                     ]);

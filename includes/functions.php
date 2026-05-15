@@ -759,6 +759,7 @@ function generateMikrotikClientScript($version = 7.15)
     ];
 
     $vpnCredential = [
+        'name' => $appName . "-OVPN-" . trim(generateRandomString(6, 'alpha')),
         'username' => trim(generateRandomString(10, 'mixed')),
         'password' => trim(generateRandomString(12, 'mixed'))
     ];
