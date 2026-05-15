@@ -23,7 +23,7 @@ try {
 }
 
 // --- Path File CSV ---
-$csvFile = 'convertcsv.csv';
+$csvFile = 'convertcsv (4).csv';
 
 if (($handle = fopen($csvFile, "r")) !== FALSE) {
     $headers = fgetcsv($handle, 1000, ",");
@@ -31,7 +31,12 @@ if (($handle = fopen($csvFile, "r")) !== FALSE) {
     // 1. Prepare Query untuk tabel 'customers' di ans_radius
     $sql_cust = "INSERT INTO customers (name, phone, pppoe_username, isolation_date, address, status, package_id) 
                  VALUES (:name, :phone, :username, :isolation_date, :address, :status, :package_id)
-                 ON DUPLICATE KEY UPDATE status = VALUES(status), isolation_date = VALUES(isolation_date)";
+                 ON DUPLICATE KEY UPDATE 
+                    name = VALUES(name),
+                    phone = VALUES(phone),
+                    status = VALUES(status), 
+                    isolation_date = VALUES(isolation_date),
+                    address = VALUES(address)";
     $stmt_cust = $db_ans->prepare($sql_cust);
 
     // 2. Prepare Query untuk tabel 'radusergroup' di radius_db
@@ -40,57 +45,67 @@ if (($handle = fopen($csvFile, "r")) !== FALSE) {
                       ON DUPLICATE KEY UPDATE groupname = VALUES(groupname)";
     $stmt_rad_group = $db_radius->prepare($sql_rad_group);
 
-    // 3. Prepare Query untuk tabel 'radcheck' di radius_db (Password)
+    // 3. Prepare Query untuk tabel 'radcheck' (Password)
     $sql_rad_check = "INSERT INTO radcheck (username, attribute, op, value) 
                       VALUES (:username, 'Cleartext-Password', ':=', :password)
                       ON DUPLICATE KEY UPDATE value = VALUES(value)";
     $stmt_rad_check = $db_radius->prepare($sql_rad_check);
 
+    echo "Memulai Sinkronisasi Database Aplikasi & RADIUS...\n\n";
+
     while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
         $row = array_combine($headers, $data);
+        $username = trim($row['username']);
 
-        // Penentuan Logika Group & Status
-        $is_expired = (strtoupper($row['voucher_status']) == 'EXPIRED' || ($row['isolir'] ?? '0') != '0');
-        $groupname = $is_expired ? 'ISOLIR' : 'PAKET STAR LEGEND';
+        // --- LOGIKA UTAMA ---
+        // Fokus hanya pada kolom voucher_status
+        $v_status = strtoupper(trim($row['voucher_status']));
+
+        if ($v_status === 'EXPIRED') {
+            $status_cust = 'isolated';
+            $groupname   = 'ISOLIR';
+        } else {
+            $status_cust = 'active';
+            $groupname   = 'PAKET STAR LEGEND'; // Ganti dengan nama group default lu
+        }
         
-        // Sesuaikan 'isolated'/'active' dengan panjang kolom status di DB agar tidak truncated
-        $status_cust = $is_expired ? 'isolated' : 'active';
-        
-        // Ambil tanggal isolir (hanya angka harinya saja)
         $day_only = !empty($row['expired_at']) ? date('d', strtotime($row['expired_at'])) : null;
 
         try {
-            // Eksekusi ke ans_radius.customers
+            // 1. Update tabel Customers (ans_radius) - Tetap pakai ON DUPLICATE KEY
             $stmt_cust->execute([
                 ':name'           => substr($row['name'], 0, 50),
                 ':phone'          => $row['whatsapp'],
-                ':username'       => $row['username'],
+                ':username'       => $username,
                 ':isolation_date' => $day_only,
                 ':address'        => substr($row['address'], 0, 100),
                 ':status'         => $status_cust,
                 ':package_id'     => 1
             ]);
 
-            // Eksekusi ke radius_db.radusergroup
+
+            $db_radius->prepare("DELETE FROM radusergroup WHERE username = ?")->execute([$username]);
             $stmt_rad_group->execute([
-                ':username'  => $row['username'],
+                ':username'  => $username,
                 ':groupname' => $groupname,
                 ':priority'  => 1
             ]);
 
-            // Eksekusi ke radius_db.radcheck (Set Password 1234)
+
+            $db_radius->prepare("DELETE FROM radcheck WHERE username = ? AND attribute = 'Cleartext-Password'")->execute([$username]);
             $stmt_rad_check->execute([
-                ':username' => $row['username'],
+                ':username' => $username,
                 ':password' => '1234'
             ]);
 
-            echo "Processed: {$row['username']} -> Group: {$groupname} | Pass: 1234\n";
+            echo "OK: {$username} -> Status: {$status_cust} | Group: {$groupname}\n";
 
         } catch (Exception $e) {
-            echo "Error pada user {$row['username']}: " . $e->getMessage() . "\n";
+            echo "Error pada user {$username}: " . $e->getMessage() . "\n";
         }
     }
     fclose($handle);
 }
-echo "\nSelesai! Data (Customers, Group, & Password) telah disinkronkan.";
+
+echo "\nSelesai! Semua data (Customers & RADIUS) telah sinkron.";
 ?>
