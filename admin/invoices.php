@@ -428,7 +428,7 @@ ob_start();
                         <td data-label="Online">
                             <?php
                             foreach ($activeSessions as $session) {
-                                if ($session['username'] === $inv['pppoe_username']) {
+                                if ($session['name'] === $inv['pppoe_username']) {
                                     echo '<span class="badge badge-success">Ya</span>';
                                     break;
                                 }
