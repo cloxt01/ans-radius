@@ -1,16 +1,6 @@
 <?php
-// Setelah menambahkan , jangan lupa untuk menambahkan izin browser untuk eksekusi `sudo` di :
-// 
-// sudo visudo
-// 
-// Lalu tambahkan baris berikut
-// 
-// Jika bash
-// www ALL=(ALL) NOPASSWD: /bin/bash [namafile.sh]
-//
-// Lainnya
-// www ALL=(ALL) NOPASSWD: ../cron/custom/cleanup-peer-wg.sh
-//
+// Endpoint JSON untuk aksi service dari halaman settings.
+
 session_start();
 
 require_once '../includes/auth.php';
@@ -18,38 +8,46 @@ require_once '../includes/config.php';
 
 requireAdminLogin();
 
-/**
- * 🔒 HARUS LOGIN ADMIN
+header('Content-Type: application/json; charset=utf-8');
 
-/**
- * ACTION WHITELIST
- */
+function jsonResponse(array $payload, int $statusCode = 200): void
+{
+    http_response_code($statusCode);
+    echo json_encode($payload);
+    exit;
+}
+
 $action = $_GET['action'] ?? '';
 
-$allowed_actions = [
+$allowedActions = [
     'restart_radius',
     'clear_peer'
 ];
 
-if (!in_array($action, $allowed_actions)) {
-    setFlash('error', 'Invalid action specified');
-    redirect('/admin/settings.php');
-    exit;
+if (!in_array($action, $allowedActions, true)) {
+    jsonResponse([
+        'success' => false,
+        'message' => 'Invalid action specified'
+    ], 400);
 }
 
-/**
- * EXECUTION ROUTER
- */
 switch ($action) {
-
     case 'restart_radius':
         $output = shell_exec('sudo /bin/systemctl restart freeradius 2>&1');
-        setFlash('success', "Radius Server Restarted\n$output");
-        break;
+        jsonResponse([
+            'success' => true,
+            'message' => 'Radius Server restarted',
+            'output' => trim((string) $output)
+        ]);
+
+    case 'clear_peer':
+        jsonResponse([
+            'success' => false,
+            'message' => 'Action clear_peer belum diimplementasikan'
+        ], 501);
 }
 
-/**
- * ALWAYS REDIRECT BACK
- */
-redirect('/admin/settings.php');
-exit;
+jsonResponse([
+    'success' => false,
+    'message' => 'Unknown action'
+], 400);
