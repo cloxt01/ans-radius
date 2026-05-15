@@ -91,6 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         logError('Gagal menambahkan NAS untuk client OVPN. Pastikan database RADIUS terkonfigurasi dengan benar.');
                     }
 
+                    require_once '../includes/vpn.php';
                     $clientVpnAdded = upsertVpnUser([
                         'username' => $script['vpn']['username'],
                         'password' => $script['vpn']['password']
