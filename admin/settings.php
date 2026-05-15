@@ -3446,7 +3446,20 @@ function restartService(service) {
     showToast(`Merestart ${service}...`, 'info');
     
     fetch(`../api/services.php?action=restart_${service}&token=<?php echo getSettingValue('CRON_TOKEN', ''); ?>`)
-        .then(response => response.json())
+        .then(async response => {
+            const contentType = response.headers.get('content-type') || '';
+            const rawText = await response.text();
+
+            if (!response.ok) {
+                throw new Error(rawText || `HTTP ${response.status}`);
+            }
+
+            if (contentType.includes('application/json')) {
+                return JSON.parse(rawText);
+            }
+
+            throw new Error(rawText || 'Response bukan JSON');
+        })
         .then(data => {
             if (data.success) {
                 showToast(`Service ${service} berhasil direstart`, 'success');
