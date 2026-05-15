@@ -15,6 +15,7 @@ function vpnDbConnection()
             'username' => defined('VPN_DB_USER') ? VPN_DB_USER : 'vpnuser',
             'password' => defined('VPN_DB_PASS') ? VPN_DB_PASS : 'vpnpass',
         ];
+        logError("Connecting to VPN database at {$config['host']} with user {$config['username']}");
 
         $dsn = "mysql:host={$config['host']};dbname={$config['database']};charset=utf8mb4";
         $pdo = new PDO($dsn, $config['username'], $config['password'], [
