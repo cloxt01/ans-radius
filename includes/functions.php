@@ -729,9 +729,11 @@ function generateMikrotikClientScript($version = 7.15)
 
     $appName = getSetting('app_name', null);
     $serverIP = getSetting('server_ip', null);
+    $shortAppName = getSetting('short_app_name', null);
     $OvpnIP = getOVPNIP();
 
-    $rangeIsolir = "11.7.0.2-11.7.10.254";
+    $rangeNormal = "11.7.0.2-11.7.10.254";
+    $rangeIsolir = "11.127.0.2-11.127.10.254";
 
     
     if (!$appName) {
@@ -771,12 +773,12 @@ function generateMikrotikClientScript($version = 7.15)
 
     # RADIUS
     $script .= "/radius incoming set accept=yes port=3799;\n";
-    $script .= "/radius rem [find comment=\"".$appName."\"];\n";
+    $script .= "/radius rem [find comment=\"".$shortAppName."-RADIUS\"];\n";
 
     if ($version === '7') {
-        $script .= "/radius add address=".$OvpnIP." comment=\"".$appName."\" authentication-port=1812 accounting-port=1813 secret=\"".trim($radiusCredential['nas_secret'])."\" service=ppp,hotspot timeout=3s require-message-auth=no;\n";
+        $script .= "/radius add address=".$OvpnIP." comment=\"".$shortAppName."-RADIUS\" authentication-port=1812 accounting-port=1813 secret=\"".trim($radiusCredential['nas_secret'])."\" service=ppp,hotspot timeout=3s require-message-auth=no;\n";
     } else if($version === '6') {
-        $script .= "/radius add address=".$OvpnIP." comment=\"".$appName."\" authentication-port=1812 accounting-port=1813 secret=\"".trim($radiusCredential['nas_secret'])."\" service=ppp,hotspot timeout=3s;\n";
+        $script .= "/radius add address=".$OvpnIP." comment=\"".$shortAppName."-RADIUS\" authentication-port=1812 accounting-port=1813 secret=\"".trim($radiusCredential['nas_secret'])."\" service=ppp,hotspot timeout=3s;\n";
     } else {
         logError('Versi MikroTik tidak dikenali untuk generate script. Harap gunakan versi 6 atau 7.');
         return [
@@ -785,34 +787,34 @@ function generateMikrotikClientScript($version = 7.15)
     }
 
     # POOL
-    $script .= "/ip pool remove [find name=\"".$appName."\"];\n";
-    $script .= "/ip pool add name=\"".$appName."\" ranges=".$rangeIsolir.";\n";
-    $script .= "/ip pool remove [find name=\"".$appName."-ISOLIR\"];\n";
-    $script .= "/ip pool add name=\"".$appName."-ISOLIR\" ranges=".$rangeIsolir.";\n";
+    $script .= "/ip pool remove [find name=\"".$shortAppName."-POOL\"];\n";
+    $script .= "/ip pool add name=\"".$shortAppName."-POOL\" ranges=".$rangeNormal.";\n";
+    $script .= "/ip pool remove [find name=\"".$shortAppName."-ISOLIR\"];\n";
+    $script .= "/ip pool add name=\"".$shortAppName."-ISOLIR\" ranges=".$rangeIsolir.";\n";
 
     # PPP PROFILE (VPN) - dibuat duluan
-    $script .= "/ppp profile remove [find name=\"".$appName."-VPN\"];\n";
-    $script .= "/ppp profile add change-tcp-mss=yes comment=\"DEFAULT BY ".$appName." (DON'T CHANGE IT)\" name=\"".$appName."-VPN\" only-one=default use-encryption=yes;\n";
+    $script .= "/ppp profile remove [find name=\"".$shortAppName."-VPN\"];\n";
+    $script .= "/ppp profile add change-tcp-mss=yes comment=\"DEFAULT BY ".$appName." (DON'T CHANGE IT)\" name=\"".$shortAppName."-VPN\" only-one=default use-encryption=yes;\n";
 
     # PPP PROFILE
-    $script .= "/ppp profile remove [find name=\"".$appName."\"];\n";
-    $script .= "/ppp profile remove [find name=\"".$appName."-ISOLIR\"];\n";
-    $script .= "/ppp profile add insert-queue-before=first local-address=11.7.0.1 name=\"".$appName."\" only-one=default remote-address=\"".$appName."\";\n";
-    $script .= "/ppp profile add insert-queue-before=first local-address=11.7.0.1 name=\"".$appName."-ISOLIR\" only-one=default remote-address=\"".$appName."-ISOLIR\";\n";
+    $script .= "/ppp profile remove [find name=\"".$shortAppName."\"];\n";
+    $script .= "/ppp profile remove [find name=\"".$shortAppName."-ISOLIR\"];\n";
+    $script .= "/ppp profile add insert-queue-before=first local-address=11.7.0.1 name=\"".$shortAppName."\" only-one=default remote-address=\"".$appName."\";\n";
+    $script .= "/ppp profile add insert-queue-before=first local-address=11.7.0.1 name=\"".$shortAppName."-ISOLIR\" only-one=default remote-address=\"".$appName."-ISOLIR\";\n";
 
     # INTERFACE (OVPN)
-    $script .= "/interface ovpn-client remove [find name~\"".$appName."-OVPN\"];\n";
-    $script .= "/interface ovpn-client add disabled=no connect-to=".$serverIP." name=\"".$appName."-OVPN\" profile=\"".$appName."-VPN\" user=\"".$vpnCredential['username']."\" password=\"".$vpnCredential['password']."\" comment=\"".$appName."- OVPN Client\";\n";
+    $script .= "/interface ovpn-client remove [find name~\"".$shortAppName."-OVPN\"];\n";
+    $script .= "/interface ovpn-client add disabled=no connect-to=".$serverIP." name=\"".$shortAppName."-OVPN\" profile=\"".$shortAppName."-VPN\" user=\"".$vpnCredential['username']."\" password=\"".$vpnCredential['password']."\";\n";
 
     # PROXY ISOLIR
     // $script .= "/ip proxy set enabled=yes port=8097;\n";
-    // $script .= "/ip proxy access rem [find comment~\"".$appName."\"];\n";
+    // $script .= "/ip proxy access rem [find comment~\"".$shortAppName."\"];\n";
     // if ($version >= 7) {
     //     // versi 7+ pakai action=redirect action-data
-    //     $script .= "/ip proxy access add action=redirect action-data=\"".$isolirDomain."\" comment=\"DENY OTHER THAN ISOLIR BY ".$appName."\" dst-address=!".$bypassIP." local-port=8097;\n";
+    //     $script .= "/ip proxy access add action=redirect action-data=\"".$isolirDomain."\" comment=\"DENY OTHER THAN ISOLIR BY ".$shortAppName."\" dst-address=!".$bypassIP." local-port=8097;\n";
     // } else {
     //     // versi 6 pakai action=deny redirect-to
-    //     $script .= "/ip proxy access add action=deny comment=\"DENY OTHER THAN ISOLIR BY ".$appName."\" dst-address=!".$bypassIP." redirect-to=\"".$isolirDomain."\" local-port=8097;\n";
+    //     $script .= "/ip proxy access add action=deny comment=\"DENY OTHER THAN ISOLIR BY ".$shortAppName."\" dst-address=!".$bypassIP." redirect-to=\"".$isolirDomain."\" local-port=8097;\n";
     // }
 
     # FIREWALL
