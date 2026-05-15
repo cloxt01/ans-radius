@@ -35,12 +35,12 @@ function fetchOneVpn($query, $params = [])
 
 function checkVpnUser($username)
 {
-    $user = fetchOneVpn("SELECT * FROM users WHERE username = ?", [$username]);
+    $user = fetchOneVpn("SELECT * FROM users WHERE vpn_username = ?", [$username]);
     return $user !== false;
 }
 function upsertVpnUser($data)
 {
     $pdo = vpnDbConnection();
-    $stmt = $pdo->prepare("INSERT INTO users (username, password, created_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE password = VALUES(password), updated_at = VALUES(updated_at)");
+    $stmt = $pdo->prepare("INSERT INTO users (vpn_username, vpn_password, created_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE vpn_password = VALUES(vpn_password), updated_at = VALUES(updated_at)");
     return $stmt->execute([$data['username'], $data['password'], date('Y-m-d H:i:s')]) ? true : false;
 }
