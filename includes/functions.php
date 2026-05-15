@@ -724,7 +724,7 @@ function upsertVPNclient($name, $username, $password)
     return $upserted;
 }
 
-function generateMikrotikClientScript($version = 7.15)
+function generateMikrotikClientScript($version = '6')
 {
 
     $appName = getSetting('app_name', null);
@@ -799,8 +799,8 @@ function generateMikrotikClientScript($version = 7.15)
     # PPP PROFILE
     $script .= "/ppp profile remove [find name=\"".$shortAppName."\"];\n";
     $script .= "/ppp profile remove [find name=\"".$shortAppName."-ISOLIR\"];\n";
-    $script .= "/ppp profile add insert-queue-before=first local-address=11.7.0.1 name=\"".$shortAppName."\" only-one=default remote-address=\"".$appName."\";\n";
-    $script .= "/ppp profile add insert-queue-before=first local-address=11.7.0.1 name=\"".$shortAppName."-ISOLIR\" only-one=default remote-address=\"".$appName."-ISOLIR\";\n";
+    $script .= "/ppp profile add insert-queue-before=first local-address=11.7.0.1 name=\"".$shortAppName."\" only-one=default remote-address=\"".$shortAppName."-POOL\";\n";
+    $script .= "/ppp profile add insert-queue-before=first local-address=11.7.0.1 name=\"".$shortAppName."-ISOLIR\" only-one=default remote-address=\"".$shortAppName."-ISOLIR\";\n";
 
     # INTERFACE (OVPN)
     $script .= "/interface ovpn-client remove [find name~\"".$shortAppName."-OVPN\"];\n";
@@ -875,49 +875,47 @@ function getOpenVpnActiveClients() {
     return array_values($results);
 }
 
+
 function nextAddressOvpnClient() {
-    $clients = getOpenVpnActiveClients();
-    
-
-    if (isset($clients['error'])) {
-        return $clients;
-    }
-
-    $maxIp = null;
     $maxLong = 0;
 
-    foreach ($clients as $client) {
-        if (empty($client['virtual_ip'])) {
-            continue;
-        }
-
-        $ip = trim($client['virtual_ip']);
-
-        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
-            continue;
-        }
-
-        $long = ip2long($ip);
-
-        if ($long > $maxLong) {
-            $maxLong = $long;
-            $maxIp = $ip;
+    $ippPath = '/var/log/openvpn/ipp.txt';
+    if (file_exists($ippPath)) {
+        $content = file_get_contents($ippPath);
+        $lines = explode("\n", $content);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) continue;
+            $data = explode(',', $line);
+            if (count($data) < 2) continue;
+            $ip = trim($data[1]);
+            if (!filter_var($ip, FILTER_VALIDATE_IP)) continue;
+            $long = ip2long($ip);
+            if ($long > $maxLong) $maxLong = $long;
         }
     }
 
-    if (!$maxIp) {
+    if ($maxLong === 0) {
+        $clients = getOpenVpnActiveClients();
+        if (!isset($clients['error'])) {
+            foreach ($clients as $client) {
+                $ip = trim($client['virtual_ip'] ?? '');
+                if (!filter_var($ip, FILTER_VALIDATE_IP)) continue;
+                $long = ip2long($ip);
+                if ($long > $maxLong) $maxLong = $long;
+            }
+        }
+    }
+
+    if ($maxLong === 0) {
         $ip = getOVPNIP();
-        if (!$ip) {
-            return null;
-        }
-        $nextIp = preg_replace('/1$/', '4', $ip);
-        return $nextIp;
+        if (!$ip) return null;
+        return preg_replace('/1$/', '4', $ip);
     }
 
-    $nextIp = long2ip($maxLong + 4);
-
-    return $nextIp;
+    return long2ip($maxLong + 4);
 }
+
 function getClientOvpnByUsername($username)
 {
     $clients = getOpenVpnActiveClients();
