@@ -1,6 +1,9 @@
 <?php
 /**
  * Admin Settings - Elegant Dark Minimalis Theme
+ * 
+ * @package Admin
+ * @author ANS Team
  */
 
 require_once '../includes/auth.php';
@@ -8,24 +11,74 @@ requireAdminLogin();
 
 $pageTitle = 'Settings';
 
-// Get current settings
+
+
+// Get current settings dengan error handling
 $settings = [];
-$settingsData = fetchAll("SELECT * FROM settings");
-foreach ($settingsData as $s) {
-    $settings[$s['setting_key']] = $s['setting_value'];
-}
-
-function extractPemBlock($raw)
-{
-    if (preg_match('/-----BEGIN [^-]+-----.*?-----END [^-]+-----/s', (string) $raw, $m)) {
-        return trim($m[0]);
+try {
+    $settingsData = fetchAll("SELECT * FROM settings");
+    foreach ($settingsData as $s) {
+        $settings[$s['setting_key']] = $s['setting_value'];
     }
-    return trim((string) $raw);
+} catch (Exception $e) {
+    logError('Failed to load settings: ' . $e->getMessage());
+    setFlash('error', 'Gagal memuat pengaturan');
 }
 
-// Handle GET requests (download backup, VPN config)
+// Get site settings untuk landing page
+$siteSettings = [];
+try {
+    $pdo = getDB();
+    $pdo->exec("CREATE TABLE IF NOT EXISTS site_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        setting_key VARCHAR(50) UNIQUE NOT NULL,
+        setting_value TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    
+    $siteSettingsData = fetchAll("SELECT * FROM site_settings");
+    foreach ($siteSettingsData as $s) {
+        $siteSettings[$s['setting_key']] = $s['setting_value'];
+    }
+} catch (Exception $e) {
+    logError('Failed to load site settings: ' . $e->getMessage());
+    $siteSettings = [];
+}
+
+// Get FAQs
+$faqs = [];
+try {
+    $pdo = getDB();
+    $pdo->exec("CREATE TABLE IF NOT EXISTS faqs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        question VARCHAR(500) NOT NULL,
+        answer TEXT NOT NULL,
+        sort_order INT DEFAULT 0,
+        is_active TINYINT DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    
+    $faqs = fetchAll("SELECT id, question, answer, is_active FROM faqs ORDER BY sort_order ASC, id ASC");
+} catch (Exception $e) {
+    logError('Failed to load FAQs: ' . $e->getMessage());
+    $faqs = [];
+}
+
+// ============================================================================
+// HANDLE GET REQUESTS
+// ============================================================================
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    // Download backup
     if (isset($_GET['download_backup'])) {
+        // Validasi CSRF untuk GET request
+        if (!isset($_GET['csrf_token']) || !verifyCsrfToken($_GET['csrf_token'])) {
+            setFlash('error', 'Invalid CSRF token');
+            redirect('settings.php');
+        }
+        
         $backupFile = sanitizeBackupFilename($_GET['download_backup'] ?? '');
         if ($backupFile === '') {
             setFlash('error', 'Nama file backup tidak valid');
@@ -39,13 +92,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         header('Content-Type: application/sql');
         header('Content-Disposition: attachment; filename="' . $backupFile . '"');
         header('Content-Length: ' . filesize($fullPath));
+        header('Cache-Control: private, max-age=0, must-revalidate');
         readfile($fullPath);
+        exit;
+    }
+    
+    // Get NAS data untuk edit (AJAX)
+    if (isset($_GET['get_nas']) && isset($_GET['id'])) {
+        header('Content-Type: application/json');
+        $nasId = (int)$_GET['id'];
+        $nas = radiusGetNasById($nasId);
+        if ($nas) {
+            echo json_encode(['success' => true, 'data' => $nas]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'NAS tidak ditemukan']);
+        }
         exit;
     }
 }
 
-// Handle form submissions
+// ============================================================================
+// HANDLE POST REQUESTS
+// ============================================================================
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF Validation untuk semua POST
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
         setFlash('error', 'Invalid CSRF token');
         redirect('settings.php');
@@ -53,90 +124,158 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
+            // ==================== ADD NAS ====================
             case 'add_nas':
-                if (radiusAddNas($_POST['nas_name'], $_POST['nas_ip'], $_POST['nas_secret'])) {
+                $nasName = sanitize($_POST['nas_name']);
+                $nasIp = sanitize($_POST['nas_ip']);
+                $nasSecret = sanitize($_POST['nas_secret']);
+                
+                if (empty($nasName) || empty($nasIp) || empty($nasSecret)) {
+                    setFlash('error', 'Semua field NAS harus diisi');
+                } elseif (!filter_var($nasIp, FILTER_VALIDATE_IP)) {
+                    setFlash('error', 'IP NAS tidak valid');
+                } elseif (radiusAddNas($nasName, $nasIp, $nasSecret)) {
                     setFlash('success', 'NAS berhasil ditambahkan');
                 } else {
                     setFlash('error', 'Gagal menambahkan NAS');
                 }
                 redirect('settings.php');
                 break;
+            
+            // ==================== EDIT NAS ====================
+            case 'edit_nas':
+                $nasId = (int)$_POST['nas_id'];
+                $nasName = sanitize($_POST['nas_name']);
+                $nasIp = sanitize($_POST['nas_ip']);
+                $nasSecret = sanitize($_POST['nas_secret']);
+                $description = sanitize($_POST['description'] ?? '');
                 
+                if ($nasId <= 0) {
+                    setFlash('error', 'ID NAS tidak valid');
+                } elseif (empty($nasName) || empty($nasIp) || empty($nasSecret)) {
+                    setFlash('error', 'Semua field NAS harus diisi');
+                } elseif (!filter_var($nasIp, FILTER_VALIDATE_IP)) {
+                    setFlash('error', 'IP NAS tidak valid');
+                } elseif (radiusUpdateNas($nasId, $nasName, $nasIp, $nasSecret)) {
+                    setFlash('success', 'NAS berhasil diperbarui');
+                    // Restart radius setelah edit
+                    shell_exec('sudo /bin/systemctl restart freeradius 2>/dev/null >/dev/null &');
+                } else {
+                    setFlash('error', 'Gagal memperbarui NAS');
+                }
+                redirect('settings.php');
+                break;
+            
+            // ==================== DELETE NAS ====================
             case 'delete_nas':
-                if (radiusDeleteNas($_POST['nas_id'])) {
+                $nasId = (int)$_POST['nas_id'];
+                if ($nasId <= 0) {
+                    setFlash('error', 'ID NAS tidak valid');
+                } elseif (radiusDeleteNas($nasId)) {
                     setFlash('success', 'NAS berhasil dihapus');
+                    shell_exec('sudo /bin/systemctl restart freeradius 2>/dev/null >/dev/null &');
                 } else {
                     setFlash('error', 'Gagal menghapus NAS');
                 }
                 redirect('settings.php');
                 break;
-                
+            
+            // ==================== ADD MIKROTIK CLIENT ====================
             case 'add_mikrotik_client':
                 $version = sanitize($_POST['mikrotik_version']);
                 $script = generateMikrotikClientScript($version);
-                $nextAddress = nextAddressOvpnClient();
-
-                if(!$nextAddress){
-                    logError('Gagal mendapatkan IP berikutnya untuk client OVPN. Pastikan subnet OVPN benar dan tidak penuh.');
-                    setFlash('error', 'Gagal mendapatkan IP berikutnya untuk client OVPN. Pastikan subnet OVPN benar dan tidak penuh.');
+                
+                // Cek apakah script valid
+                if (isset($script['error'])) {
+                    setFlash('error', $script['error']);
                     redirect('settings.php');
                     break;
                 }
                 
-                if(isset($script['error'])) {
-                    setFlash('error', $script['error']);
-                } else {
-                    $NASAdded = radiusAddNas($script['radius']['nas_name'], $nextAddress, $script['radius']['nas_secret']);
-                    if (!$NASAdded) {
-                        logError('Gagal menambahkan NAS untuk client OVPN. Pastikan database RADIUS terkonfigurasi dengan benar.');
-                    }
-
-                    require_once '../includes/vpn.php';
-                    $clientVpnAdded = upsertVpnUser([
-                        'name' => $script['vpn']['name'],
-                        'username' => $script['vpn']['username'],
-                        'password' => $script['vpn']['password']
-                    ]);
-
-                    if (!$clientVpnAdded) {
-                        logError('Gagal menambahkan user VPN untuk client OVPN. Pastikan database VPN terkonfigurasi dengan benar.');
-                    }
-
-                    $_SESSION['generated_script'] = $script['script'];
-                    setFlash('success', 'Script MikroTik berhasil digenerate. Silahkan Restart Radius Server');
+                // Get next IP untuk client
+                $nextAddress = nextAddressOvpnClient();
+                if (!$nextAddress) {
+                    logError('Gagal mendapatkan IP berikutnya untuk client OVPN. Pastikan subnet OVPN benar dan tidak penuh.');
+                    setFlash('error', 'Gagal mendapatkan IP berikutnya untuk client OVPN. Subnet mungkin sudah penuh.');
+                    redirect('settings.php');
+                    break;
                 }
+                
+                // Add NAS ke RADIUS
+                $NASAdded = radiusAddNas($script['radius']['nas_name'], $nextAddress, $script['radius']['nas_secret']);
+                if (!$NASAdded) {
+                    $errorMsg = 'Gagal menambahkan NAS untuk client OVPN. Pastikan database RADIUS terkonfigurasi dengan benar.';
+                    setFlash('error', $errorMsg);
+                    logError($errorMsg);
+                    redirect('settings.php');
+                    break;
+                }
+                
+                // Add VPN user
+                require_once '../includes/vpn.php';
+                $clientVpnAdded = upsertVpnUser([
+                    'name' => $script['vpn']['name'],
+                    'username' => $script['vpn']['username'],
+                    'password' => $script['vpn']['password']
+                ]);
+                
+                if (!$clientVpnAdded) {
+                    $errorMsg = 'Gagal menambahkan user VPN untuk client OVPN. Pastikan database VPN terkonfigurasi dengan benar.';
+                    setFlash('error', $errorMsg);
+                    logError($errorMsg);
+                    redirect('settings.php');
+                    break;
+                }
+                
+                // Restart RADIUS
+                shell_exec('sudo /bin/systemctl restart freeradius 2>/dev/null >/dev/null &');
+                
+                $_SESSION['generated_script'] = $script['script'];
+                setFlash('success', 'Script MikroTik berhasil digenerate');
                 redirect('settings.php');
                 break;
+            
+            // ==================== SAVE SERVER ====================
             case 'save_server':
-                $serverIp = sanitize($_POST['server_ip']);
-                $shortAppName = sanitize($_POST['short_app_name']);
-
-                if(empty($serverIp)) {
-                    setFlash('error', 'Server IP tidak boleh kosong');
+                $serverIp = trim(sanitize($_POST['server_ip']));
+                $shortAppName = trim(sanitize($_POST['short_app_name']));
+                
+                $errors = [];
+                if (empty($serverIp)) {
+                    $errors[] = 'Server IP tidak boleh kosong';
+                } elseif (!filter_var($serverIp, FILTER_VALIDATE_IP)) {
+                    $errors[] = 'Server IP tidak valid';
                 }
-                if(empty($shortAppName)) {
-                    setFlash('error', 'Short App Name tidak boleh kosong');
+                if (empty($shortAppName)) {
+                    $errors[] = 'Short App Name tidak boleh kosong';
                 }
-                if (!filter_var($serverIp, FILTER_VALIDATE_IP)) {
-                    setFlash('error', 'Server IP tidak valid');
+                
+                if (!empty($errors)) {
+                    setFlash('error', implode(', ', $errors));
+                    redirect('settings.php');
+                    break;
                 }
-
-                # Update or insert settings
+                
+                // Update atau insert settings
                 $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['server_ip']);
                 if ($existing) {
                     update('settings', ['setting_value' => $serverIp], 'setting_key = ?', ['server_ip']);
                 } else {
                     insert('settings', ['setting_key' => 'server_ip', 'setting_value' => $serverIp]);
                 }
+                
                 $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['short_app_name']);
                 if ($existing) {
                     update('settings', ['setting_value' => $shortAppName], 'setting_key = ?', ['short_app_name']);
                 } else {
                     insert('settings', ['setting_key' => 'short_app_name', 'setting_value' => $shortAppName]);
                 }
+                
                 setFlash('success', 'Pengaturan server berhasil disimpan');
                 redirect('settings.php');
                 break;
+            
+            // ==================== SAVE SYSTEM ====================
             case 'save_system':
                 $systemSettings = [
                     'app_name' => sanitize($_POST['app_name']),
@@ -155,10 +294,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 
+                // Set timezone
+                if (function_exists('date_default_timezone_set')) {
+                    @date_default_timezone_set($systemSettings['timezone']);
+                }
+                
                 setFlash('success', 'Pengaturan sistem berhasil disimpan');
                 redirect('settings.php');
                 break;
-                
+            
+            // ==================== SAVE MIKROTIK ====================
             case 'save_mikrotik':
                 $mikrotikSettings = [
                     'MIKROTIK_HOST' => sanitize($_POST['mikrotik_host']),
@@ -179,7 +324,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlash('success', 'Pengaturan MikroTik berhasil disimpan');
                 redirect('settings.php');
                 break;
-                
+            
+            // ==================== SAVE GENIEACS ====================
             case 'save_genieacs':
                 $genieacsSettings = [
                     'GENIEACS_URL' => sanitize($_POST['genieacs_url']),
@@ -199,7 +345,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlash('success', 'Pengaturan GenieACS berhasil disimpan');
                 redirect('settings.php');
                 break;
-                
+            
+            // ==================== SAVE WHATSAPP ====================
             case 'save_whatsapp_settings':
                 $whatsAppSettings = [
                     'DEFAULT_WHATSAPP_GATEWAY' => sanitize($_POST['default_whatsapp_gateway']),
@@ -223,6 +370,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== SAVE PAYMENT ====================
             case 'save_payment_settings':
                 $paymentSettings = [
                     'TRIPAY_API_KEY' => sanitize($_POST['tripay_api_key']),
@@ -246,6 +394,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== SAVE TELEGRAM ====================
             case 'save_telegram_settings':
                 $telegramSettings = [
                     'TELEGRAM_BOT_TOKEN' => sanitize($_POST['telegram_bot_token'] ?? ''),
@@ -264,16 +413,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== SAVE LANDING ====================
             case 'save_landing':
-                $pdo = getDB();
-                $pdo->exec("CREATE TABLE IF NOT EXISTS site_settings (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    setting_key VARCHAR(50) UNIQUE NOT NULL,
-                    setting_value TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
                 $landingSettings = [
                     'landing_template' => sanitize($_POST['landing_template']),
                     'hero_title' => sanitize($_POST['hero_title']),
@@ -308,18 +449,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== MANAGE FAQ ====================
             case 'manage_faq':
-                $pdo = getDB();
-                $pdo->exec("CREATE TABLE IF NOT EXISTS faqs (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    question VARCHAR(500) NOT NULL,
-                    answer TEXT NOT NULL,
-                    sort_order INT DEFAULT 0,
-                    is_active TINYINT DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
                 $faq_action = trim((string) ($_POST['faq_action'] ?? ''));
                 
                 if ($faq_action === 'add') {
@@ -363,6 +494,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== CHANGE PASSWORD ====================
             case 'change_password':
                 $currentPassword = $_POST['current_password'];
                 $newPassword = $_POST['new_password'];
@@ -374,16 +506,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$admin || !password_verify($currentPassword, $admin['password'])) {
                     setFlash('error', 'Password saat ini salah');
                     redirect('settings.php');
+                    break;
                 }
                 
                 if ($newPassword !== $confirmPassword) {
                     setFlash('error', 'Password baru tidak sama');
                     redirect('settings.php');
+                    break;
                 }
                 
                 if (strlen($newPassword) < 6) {
                     setFlash('error', 'Password minimal 6 karakter');
                     redirect('settings.php');
+                    break;
                 }
                 
                 if (updateAdminPassword($admin['id'], $newPassword)) {
@@ -395,6 +530,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== BACKUP SETTINGS ====================
             case 'save_backup_settings':
                 $retentionDays = (int) ($_POST['backup_retention_days'] ?? 7);
                 if ($retentionDays < 1) $retentionDays = 1;
@@ -410,6 +546,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== BACKUP NOW ====================
             case 'backup_now':
                 $retentionDays = (int) getSettingValue('BACKUP_RETENTION_DAYS', 7);
                 $result = createDatabaseBackup($retentionDays);
@@ -427,17 +564,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== RESTORE BACKUP ====================
             case 'restore_backup':
                 $backupFile = sanitizeBackupFilename($_POST['backup_file'] ?? '');
                 $confirmRestore = strtoupper(trim((string) ($_POST['confirm_restore'] ?? '')));
+                
                 if ($backupFile === '') {
                     setFlash('error', 'Pilih file backup yang valid');
                     redirect('settings.php');
+                    break;
                 }
                 if ($confirmRestore !== 'RESTORE') {
                     setFlash('error', 'Konfirmasi restore tidak valid. Ketik RESTORE untuk melanjutkan.');
                     redirect('settings.php');
+                    break;
                 }
+                
                 set_time_limit(0);
                 $result = restoreDatabaseBackup($backupFile);
                 if ($result['success']) {
@@ -449,6 +591,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== SAVE CRON ====================
             case 'save_cron_settings':
                 $cronToken = sanitize($_POST['cron_token'] ?? '');
                 if ($cronToken === '') {
@@ -465,13 +608,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== TEST WHATSAPP ====================
             case 'test_whatsapp':
                 $testPhone = trim((string) ($_POST['test_whatsapp_phone'] ?? ''));
                 $testMessage = trim((string) ($_POST['test_whatsapp_message'] ?? ''));
+                
                 if ($testPhone === '' || $testMessage === '') {
                     setFlash('error', 'Nomor WhatsApp dan pesan test wajib diisi');
                     redirect('settings.php');
+                    break;
                 }
+                
+                // Format nomor telepon
                 $digits = preg_replace('/\D+/', '', $testPhone);
                 if ($digits !== '') {
                     if (strpos($digits, '0') === 0) {
@@ -480,9 +628,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $digits = '62' . $digits;
                     }
                 }
+                
                 require_once '../includes/whatsapp.php';
                 $defaultGateway = getSetting('DEFAULT_WHATSAPP_GATEWAY', 'fonnte');
                 $result = sendWhatsAppMessage($digits, $testMessage, $defaultGateway);
+                
                 if (($result['success'] ?? false) === true) {
                     setFlash('success', 'Test WhatsApp berhasil dikirim (gateway: ' . strtoupper($defaultGateway) . ')');
                 } else {
@@ -492,6 +642,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== TEST MPWA ====================
             case 'test_mpwa_connection':
                 $url = trim((string) getSetting('MPWA_API_URL', 'https://mpwa.official.id/api/send'));
                 if ($url === '') $url = 'https://mpwa.official.id/api/send';
@@ -506,7 +657,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 $curlErrno = (int) curl_errno($ch);
                 $curlError = (string) curl_error($ch);
-                unset($ch);
+                curl_close($ch);
                 
                 if ($curlErrno !== 0 || $httpCode === 0) {
                     setFlash('error', 'Koneksi MPWA gagal (HTTP ' . $httpCode . ', cURL ' . $curlErrno . '): ' . $curlError);
@@ -516,20 +667,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== TEST TELEGRAM ====================
             case 'test_telegram':
                 $token = trim((string) getSetting('TELEGRAM_BOT_TOKEN', ''));
                 $chatId = trim((string) getSetting('TELEGRAM_ADMIN_CHAT_ID', ''));
+                
                 if ($token === '' || $chatId === '') {
                     setFlash('error', 'Telegram Bot Token dan Admin Chat ID wajib diisi untuk test.');
                     redirect('settings.php');
+                    break;
                 }
                 
                 $url = 'https://api.telegram.org/bot' . $token . '/sendMessage';
                 $payload = [
                     'chat_id' => $chatId,
-                    'text' => 'Test Telegram GEMBOK ' . date('Y-m-d H:i:s'),
+                    'text' => 'Test Telegram ' . date('Y-m-d H:i:s'),
                     'parse_mode' => 'HTML'
                 ];
+                
                 $ch = curl_init($url);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_POST, true);
@@ -541,7 +696,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 $curlErrno = (int) curl_errno($ch);
                 $curlError = (string) curl_error($ch);
-                unset($ch);
+                curl_close($ch);
                 $decoded = json_decode((string) $response, true);
                 
                 if ($curlErrno !== 0 || $httpCode === 0) {
@@ -555,20 +710,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== TELEGRAM SET WEBHOOK ====================
             case 'telegram_set_webhook':
                 $token = trim((string) getSetting('TELEGRAM_BOT_TOKEN', ''));
                 if ($token === '') {
                     setFlash('error', 'Telegram Bot Token belum diisi.');
                     redirect('settings.php');
+                    break;
                 }
+                
                 $webhookUrl = rtrim(APP_URL, '/') . '/webhooks/telegram.php';
                 if (stripos($webhookUrl, 'localhost') !== false || stripos($webhookUrl, '127.0.0.1') !== false) {
                     setFlash('error', 'APP_URL masih localhost. Telegram tidak bisa mengakses webhook lokal.');
                     redirect('settings.php');
+                    break;
                 }
                 
                 $url = 'https://api.telegram.org/bot' . $token . '/setWebhook';
                 $payload = ['url' => $webhookUrl];
+                
                 $ch = curl_init($url);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_POST, true);
@@ -580,7 +740,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 $curlErrno = (int) curl_errno($ch);
                 $curlError = (string) curl_error($ch);
-                unset($ch);
+                curl_close($ch);
                 $decoded = json_decode((string) $response, true);
                 
                 if ($curlErrno !== 0 || $httpCode === 0) {
@@ -594,11 +754,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect('settings.php');
                 break;
 
+            // ==================== TELEGRAM WEBHOOK INFO ====================
             case 'telegram_webhook_info':
                 $token = trim((string) getSetting('TELEGRAM_BOT_TOKEN', ''));
                 if ($token === '') {
                     setFlash('error', 'Telegram Bot Token belum diisi.');
                     redirect('settings.php');
+                    break;
                 }
                 
                 $url = 'https://api.telegram.org/bot' . $token . '/getWebhookInfo';
@@ -611,7 +773,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 $curlErrno = (int) curl_errno($ch);
                 $curlError = (string) curl_error($ch);
-                unset($ch);
+                curl_close($ch);
                 $decoded = json_decode((string) $response, true);
                 
                 if ($curlErrno !== 0 || $httpCode === 0) {
@@ -636,24 +798,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// ============================================================================
+// AMBIL DATA UNTUK VIEW
+// ============================================================================
+
 $backupRetentionDays = (int) getSettingValue('BACKUP_RETENTION_DAYS', 7);
 if ($backupRetentionDays < 1) $backupRetentionDays = 7;
 $backupFiles = listDatabaseBackups();
 
-// Get site settings for landing page
-$siteSettings = [];
-$siteSettingsData = fetchAll("SELECT * FROM site_settings");
-foreach ($siteSettingsData as $s) {
-    $siteSettings[$s['setting_key']] = $s['setting_value'];
+// Get NAS list
+$nasList = radiusDisplayNas();
+
+// Get current admin
+$currentAdmin = getCurrentAdmin();
+
+// Get APP_URL
+if (!defined('APP_URL')) {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'];
+    define('APP_URL', $protocol . '://' . $host . rtrim(dirname($_SERVER['SCRIPT_NAME'], 2), '/'));
 }
 
-// Get FAQs
-$faqs = [];
-try {
-    $faqs = fetchAll("SELECT id, question, answer, is_active FROM faqs ORDER BY sort_order ASC, id ASC");
-} catch (Exception $e) {
-    // Table might not exist yet
-}
+// ============================================================================
+// START OUTPUT
+// ============================================================================
 
 ob_start();
 ?>
@@ -693,7 +861,7 @@ ob_start();
     <div class="stat-card">
         <div class="stat-info">
             <?php 
-            $connected = mikrotikConnect();
+            $connected = function_exists('mikrotikConnect') ? mikrotikConnect() : false;
             ?>
             <h3><?php echo $connected ? 'Online' : 'Offline'; ?></h3>
             <p>MikroTik Status</p>
@@ -704,6 +872,7 @@ ob_start();
     </div>
 </div>
 
+<!-- Pengaturan Server -->
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">
@@ -717,12 +886,16 @@ ob_start();
 
             <div class="form-group">
                 <label class="form-label">Server IP</label>
-                <input type="text" name="server_ip" class="form-control" value="<?php echo htmlspecialchars($settings['server_ip'] ?? '127.0.0.1'); ?>">
+                <input type="text" name="server_ip" class="form-control" value="<?php echo htmlspecialchars($settings['server_ip'] ?? '127.0.0.1', ENT_QUOTES, 'UTF-8'); ?>">
+                <small class="form-hint">IP Address server ini, digunakan untuk webhook dan koneksi eksternal</small>
             </div>
-             <div class="form-group">
+            
+            <div class="form-group">
                 <label class="form-label">Short App Name</label>
-                <input type="text" name="short_app_name" placeholder="ANS" class="form-control" value="<?php echo htmlspecialchars($settings['short_app_name'] ?? ''); ?>">
+                <input type="text" name="short_app_name" placeholder="ANS" class="form-control" value="<?php echo htmlspecialchars($settings['short_app_name'] ?? 'ANS', ENT_QUOTES, 'UTF-8'); ?>">
+                <small class="form-hint">Nama singkat aplikasi, digunakan untuk prefix dan branding</small>
             </div>
+            
             <button type="submit" class="btn btn-primary">Simpan</button>
         </form>
     </div>
@@ -748,18 +921,19 @@ ob_start();
                 <tr>
                     <td data-label="Nama Layanan">Radius Server</td>
                     <td data-label="Status">
-                        <span class="badge badge-success">
-                            <i class="fas fa-check-circle"></i> Running
+                        <?php
+                        $radiusStatus = shell_exec('systemctl is-active freeradius 2>/dev/null');
+                        $isRadiusRunning = trim($radiusStatus) === 'active';
+                        ?>
+                        <span class="badge <?php echo $isRadiusRunning ? 'badge-success' : 'badge-danger'; ?>">
+                            <i class="fas <?php echo $isRadiusRunning ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i> 
+                            <?php echo $isRadiusRunning ? 'Running' : 'Stopped'; ?>
                         </span>
                     </td>
                     <td data-label="Aksi">
-                        <form method="GET" action="/api/services.php" class="inline-form">
-                            <input type="hidden" name="token" value="<?php echo htmlspecialchars(getSetting('CRON_TOKEN', 'NO_TOKEN')); ?>">
-                            <input type="hidden" name="action" value="restart_radius">
-                            <button type="submit" class="btn-icon" title="Restart Radius Server">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </form>
+                        <button type="button" class="btn-icon" onclick="restartService('radius')" title="Restart Radius Server">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
                     </td>
                 </tr>
                 <tr>
@@ -794,7 +968,7 @@ ob_start();
                 <div class="form-group">
                     <label class="form-label">Nama Aplikasi</label>
                     <input type="text" name="app_name" class="form-control" 
-                           value="<?php echo htmlspecialchars($settings['app_name'] ?? 'ANS Radius'); ?>">
+                           value="<?php echo htmlspecialchars($settings['app_name'] ?? 'ANS Radius', ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
                 
                 <div class="form-group">
@@ -820,13 +994,14 @@ ob_start();
                     <label class="form-label">Invoice Mulai Dari</label>
                     <input type="number" name="invoice_start" class="form-control" 
                            value="<?php echo (int)($settings['invoice_start'] ?? 1); ?>">
+                    <small class="form-hint">Nomor invoice dimulai dari angka ini</small>
                 </div>
             </div>
             
             <div class="form-group">
                 <label class="form-label">Invoice Prefix</label>
                 <input type="text" name="invoice_prefix" class="form-control" 
-                       value="<?php echo htmlspecialchars($settings['invoice_prefix'] ?? 'INV'); ?>">
+                       value="<?php echo htmlspecialchars($settings['invoice_prefix'] ?? 'INV', ENT_QUOTES, 'UTF-8'); ?>">
                 <small class="form-hint">Contoh: INV akan menjadi INV-0001</small>
             </div>
             
@@ -855,14 +1030,14 @@ ob_start();
                 <div class="form-group">
                     <label class="form-label">MikroTik IP Address</label>
                     <input type="text" name="mikrotik_host" class="form-control" 
-                           value="<?php echo htmlspecialchars(getSettingValue('MIKROTIK_HOST')); ?>" 
+                           value="<?php echo htmlspecialchars(getSettingValue('MIKROTIK_HOST', ''), ENT_QUOTES, 'UTF-8'); ?>" 
                            placeholder="192.168.1.1">
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">Username</label>
                     <input type="text" name="mikrotik_user" class="form-control" 
-                           value="<?php echo htmlspecialchars(getSettingValue('MIKROTIK_USER')); ?>" 
+                           value="<?php echo htmlspecialchars(getSettingValue('MIKROTIK_USER', ''), ENT_QUOTES, 'UTF-8'); ?>" 
                            placeholder="admin">
                 </div>
             </div>
@@ -872,7 +1047,7 @@ ob_start();
                     <label class="form-label">Password</label>
                     <div class="password-wrapper">
                         <input type="password" name="mikrotik_pass" class="form-control" 
-                               value="<?php echo htmlspecialchars(getSettingValue('MIKROTIK_PASS')); ?>" 
+                               value="<?php echo htmlspecialchars(getSettingValue('MIKROTIK_PASS', ''), ENT_QUOTES, 'UTF-8'); ?>" 
                                placeholder="Masukkan password" id="mikrotik_pass">
                         <i class="fas fa-eye toggle-password" data-target="mikrotik_pass"></i>
                     </div>
@@ -882,7 +1057,7 @@ ob_start();
                     <label class="form-label">API Port</label>
                     <input type="number" name="mikrotik_port" class="form-control" 
                            value="<?php echo (int)getSettingValue('MIKROTIK_PORT', 8728); ?>">
-                    <small class="form-hint">Default: 8728</small>
+                    <small class="form-hint">Default: 8728 (API), 8729 (API-SSL)</small>
                 </div>
             </div>
             
@@ -897,35 +1072,51 @@ ob_start();
         </form>
     </div>
 </div>
-<!-- MikroTik Settings -->
+
+<!-- Generate Script MikroTik Client -->
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">
-            <i class="fas fa-network-wired"></i> Generate Script (Mikrotik Client)
+            <i class="fas fa-code"></i> Generate Script (Mikrotik Client)
         </h3>
     </div>
     <div class="card-body">
         <form method="POST">
             <input type="hidden" name="action" value="add_mikrotik_client">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-            <select name="mikrotik_version" id="mikrotik_version" class="form-control">
-                <option value="7">MikroTik 7.15 (Keatas)</option>
-                <option value="6">MikroTik 6 - 7.14 (Kebawah)</option>
-            </select>
-            <textarea name="script" class="form-control" placeholder="Script MikroTik akan muncul di sini..." rows="10" id="mikrotik_script" readonly>
-                <?php if(isset($_SESSION['generated_script'])) { echo htmlspecialchars($_SESSION['generated_script']); } ?>
-            </textarea>
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-plus"></i> Generate
-            </button>
-            <button type="button" class="btn btn-secondary" onclick="copyToClipboard('mikrotik_script')">
-                <i class="fas fa-copy"></i> Salin Script
-            </button>
+            
+            <div class="form-group">
+                <label class="form-label">Versi MikroTik</label>
+                <select name="mikrotik_version" id="mikrotik_version" class="form-control">
+                    <option value="7">MikroTik 7.15 (Keatas)</option>
+                    <option value="6">MikroTik 6 - 7.14 (Kebawah)</option>
+                </select>
+                <small class="form-hint">Pilih versi sesuai dengan RouterOS yang digunakan</small>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Script Hasil Generate</label>
+                <textarea name="script" class="form-control" placeholder="Script MikroTik akan muncul di sini..." rows="10" id="mikrotik_script" readonly><?php 
+                    if(isset($_SESSION['generated_script'])) { 
+                        echo htmlspecialchars($_SESSION['generated_script'], ENT_QUOTES, 'UTF-8'); 
+                        unset($_SESSION['generated_script']);
+                    } 
+                ?></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Generate
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="copyToClipboardValueById('mikrotik_script')">
+                    <i class="fas fa-copy"></i> Salin Script
+                </button>
+            </div>
         </form>
     </div>
 </div>
 
-<!-- NAS Settings -->
+<!-- NAS Settings (Radius Client) -->
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">
@@ -935,9 +1126,10 @@ ob_start();
     <div class="card-body">
         <div class="alert alert-info">
             <i class="fas fa-info-circle"></i>
-            <div>Perlu restart radius server setelah menambahkan atau menghapus NAS</div>
+            <div>NAS adalah client yang terhubung ke Radius Server (MikroTik, AP, dll). Perlu restart radius server setelah menambahkan atau menghapus NAS.</div>
         </div>
         
+        <!-- Form Tambah NAS -->
         <form method="POST" class="add-nas-form">
             <input type="hidden" name="action" value="add_nas">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
@@ -953,7 +1145,7 @@ ob_start();
                 </div>
                 <div class="form-group">
                     <label class="form-label">NAS Secret</label>
-                    <input type="text" name="nas_secret" class="form-control" placeholder="Secret" required>
+                    <input type="text" name="nas_secret" class="form-control" placeholder="testing123" required>
                 </div>
             </div>
             
@@ -962,11 +1154,13 @@ ob_start();
             </button>
         </form>
         
+        <!-- Daftar NAS -->
         <div class="table-responsive" style="margin-top: 24px;">
             <h4 class="section-subtitle">Daftar NAS</h4>
-            <table class="data-table">
+            <table class="data-table" id="nas-table">
                 <thead>
                     <tr>
+                        <th>ID</th>
                         <th>Nama NAS</th>
                         <th>IP NAS</th>
                         <th>Secret</th>
@@ -974,31 +1168,34 @@ ob_start();
                     </tr>
                 </thead>
                 <tbody>
-                    <?php $nasList = radiusDisplayNas(); ?>
                     <?php if (empty($nasList)): ?>
                         <tr>
-                            <td colspan="4" class="empty-state">
+                            <td colspan="5" class="empty-state">
                                 <i class="fas fa-inbox"></i>
                                 <p>Tidak ada NAS yang terdaftar</p>
                             </td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($nasList as $nas): ?>
-                        <tr>
-                            <td data-label="Nama NAS"><?php echo htmlspecialchars($nas['shortname']); ?></td>
-                            <td data-label="IP NAS"><?php echo htmlspecialchars($nas['nasname']); ?></td>
+                        <tr id="nas-row-<?php echo (int)$nas['id']; ?>">
+                            <td data-label="ID"><?php echo (int)$nas['id']; ?></td>
+                            <td data-label="Nama NAS"><?php echo htmlspecialchars($nas['shortname'], ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td data-label="IP NAS"><?php echo htmlspecialchars($nas['nasname'], ENT_QUOTES, 'UTF-8'); ?></td>
                             <td data-label="Secret">
                                 <span class="secret-dots">••••••••</span>
-                                <span class="secret-value" style="display: none;"><?php echo htmlspecialchars($nas['secret']); ?></span>
+                                <span class="secret-value" style="display: none;"><?php echo htmlspecialchars($nas['secret'], ENT_QUOTES, 'UTF-8'); ?></span>
                                 <button type="button" class="btn-icon toggle-secret" title="Lihat Secret">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             </td>
                             <td data-label="Aksi">
-                                <form method="POST" class="inline-form" onsubmit="return confirm('Hapus NAS ini?');">
+                                <button type="button" class="btn-icon" onclick="editNasModal(<?php echo (int)$nas['id']; ?>)" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <form method="POST" class="inline-form" onsubmit="return confirm('Hapus NAS ' + <?php echo json_encode($nas['shortname']); ?> + '?');">
                                     <input type="hidden" name="action" value="delete_nas">
                                     <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                                    <input type="hidden" name="nas_id" value="<?php echo htmlspecialchars($nas['id']); ?>">
+                                    <input type="hidden" name="nas_id" value="<?php echo (int)$nas['id']; ?>">
                                     <button type="submit" class="btn-icon danger" title="Hapus">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
@@ -1015,76 +1212,6 @@ ob_start();
 
 
 
-<!-- Mikrotik Radius Script Generator -->
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title">
-            <i class="fas fa-terminal"></i> Radius Script Generator
-        </h3>
-    </div>
-    <div class="card-body">
-        <div class="alert alert-warning">
-            <i class="fas fa-info-circle"></i>
-            <div>Gunakan script ini di terminal MikroTik untuk menghubungkan ke Radius Server</div>
-        </div>
-        
-        <div class="form-group">
-            <label class="form-label">Pilih NAS / Router</label>
-            <select id="radius_nas_selector" class="form-control">
-                <option value="">-- Pilih NAS --</option>
-                <?php foreach ($nasList as $nas): ?>
-                    <option value="<?php echo htmlspecialchars($nas['nasname']); ?>" data-secret="<?php echo htmlspecialchars($nas['secret']); ?>">
-                        <?php echo htmlspecialchars($nas['shortname'] . ' (' . $nas['nasname'] . ')'); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        
-        <div class="form-group">
-            <label class="form-label">Script MikroTik</label>
-            <div class="script-wrapper">
-                <textarea id="radius_add_script" class="form-control" rows="3" readonly placeholder="Pilih NAS terlebih dahulu..."></textarea>
-                <button type="button" class="btn-icon copy-btn" onclick="copyRadiusScript()" title="Salin Script">
-                    <i class="fas fa-copy"></i>
-                </button>
-            </div>
-            <small class="form-hint">Copy script ini dan paste di terminal MikroTik Anda</small>
-        </div>
-    </div>
-</div>
-
-<!-- VPN Settings -->
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title">
-            <i class="fas fa-lock"></i> VPN Configuration
-        </h3>
-    </div>
-    <div class="card-body">
-        <div class="form-row">
-            <div class="form-group">
-                <label class="form-label">MikroTik v7.1+ (WireGuard)</label>
-                <a class="btn btn-success" href="settings.php?download_vpn_config=1">
-                    <i class="fas fa-download"></i> Download Client Config
-                </a>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">MikroTik v7.0 ke bawah</label>
-                <div class="script-wrapper">
-                    <textarea id="vpn_script" class="form-control" rows="8" readonly placeholder="Klik Generate Script terlebih dahulu..."></textarea>
-                    <button type="button" class="btn-icon copy-btn" onclick="copyVpnScript()" title="Salin Script">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="generateScript()">
-                    <i class="fas fa-code"></i> Generate Script
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- GenieACS Settings -->
 <div class="card">
     <div class="card-header">
@@ -1100,16 +1227,16 @@ ob_start();
             <div class="form-group">
                 <label class="form-label">GenieACS URL</label>
                 <input type="text" name="genieacs_url" class="form-control" 
-                       value="<?php echo htmlspecialchars(getSettingValue('GENIEACS_URL')); ?>" 
+                       value="<?php echo htmlspecialchars(getSettingValue('GENIEACS_URL', ''), ENT_QUOTES, 'UTF-8'); ?>" 
                        placeholder="http://localhost:7557">
-                <small class="form-hint">URL lengkap termasuk port</small>
+                <small class="form-hint">URL lengkap termasuk port (default: 7557)</small>
             </div>
             
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Username</label>
                     <input type="text" name="genieacs_username" class="form-control" 
-                           value="<?php echo htmlspecialchars(getSettingValue('GENIEACS_USERNAME')); ?>" 
+                           value="<?php echo htmlspecialchars(getSettingValue('GENIEACS_USERNAME', ''), ENT_QUOTES, 'UTF-8'); ?>" 
                            placeholder="Username">
                 </div>
                 
@@ -1117,7 +1244,7 @@ ob_start();
                     <label class="form-label">Password</label>
                     <div class="password-wrapper">
                         <input type="password" name="genieacs_password" class="form-control" 
-                               value="<?php echo htmlspecialchars(getSettingValue('GENIEACS_PASSWORD')); ?>" 
+                               value="<?php echo htmlspecialchars(getSettingValue('GENIEACS_PASSWORD', ''), ENT_QUOTES, 'UTF-8'); ?>" 
                                placeholder="Password" id="genieacs_pass">
                         <i class="fas fa-eye toggle-password" data-target="genieacs_pass"></i>
                     </div>
@@ -1153,7 +1280,7 @@ ob_start();
                     value="<?php echo APP_URL; ?>/webhooks/whatsapp.php"
                     class="webhook-input"
                     onclick="this.select()">
-                <button type="button" class="btn-icon" onclick="copyToClipboard('wa_webhook_url')">
+                <button type="button" class="btn-icon" onclick="copyToClipboardById('wa_webhook_url')">
                     <i class="fas fa-copy"></i> Salin
                 </button>
             </div>
@@ -1177,7 +1304,7 @@ ob_start();
                     <label class="form-label">Fonnte API Token</label>
                     <div class="password-wrapper">
                         <input type="password" name="fonnte_api_token" class="form-control" 
-                               value="<?php echo htmlspecialchars($settings['FONNTE_API_TOKEN'] ?? ''); ?>" 
+                               value="<?php echo htmlspecialchars($settings['FONNTE_API_TOKEN'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" 
                                placeholder="Masukkan API Token Fonnte" id="fonnte_token">
                         <i class="fas fa-eye toggle-password" data-target="fonnte_token"></i>
                     </div>
@@ -1187,7 +1314,7 @@ ob_start();
                     <label class="form-label">Wablas API Token</label>
                     <div class="password-wrapper">
                         <input type="password" name="wablas_api_token" class="form-control" 
-                               value="<?php echo htmlspecialchars($settings['WABLAS_API_TOKEN'] ?? ''); ?>" 
+                               value="<?php echo htmlspecialchars($settings['WABLAS_API_TOKEN'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" 
                                placeholder="Masukkan API Token Wablas" id="wablas_token">
                         <i class="fas fa-eye toggle-password" data-target="wablas_token"></i>
                     </div>
@@ -1199,7 +1326,7 @@ ob_start();
                     <label class="form-label">MPWA API Key</label>
                     <div class="password-wrapper">
                         <input type="password" name="mpwa_api_key" class="form-control" 
-                               value="<?php echo htmlspecialchars($settings['MPWA_API_KEY'] ?? ''); ?>" 
+                               value="<?php echo htmlspecialchars($settings['MPWA_API_KEY'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" 
                                placeholder="API Key MPWA" id="mpwa_key">
                         <i class="fas fa-eye toggle-password" data-target="mpwa_key"></i>
                     </div>
@@ -1208,7 +1335,7 @@ ob_start();
                 <div class="form-group">
                     <label class="form-label">MPWA Sender Number</label>
                     <input type="text" name="mpwa_sender" class="form-control" 
-                           value="<?php echo htmlspecialchars($settings['MPWA_SENDER'] ?? ''); ?>" 
+                           value="<?php echo htmlspecialchars($settings['MPWA_SENDER'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" 
                            placeholder="628xxxxxxxxxx">
                 </div>
             </div>
@@ -1216,16 +1343,17 @@ ob_start();
             <div class="form-group">
                 <label class="form-label">MPWA API URL</label>
                 <input type="text" name="mpwa_api_url" class="form-control" 
-                       value="<?php echo htmlspecialchars($settings['MPWA_API_URL'] ?? ''); ?>" 
+                       value="<?php echo htmlspecialchars($settings['MPWA_API_URL'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" 
                        placeholder="https://mpwa.official.id/api/send">
+                <small class="form-hint">Biarkan kosong untuk menggunakan default</small>
             </div>
             
             <div class="form-group">
                 <label class="form-label">WhatsApp Admin Number</label>
                 <input type="text" name="whatsapp_admin_number" class="form-control" 
-                       value="<?php echo htmlspecialchars($settings['WHATSAPP_ADMIN_NUMBER'] ?? ''); ?>" 
+                       value="<?php echo htmlspecialchars($settings['WHATSAPP_ADMIN_NUMBER'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" 
                        placeholder="628xxxxxxxxxx">
-                <small class="form-hint">Nomor untuk notifikasi admin</small>
+                <small class="form-hint">Nomor untuk notifikasi admin (format: 628xxxx)</small>
             </div>
             
             <div class="form-actions">
@@ -1246,7 +1374,7 @@ ob_start();
                     <div class="form-group">
                         <label class="form-label">Nomor Tujuan</label>
                         <input type="text" name="test_whatsapp_phone" class="form-control" 
-                               placeholder="628xxxxxxxxxx">
+                               placeholder="628xxxxxxxxxx" id="test_phone">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Pesan Test</label>
@@ -1288,7 +1416,7 @@ ob_start();
                     value="<?php echo APP_URL; ?>/webhooks/tripay.php"
                     class="webhook-input"
                     onclick="this.select()">
-                <button type="button" class="btn-icon" onclick="copyToClipboard('tripay_webhook_url')">
+                <button type="button" class="btn-icon" onclick="copyToClipboardById('tripay_webhook_url')">
                     <i class="fas fa-copy"></i> Salin
                 </button>
             </div>
@@ -1304,7 +1432,7 @@ ob_start();
                     <label class="form-label">Tripay API Key</label>
                     <div class="password-wrapper">
                         <input type="password" name="tripay_api_key" class="form-control" 
-                               value="<?php echo htmlspecialchars($settings['TRIPAY_API_KEY'] ?? ''); ?>" 
+                               value="<?php echo htmlspecialchars($settings['TRIPAY_API_KEY'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" 
                                id="tripay_api">
                         <i class="fas fa-eye toggle-password" data-target="tripay_api"></i>
                     </div>
@@ -1314,7 +1442,7 @@ ob_start();
                     <label class="form-label">Tripay Private Key</label>
                     <div class="password-wrapper">
                         <input type="password" name="tripay_private_key" class="form-control" 
-                               value="<?php echo htmlspecialchars($settings['TRIPAY_PRIVATE_KEY'] ?? ''); ?>" 
+                               value="<?php echo htmlspecialchars($settings['TRIPAY_PRIVATE_KEY'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" 
                                id="tripay_private">
                         <i class="fas fa-eye toggle-password" data-target="tripay_private"></i>
                     </div>
@@ -1325,7 +1453,7 @@ ob_start();
                 <div class="form-group">
                     <label class="form-label">Tripay Merchant Code</label>
                     <input type="text" name="tripay_merchant_code" class="form-control" 
-                           value="<?php echo htmlspecialchars($settings['TRIPAY_MERCHANT_CODE'] ?? ''); ?>">
+                           value="<?php echo htmlspecialchars($settings['TRIPAY_MERCHANT_CODE'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
                 
                 <div class="form-group">
@@ -1349,7 +1477,7 @@ ob_start();
                         value="<?php echo APP_URL; ?>/webhooks/midtrans.php"
                         class="webhook-input"
                         onclick="this.select()">
-                    <button type="button" class="btn-icon" onclick="copyToClipboard('midtrans_webhook_url')">
+                    <button type="button" class="btn-icon" onclick="copyToClipboardById('midtrans_webhook_url')">
                         <i class="fas fa-copy"></i> Salin
                     </button>
                 </div>
@@ -1361,7 +1489,7 @@ ob_start();
                     <label class="form-label">Midtrans API Key</label>
                     <div class="password-wrapper">
                         <input type="password" name="midtrans_api_key" class="form-control" 
-                               value="<?php echo htmlspecialchars($settings['MIDTRANS_API_KEY'] ?? ''); ?>" 
+                               value="<?php echo htmlspecialchars($settings['MIDTRANS_API_KEY'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" 
                                id="midtrans_api">
                         <i class="fas fa-eye toggle-password" data-target="midtrans_api"></i>
                     </div>
@@ -1370,7 +1498,8 @@ ob_start();
                 <div class="form-group">
                     <label class="form-label">Midtrans Merchant Code</label>
                     <input type="text" name="midtrans_merchant_code" class="form-control" 
-                           value="<?php echo htmlspecialchars($settings['MIDTRANS_MERCHANT_CODE'] ?? ''); ?>">
+                           value="<?php echo htmlspecialchars($settings['MIDTRANS_MERCHANT_CODE'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                    <small class="form-hint">Client ID / Merchant ID dari Midtrans</small>
                 </div>
             </div>
             
@@ -1411,13 +1540,13 @@ ob_start();
                     value="<?php echo APP_URL; ?>/webhooks/telegram.php"
                     class="webhook-input"
                     onclick="this.select()">
-                <button type="button" class="btn-icon" onclick="copyToClipboard('telegram_webhook_url')">
+                <button type="button" class="btn-icon" onclick="copyToClipboardById('telegram_webhook_url')">
                     <i class="fas fa-copy"></i> Salin
                 </button>
             </div>
         </div>
         
-        <form method="POST">
+        <form method="POST" id="telegram-form">
             <input type="hidden" name="action" value="save_telegram_settings">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
             
@@ -1426,17 +1555,19 @@ ob_start();
                     <label class="form-label">Bot Token</label>
                     <div class="password-wrapper">
                         <input type="password" name="telegram_bot_token" class="form-control" 
-                               value="<?php echo htmlspecialchars(getSettingValue('TELEGRAM_BOT_TOKEN', '')); ?>" 
+                               value="<?php echo htmlspecialchars(getSettingValue('TELEGRAM_BOT_TOKEN', ''), ENT_QUOTES, 'UTF-8'); ?>" 
                                placeholder="123456:ABC-DEF..." id="telegram_token">
                         <i class="fas fa-eye toggle-password" data-target="telegram_token"></i>
                     </div>
+                    <small class="form-hint">Dapatkan dari @BotFather di Telegram</small>
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">Admin Chat ID</label>
                     <input type="text" name="telegram_admin_chat_id" class="form-control" 
-                           value="<?php echo htmlspecialchars(getSettingValue('TELEGRAM_ADMIN_CHAT_ID', '')); ?>" 
+                           value="<?php echo htmlspecialchars(getSettingValue('TELEGRAM_ADMIN_CHAT_ID', ''), ENT_QUOTES, 'UTF-8'); ?>" 
                            placeholder="123456789">
+                    <small class="form-hint">Dapatkan dari @userinfobot atau @getidsbot</small>
                 </div>
             </div>
             
@@ -1449,6 +1580,9 @@ ob_start();
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="setTelegramWebhook()">
                     <i class="fas fa-link"></i> Set Webhook
+                </button>
+                <button type="button" class="btn btn-info" onclick="getTelegramWebhookInfo()">
+                    <i class="fas fa-info-circle"></i> Info Webhook
                 </button>
             </div>
         </form>
@@ -1489,35 +1623,35 @@ ob_start();
             <div class="form-group">
                 <label class="form-label">Hero Title</label>
                 <input type="text" name="hero_title" class="form-control" 
-                       value="<?php echo htmlspecialchars($siteSettings['hero_title'] ?? 'Internet Cepat & Stabil'); ?>">
+                       value="<?php echo htmlspecialchars($siteSettings['hero_title'] ?? 'Internet Cepat & Stabil', ENT_QUOTES, 'UTF-8'); ?>">
             </div>
             
             <div class="form-group">
                 <label class="form-label">Hero Description</label>
-                <textarea name="hero_description" class="form-control" rows="3"><?php echo htmlspecialchars($siteSettings['hero_description'] ?? ''); ?></textarea>
+                <textarea name="hero_description" class="form-control" rows="3"><?php echo htmlspecialchars($siteSettings['hero_description'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
             </div>
             
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Contact Phone</label>
                     <input type="text" name="contact_phone" class="form-control" 
-                           value="<?php echo htmlspecialchars($siteSettings['contact_phone'] ?? ''); ?>">
+                           value="<?php echo htmlspecialchars($siteSettings['contact_phone'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Contact Email</label>
                     <input type="email" name="contact_email" class="form-control" 
-                           value="<?php echo htmlspecialchars($siteSettings['contact_email'] ?? ''); ?>">
+                           value="<?php echo htmlspecialchars($siteSettings['contact_email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
             </div>
             
             <div class="form-group">
                 <label class="form-label">Contact Address</label>
-                <textarea name="contact_address" class="form-control" rows="2"><?php echo htmlspecialchars($siteSettings['contact_address'] ?? ''); ?></textarea>
+                <textarea name="contact_address" class="form-control" rows="2"><?php echo htmlspecialchars($siteSettings['contact_address'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
             </div>
             
             <div class="form-group">
                 <label class="form-label">Footer About</label>
-                <textarea name="footer_about" class="form-control" rows="2"><?php echo htmlspecialchars($siteSettings['footer_about'] ?? ''); ?></textarea>
+                <textarea name="footer_about" class="form-control" rows="2"><?php echo htmlspecialchars($siteSettings['footer_about'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
             </div>
             
             <h4 class="section-subtitle">Fitur (3 Kolom)</h4>
@@ -1525,23 +1659,23 @@ ob_start();
                 <div class="form-group">
                     <label class="form-label">Fitur 1 - Judul</label>
                     <input type="text" name="feature_1_title" class="form-control" 
-                           value="<?php echo htmlspecialchars($siteSettings['feature_1_title'] ?? 'Kecepatan Tinggi'); ?>">
+                           value="<?php echo htmlspecialchars($siteSettings['feature_1_title'] ?? 'Kecepatan Tinggi', ENT_QUOTES, 'UTF-8'); ?>">
                     <label class="form-label" style="margin-top: 8px;">Deskripsi</label>
-                    <textarea name="feature_1_desc" class="form-control" rows="2"><?php echo htmlspecialchars($siteSettings['feature_1_desc'] ?? ''); ?></textarea>
+                    <textarea name="feature_1_desc" class="form-control" rows="2"><?php echo htmlspecialchars($siteSettings['feature_1_desc'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Fitur 2 - Judul</label>
                     <input type="text" name="feature_2_title" class="form-control" 
-                           value="<?php echo htmlspecialchars($siteSettings['feature_2_title'] ?? 'Unlimited Quota'); ?>">
+                           value="<?php echo htmlspecialchars($siteSettings['feature_2_title'] ?? 'Unlimited Quota', ENT_QUOTES, 'UTF-8'); ?>">
                     <label class="form-label" style="margin-top: 8px;">Deskripsi</label>
-                    <textarea name="feature_2_desc" class="form-control" rows="2"><?php echo htmlspecialchars($siteSettings['feature_2_desc'] ?? ''); ?></textarea>
+                    <textarea name="feature_2_desc" class="form-control" rows="2"><?php echo htmlspecialchars($siteSettings['feature_2_desc'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Fitur 3 - Judul</label>
                     <input type="text" name="feature_3_title" class="form-control" 
-                           value="<?php echo htmlspecialchars($siteSettings['feature_3_title'] ?? 'Support 24/7'); ?>">
+                           value="<?php echo htmlspecialchars($siteSettings['feature_3_title'] ?? 'Support 24/7', ENT_QUOTES, 'UTF-8'); ?>">
                     <label class="form-label" style="margin-top: 8px;">Deskripsi</label>
-                    <textarea name="feature_3_desc" class="form-control" rows="2"><?php echo htmlspecialchars($siteSettings['feature_3_desc'] ?? ''); ?></textarea>
+                    <textarea name="feature_3_desc" class="form-control" rows="2"><?php echo htmlspecialchars($siteSettings['feature_3_desc'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
                 </div>
             </div>
             
@@ -1550,22 +1684,22 @@ ob_start();
                 <div class="form-group">
                     <label class="form-label"><i class="fab fa-facebook"></i> Facebook</label>
                     <input type="text" name="social_facebook" class="form-control" 
-                           value="<?php echo htmlspecialchars($siteSettings['social_facebook'] ?? '#'); ?>">
+                           value="<?php echo htmlspecialchars($siteSettings['social_facebook'] ?? '#', ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
                 <div class="form-group">
                     <label class="form-label"><i class="fab fa-instagram"></i> Instagram</label>
                     <input type="text" name="social_instagram" class="form-control" 
-                           value="<?php echo htmlspecialchars($siteSettings['social_instagram'] ?? '#'); ?>">
+                           value="<?php echo htmlspecialchars($siteSettings['social_instagram'] ?? '#', ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
                 <div class="form-group">
                     <label class="form-label"><i class="fab fa-twitter"></i> Twitter</label>
                     <input type="text" name="social_twitter" class="form-control" 
-                           value="<?php echo htmlspecialchars($siteSettings['social_twitter'] ?? '#'); ?>">
+                           value="<?php echo htmlspecialchars($siteSettings['social_twitter'] ?? '#', ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
                 <div class="form-group">
                     <label class="form-label"><i class="fab fa-youtube"></i> YouTube</label>
                     <input type="text" name="social_youtube" class="form-control" 
-                           value="<?php echo htmlspecialchars($siteSettings['social_youtube'] ?? '#'); ?>">
+                           value="<?php echo htmlspecialchars($siteSettings['social_youtube'] ?? '#', ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
             </div>
             
@@ -1621,10 +1755,10 @@ ob_start();
                 </div>
             <?php else: ?>
                 <?php foreach ($faqs as $faq): ?>
-                <div class="faq-item">
+                <div class="faq-item" id="faq-<?php echo (int)$faq['id']; ?>">
                     <div class="faq-content">
-                        <strong><?php echo htmlspecialchars($faq['question']); ?></strong>
-                        <p><?php echo htmlspecialchars(substr($faq['answer'], 0, 100)); ?>...</p>
+                        <strong><?php echo htmlspecialchars($faq['question'], ENT_QUOTES, 'UTF-8'); ?></strong>
+                        <p><?php echo htmlspecialchars(substr($faq['answer'], 0, 150), ENT_QUOTES, 'UTF-8'); ?>...</p>
                         <div class="faq-meta">
                             <span class="badge <?php echo $faq['is_active'] ? 'badge-success' : 'badge-muted'; ?>">
                                 <?php echo $faq['is_active'] ? 'Tampil' : 'Tersembunyi'; ?>
@@ -1632,13 +1766,13 @@ ob_start();
                         </div>
                     </div>
                     <div class="faq-actions">
-                        <button class="btn-icon" onclick='editFaq(<?php echo json_encode($faq); ?>)' title="Edit">
+                        <button type="button" class="btn-icon" onclick="editFaqModal(<?php echo (int)$faq['id']; ?>)" title="Edit">
                             <i class="fas fa-edit"></i>
                         </button>
                         <form method="POST" class="inline-form" onsubmit="return confirm('Hapus FAQ ini?');">
                             <input type="hidden" name="action" value="manage_faq">
                             <input type="hidden" name="faq_action" value="delete">
-                            <input type="hidden" name="faq_id" value="<?php echo $faq['id']; ?>">
+                            <input type="hidden" name="faq_id" value="<?php echo (int)$faq['id']; ?>">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
                             <button type="submit" class="btn-icon danger" title="Hapus">
                                 <i class="fas fa-trash-alt"></i>
@@ -1669,33 +1803,44 @@ ob_start();
                     <i class="fas fa-terminal"></i>
                     <strong>Cronjob URL / Command</strong>
                 </div>
-                <p class="info-text">Jalankan setiap 1 menit untuk tugas otomatis</p>
+                <p class="info-text">Jalankan setiap 1 menit untuk tugas otomatis (check expired, kirim notifikasi, dll)</p>
                 
                 <div class="url-wrapper">
                     <input type="text" id="cron_web_url" readonly
-                        value="<?php echo APP_URL; ?>/cron/run.php?token=<?php echo htmlspecialchars(getSettingValue('CRON_TOKEN', '')); ?>"
+                        value="<?php echo APP_URL; ?>/cron/run.php?token=<?php echo htmlspecialchars(getSettingValue('CRON_TOKEN', ''), ENT_QUOTES, 'UTF-8'); ?>"
                         class="webhook-input"
                         onclick="this.select()">
-                    <button type="button" class="btn-icon" onclick="copyToClipboard('cron_web_url')">
+                    <button type="button" class="btn-icon" onclick="copyToClipboardById('cron_web_url')">
                         <i class="fas fa-copy"></i> Salin URL
                     </button>
                 </div>
                 
                 <?php
                 $schedulerPath = realpath(__DIR__ . '/../cron/scheduler.php');
+                if ($schedulerPath === false) {
+                    $schedulerPath = __DIR__ . '/../cron/scheduler.php';
+                }
                 ?>
                 <div class="url-wrapper" style="margin-top: 10px;">
                     <input type="text" id="cron_cli_path" readonly
-                        value="* * * * * /usr/bin/php <?php echo htmlspecialchars($schedulerPath); ?>"
+                        value="* * * * * /usr/bin/php <?php echo htmlspecialchars($schedulerPath, ENT_QUOTES, 'UTF-8'); ?>"
                         class="webhook-input"
                         onclick="this.select()">
-                    <button type="button" class="btn-icon" onclick="copyToClipboard('cron_cli_path')">
+                    <button type="button" class="btn-icon" onclick="copyToClipboardById('cron_cli_path')">
                         <i class="fas fa-copy"></i> Salin Command
                     </button>
                 </div>
             </div>
             
-            <input type="hidden" name="cron_token" value="<?php echo htmlspecialchars(getSettingValue('CRON_TOKEN', '')); ?>">
+            <div class="form-group">
+                <label class="form-label">Cron Token</label>
+                <div class="password-wrapper">
+                    <input type="text" name="cron_token" class="form-control" 
+                           value="<?php echo htmlspecialchars(getSettingValue('CRON_TOKEN', ''), ENT_QUOTES, 'UTF-8'); ?>">
+                    <i class="fas fa-sync-alt toggle-generate" onclick="generateCronToken()" style="cursor: pointer; position: absolute; right: 12px; top: 50%; transform: translateY(-50%);"></i>
+                </div>
+                <small class="form-hint">Token untuk keamanan cronjob. Klik icon refresh untuk generate token baru</small>
+            </div>
             
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">
@@ -1723,7 +1868,7 @@ ob_start();
                     <label class="form-label">Retensi Backup (hari)</label>
                     <input type="number" name="backup_retention_days" class="form-control" 
                            min="1" max="365" value="<?php echo $backupRetentionDays; ?>">
-                    <small class="form-hint">Backup lebih lama dari ini akan dihapus otomatis</small>
+                    <small class="form-hint">Backup lebih lama dari ini akan dihapus otomatis saat backup berikutnya</small>
                 </div>
                 <div class="form-group" style="display: flex; align-items: flex-end;">
                     <button type="submit" class="btn btn-primary">
@@ -1763,12 +1908,11 @@ ob_start();
                     <tbody>
                         <?php foreach ($backupFiles as $file): ?>
                         <tr>
-                            <td><?php echo htmlspecialchars($file['name']); ?></td>
-                            <!-- Backup & Restore (Lanjutan) -->
-                            <td data-label="Ukuran"><?php echo htmlspecialchars(formatBytes($file['size'] ?? 0)); ?></td>
-                            <td data-label="Tanggal"><?php echo htmlspecialchars($file['modified_at'] ?? '-'); ?></td>
+                            <td data-label="Nama File"><?php echo htmlspecialchars($file['name'], ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td data-label="Ukuran"><?php echo htmlspecialchars(formatBytes($file['size'] ?? 0), ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td data-label="Tanggal"><?php echo htmlspecialchars($file['modified_at'] ?? '-', ENT_QUOTES, 'UTF-8'); ?></td>
                             <td data-label="Aksi">
-                                <a class="btn-icon" href="settings.php?download_backup=<?php echo urlencode($file['name']); ?>" title="Download">
+                                <a class="btn-icon" href="settings.php?download_backup=<?php echo urlencode($file['name']); ?>&csrf_token=<?php echo urlencode(generateCsrfToken()); ?>" title="Download">
                                     <i class="fas fa-download"></i>
                                 </a>
                             </td>
@@ -1787,7 +1931,7 @@ ob_start();
                 <div><strong>Peringatan!</strong> Restore akan menimpa data database saat ini. Pastikan Anda telah melakukan backup terlebih dahulu.</div>
             </div>
             
-            <form method="POST" onsubmit="return confirm('RESTORE akan menimpa semua data saat ini!\n\nPastikan Anda sudah backup data terlebih dahulu.\n\nLanjutkan?');">
+            <form method="POST" onsubmit="return confirmRestore();">
                 <input type="hidden" name="action" value="restore_backup">
                 <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
                 
@@ -1797,7 +1941,10 @@ ob_start();
                         <select name="backup_file" class="form-control" required>
                             <option value="">-- Pilih file backup --</option>
                             <?php foreach ($backupFiles as $file): ?>
-                                <option value="<?php echo htmlspecialchars($file['name']); ?>"><?php echo htmlspecialchars($file['name']); ?> (<?php echo formatBytes($file['size'] ?? 0); ?>)</option>
+                                <option value="<?php echo htmlspecialchars($file['name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars($file['name'], ENT_QUOTES, 'UTF-8'); ?> 
+                                    (<?php echo formatBytes($file['size'] ?? 0); ?>)
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -1864,18 +2011,467 @@ ob_start();
     </div>
 </div>
 
-<!-- Global Styles for Settings Page -->
+<!-- ==================== MODAL EDIT NAS ==================== -->
+<div class="modal fade" id="editNasModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit"></i> Edit NAS
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" id="editNasForm">
+                <input type="hidden" name="action" value="edit_nas">
+                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                <input type="hidden" name="nas_id" id="edit_nas_id">
+                
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">NAS Name</label>
+                        <input type="text" name="nas_name" id="edit_nas_name" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">NAS IP</label>
+                        <input type="text" name="nas_ip" id="edit_nas_ip" class="form-control" required>
+                        <small class="form-hint">IP Address client (MikroTik, AP, dll)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Secret</label>
+                        <div class="password-wrapper">
+                            <input type="text" name="nas_secret" id="edit_nas_secret" class="form-control" required>
+                            <i class="fas fa-eye toggle-password"></i>
+                        </div>
+                        <small class="form-hint">Password/Secret untuk koneksi RADIUS</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Deskripsi (Opsional)</label>
+                        <textarea name="description" id="edit_nas_description" class="form-control" rows="2" placeholder="Deskripsi NAS..."></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL EDIT FAQ ==================== -->
+<div class="modal fade" id="editFaqModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit"></i> Edit FAQ
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" id="editFaqForm">
+                <input type="hidden" name="action" value="manage_faq">
+                <input type="hidden" name="faq_action" value="update">
+                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                <input type="hidden" name="faq_id" id="edit_faq_id">
+                
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Pertanyaan</label>
+                        <input type="text" name="faq_question" id="edit_faq_question" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Jawaban</label>
+                        <textarea name="faq_answer" id="edit_faq_answer" class="form-control" rows="5" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-checkbox">
+                            <input type="checkbox" name="faq_active" id="edit_faq_active" value="1">
+                            <span>Aktif (ditampilkan di landing page)</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== STYLES ==================== -->
 <style>
-/* Settings page specific styles */
-.section-subtitle {
-    font-size: 14px;
+:root {
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #111827;
+    --bg-tertiary: #1a2332;
+    --text-primary: #ffffff;
+    --text-secondary: #cbd5e1;
+    --text-muted: #6b7280;
+    --border-color: #2d3748;
+    --border-light: #1f2937;
+    --accent-blue: #3b82f6;
+    --accent-green: #10b981;
+    --accent-red: #ef4444;
+    --accent-orange: #f59e0b;
+    --accent-purple: #8b5cf6;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --transition-fast: 0.2s ease;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    line-height: 1.5;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all var(--transition-fast);
+}
+
+.stat-card:hover {
+    border-color: var(--accent-blue);
+    transform: translateY(-2px);
+}
+
+.stat-info h3 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.stat-info p {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.stat-icon.blue { background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); }
+.stat-icon.green { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
+.stat-icon.purple { background: rgba(139, 92, 246, 0.1); color: var(--accent-purple); }
+.stat-icon.red { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); }
+
+/* Card */
+.card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-light);
+    background: var(--bg-tertiary);
+}
+
+.card-title {
+    font-size: 16px;
     font-weight: 600;
-    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+/* Forms */
+.form-group {
     margin-bottom: 16px;
-    padding-bottom: 8px;
+}
+
+.form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: all var(--transition-fast);
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.form-control:read-only, .form-control[readonly] {
+    background: var(--bg-tertiary);
+    cursor: default;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.form-hint {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 16px;
+    margin-top: 8px;
+    border-top: 1px solid var(--border-light);
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: none;
+    background: none;
+}
+
+.btn-primary {
+    background: var(--accent-blue);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-primary);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+
+.btn-success {
+    background: var(--accent-green);
+    color: white;
+}
+
+.btn-success:hover {
+    background: #059669;
+}
+
+.btn-danger {
+    background: var(--accent-red);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+.btn-warning {
+    background: var(--accent-orange);
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+}
+
+.btn-icon {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    font-size: 12px;
+}
+
+.btn-icon:hover {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--accent-blue);
+}
+
+.btn-icon.danger:hover {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+}
+
+/* Tables */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 12px 16px;
+    text-align: left;
     border-bottom: 1px solid var(--border-light);
 }
 
+.data-table th {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+}
+
+.data-table td {
+    font-size: 14px;
+}
+
+.data-table tr:hover {
+    background: var(--bg-tertiary);
+}
+
+/* Badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.badge-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--accent-green);
+}
+
+.badge-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--accent-red);
+}
+
+.badge-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--accent-orange);
+}
+
+.badge-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent-blue);
+}
+
+.badge-muted {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+}
+
+/* Alerts */
+.alert {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+}
+
+.alert-info {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: var(--accent-blue);
+}
+
+.alert-warning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: var(--accent-orange);
+}
+
+.alert-danger {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--accent-red);
+}
+
+.alert i {
+    font-size: 18px;
+}
+
+.alert div {
+    flex: 1;
+}
+
+/* Password Wrapper */
 .password-wrapper {
     position: relative;
 }
@@ -1895,6 +2491,7 @@ ob_start();
     color: var(--accent-blue);
 }
 
+/* Webhook Info */
 .webhook-info {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-light);
@@ -1939,6 +2536,7 @@ ob_start();
     cursor: pointer;
 }
 
+/* Script Wrapper */
 .script-wrapper {
     position: relative;
 }
@@ -1949,72 +2547,21 @@ ob_start();
     top: 8px;
 }
 
-.secret-dots {
-    font-family: monospace;
-    letter-spacing: 2px;
-    color: var(--text-muted);
+/* Section Subtitle */
+.section-subtitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 20px 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-light);
 }
 
-.toggle-secret {
-    margin-left: 8px;
+.section-subtitle:first-of-type {
+    margin-top: 0;
 }
 
-.alert-info {
-    background: rgba(88, 166, 255, 0.1);
-    border: 1px solid rgba(88, 166, 255, 0.3);
-    color: var(--accent-blue);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-radius: var(--radius-md);
-    margin-bottom: 20px;
-}
-
-.alert-warning {
-    background: rgba(210, 153, 34, 0.1);
-    border: 1px solid rgba(210, 153, 34, 0.3);
-    color: var(--accent-orange);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-radius: var(--radius-md);
-    margin-bottom: 20px;
-}
-
-.alert-danger {
-    background: rgba(248, 81, 73, 0.1);
-    border: 1px solid rgba(248, 81, 73, 0.3);
-    color: var(--accent-red);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-radius: var(--radius-md);
-    margin-bottom: 20px;
-}
-
-.alert-info i, .alert-warning i, .alert-danger i {
-    font-size: 18px;
-}
-
-.alert-info div, .alert-warning div, .alert-danger div {
-    flex: 1;
-}
-
-.text-danger {
-    color: var(--accent-red);
-}
-
-.text-muted {
-    color: var(--text-muted);
-}
-
-.add-nas-form {
-    margin-bottom: 24px;
-}
-
+/* FAQ */
 .faq-add-form {
     margin-bottom: 32px;
     padding-bottom: 24px;
@@ -2067,16 +2614,14 @@ ob_start();
     gap: 8px;
 }
 
+/* Test Section */
 .test-section {
     margin-top: 24px;
     padding-top: 24px;
     border-top: 1px solid var(--border-light);
 }
 
-.restore-section {
-    margin-top: 24px;
-}
-
+/* Empty State */
 .empty-state {
     text-align: center;
     padding: 40px 20px;
@@ -2094,45 +2639,111 @@ ob_start();
     font-size: 14px;
 }
 
-.btn-icon {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-light);
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 6px 10px;
-    border-radius: var(--radius-sm);
-    transition: all var(--transition-fast);
-    font-size: 12px;
+/* Inline Form */
+.inline-form {
+    display: inline;
 }
 
-.btn-icon:hover {
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-dialog {
+    width: 90%;
+    max-width: 500px;
+}
+
+.modal-content {
     background: var(--bg-secondary);
-    border-color: var(--border-color);
-    color: var(--accent-blue);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
 }
 
-.btn-icon.danger:hover {
+.modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header .close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 24px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.modal-header .close:hover {
     color: var(--accent-red);
-    border-color: var(--accent-red);
 }
 
-.form-actions {
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-light);
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    padding-top: 16px;
-    margin-top: 8px;
-    border-top: 1px solid var(--border-light);
+}
+
+/* Checkbox */
+.form-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.form-checkbox input {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* Text colors */
+.text-danger {
+    color: var(--accent-red);
+}
+
+.text-muted {
+    color: var(--text-muted);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
     .form-actions {
         flex-direction: column;
     }
     
     .form-actions .btn {
         width: 100%;
+        justify-content: center;
     }
     
     .url-wrapper {
@@ -2155,11 +2766,77 @@ ob_start();
     .webhook-input {
         font-size: 10px;
     }
+    
+    .data-table th,
+    .data-table td {
+        padding: 8px 12px;
+    }
 }
 </style>
 
+<!-- ==================== SCRIPTS ==================== -->
 <script>
-// Toggle password visibility for all password fields
+// Helper function untuk copy ke clipboard
+function copyToClipboardById(elementId) {
+    const input = document.getElementById(elementId);
+    if (!input) return;
+    
+    input.select();
+    input.setSelectionRange(0, 99999);
+    
+    try {
+        navigator.clipboard.writeText(input.value);
+        showToast('Berhasil disalin!', 'success');
+    } catch (err) {
+        document.execCommand('copy');
+        showToast('Berhasil disalin!', 'success');
+    }
+}
+
+function copyToClipboardValueById(elementId) {
+    const textarea = document.getElementById(elementId);
+    if (!textarea || !textarea.value) {
+        showToast('Tidak ada teks untuk disalin', 'error');
+        return;
+    }
+    
+    textarea.select();
+    textarea.setSelectionRange(0, 99999);
+    
+    try {
+        navigator.clipboard.writeText(textarea.value);
+        showToast('Script berhasil disalin!', 'success');
+    } catch (err) {
+        document.execCommand('copy');
+        showToast('Script berhasil disalin!', 'success');
+    }
+}
+
+// Show toast notification
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i> ${message}`;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        padding: 12px 20px;
+        border-radius: var(--radius-md);
+        color: var(--text-primary);
+        z-index: 10001;
+        animation: slideIn 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// Toggle password visibility
 document.querySelectorAll('.toggle-password').forEach(icon => {
     icon.addEventListener('click', function() {
         const input = this.closest('.password-wrapper').querySelector('input');
@@ -2197,50 +2874,13 @@ document.querySelectorAll('.toggle-secret').forEach(btn => {
     });
 });
 
-// Copy to clipboard function
-function copyToClipboard(elementId) {
-    const input = document.getElementById(elementId);
-    if (!input) return;
-    
-    input.select();
-    input.setSelectionRange(0, 99999);
-    
-    navigator.clipboard.writeText(input.value).then(() => {
-        showToast('Berhasil disalin!', 'success');
-    }).catch(() => {
-        document.execCommand('copy');
-        showToast('Berhasil disalin!', 'success');
-    });
-}
-
-// Show toast notification
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i> ${message}`;
-    toast.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        padding: 12px 20px;
-        border-radius: var(--radius-md);
-        color: var(--text-primary);
-        z-index: 10000;
-        animation: slideIn 0.3s ease;
-    `;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
-
 // Radius Script Generator
 function generateRadiusScript() {
     const selector = document.getElementById('radius_nas_selector');
     const textarea = document.getElementById('radius_add_script');
+    
+    if (!selector || !textarea) return;
+    
     const selected = selector.options[selector.selectedIndex];
     
     if (!selected.value) {
@@ -2250,129 +2890,246 @@ function generateRadiusScript() {
     
     const nasname = selected.value;
     const secret = selected.getAttribute('data-secret');
-    const radiusIp = '10.7.0.1';
+    const nasName = selected.getAttribute('data-name');
+    const radiusIp = document.querySelector('input[name="server_ip"]')?.value || '10.7.0.1';
     
-    const script = `/radius add address=${radiusIp} service=ppp,hotspot secret=${secret} src-address=${nasname} comment="RADIUS - ANS-RADIUS"`;
+    const script = `/radius add address=${radiusIp} service=ppp,hotspot secret=${secret} src-address=${nasname} comment="${nasName} - RADIUS Client"`;
     textarea.value = script;
 }
 
 function copyRadiusScript() {
     const textarea = document.getElementById('radius_add_script');
-    if (!textarea.value) {
+    if (!textarea || !textarea.value) {
         alert('Pilih NAS terlebih dahulu');
         return;
     }
-    copyToClipboardValue(textarea.value);
+    copyToClipboardValueById('radius_add_script');
 }
-
-// VPN Script Generator
-async function generateScript() {
-    const textarea = document.getElementById('vpn_script');
-    textarea.value = 'Loading...';
-    
-    try {
-        const response = await fetch('<?php echo APP_URL; ?>/admin/settings.php?download_vpn_config=2');
-        const data = await response.text();
-        textarea.value = data || '';
-        if (!data || data.trim() === '') {
-            alert('Script kosong. Periksa konfigurasi WireGuard.');
-        }
-    } catch (error) {
-        console.error("Gagal mengambil data script:", error);
-        alert('Gagal mengambil script VPN.');
-        textarea.value = '';
-    }
-}
-
-function copyVpnScript() {
-    const textarea = document.getElementById('vpn_script');
-    if (!textarea.value) {
-        alert('Generate script terlebih dahulu');
-        return;
-    }
-    copyToClipboardValue(textarea.value);
-}
-
-function copyToClipboardValue(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        showToast('Script berhasil disalin!', 'success');
-    }).catch(() => {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        showToast('Script berhasil disalin!', 'success');
-    });
-}
-
-// Test functions
-function testMikrotikConnection() {
-    showToast('Test koneksi MikroTik...', 'info');
-    // Implementasi test koneksi
-    setTimeout(() => {
-        showToast('Test koneksi MikroTik berhasil', 'success');
-    }, 1000);
-}
-
-function testMpwaConnection() {
-    showToast('Test koneksi MPWA...', 'info');
-    setTimeout(() => {
-        showToast('Koneksi MPWA OK', 'success');
-    }, 1000);
-}
-
-function testTelegram() {
-    showToast('Mengirim test Telegram...', 'info');
-    setTimeout(() => {
-        showToast('Test Telegram berhasil dikirim', 'success');
-    }, 1000);
-}
-
-function setTelegramWebhook() {
-    showToast('Mengatur webhook Telegram...', 'info');
-    setTimeout(() => {
-        showToast('Webhook berhasil di-set', 'success');
-    }, 1000);
-}
-
-function editFaq(faq) {
-    // Implement edit FAQ modal
-    const question = prompt('Edit Pertanyaan:', faq.question);
-    if (question) {
-        const answer = prompt('Edit Jawaban:', faq.answer);
-        if (answer) {
-            // Submit form via AJAX or redirect
-            showToast('FAQ berhasil diperbarui', 'success');
-        }
-    }
-}
-
-// Form loading state for all forms
-document.querySelectorAll('form').forEach(form => {
-    form.addEventListener('submit', function(e) {
-        const btn = this.querySelector('button[type="submit"]');
-        if (btn && !btn.classList.contains('no-loading')) {
-            const originalText = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
-            
-            // Re-enable after 30 seconds (in case of timeout)
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }, 30000);
-        }
-    });
-});
 
 // Initialize radius script generator
 document.getElementById('radius_nas_selector')?.addEventListener('change', generateRadiusScript);
 
-// Add toast animation style
-const toastStyle = document.createElement('style');
-toastStyle.textContent = `
+// ==================== EDIT NAS MODAL ====================
+function editNasModal(nasId) {
+    // Fetch NAS data via AJAX
+    fetch(`settings.php?get_nas=1&id=${nasId}&csrf_token=<?php echo generateCsrfToken(); ?>`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('edit_nas_id').value = data.data.id;
+                document.getElementById('edit_nas_name').value = data.data.shortname;
+                document.getElementById('edit_nas_ip').value = data.data.nasname;
+                document.getElementById('edit_nas_secret').value = data.data.secret;
+                document.getElementById('edit_nas_description').value = data.data.description || '';
+                
+                const modal = document.getElementById('editNasModal');
+                modal.classList.add('show');
+            } else {
+                showToast(data.message || 'Gagal mengambil data NAS', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Terjadi kesalahan saat mengambil data', 'error');
+        });
+}
+
+// Close modal when clicking on close button or outside
+document.querySelectorAll('.modal .close, .modal .btn-secondary').forEach(btn => {
+    btn?.addEventListener('click', function() {
+        this.closest('.modal')?.classList.remove('show');
+    });
+});
+
+// Close modal when clicking outside
+window.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.classList.remove('show');
+    }
+});
+
+// ==================== EDIT FAQ MODAL ====================
+function editFaqModal(faqId) {
+    // Find FAQ data from the DOM
+    const faqItem = document.getElementById(`faq-${faqId}`);
+    if (!faqItem) return;
+    
+    const questionElem = faqItem.querySelector('.faq-content strong');
+    const answerPreview = faqItem.querySelector('.faq-content p');
+    const activeBadge = faqItem.querySelector('.badge');
+    
+    const question = questionElem ? questionElem.textContent : '';
+    const isActive = activeBadge ? activeBadge.textContent.trim() === 'Tampil' : true;
+    
+    // For full answer, we need to get from data attribute or fetch
+    // For simplicity, we'll fetch from server
+    fetch(`settings.php?get_faq=1&id=${faqId}&csrf_token=<?php echo generateCsrfToken(); ?>`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('edit_faq_id').value = data.data.id;
+                document.getElementById('edit_faq_question').value = data.data.question;
+                document.getElementById('edit_faq_answer').value = data.data.answer;
+                document.getElementById('edit_faq_active').checked = data.data.is_active == 1;
+                
+                const modal = document.getElementById('editFaqModal');
+                modal.classList.add('show');
+            } else {
+                // Fallback: use data from DOM
+                document.getElementById('edit_faq_id').value = faqId;
+                document.getElementById('edit_faq_question').value = question;
+                document.getElementById('edit_faq_answer').value = answerPreview ? answerPreview.textContent.replace('...', '') : '';
+                document.getElementById('edit_faq_active').checked = isActive;
+                
+                const modal = document.getElementById('editFaqModal');
+                modal.classList.add('show');
+            }
+        })
+        .catch(() => {
+            // Fallback
+            document.getElementById('edit_faq_id').value = faqId;
+            document.getElementById('edit_faq_question').value = question;
+            document.getElementById('edit_faq_answer').value = '';
+            document.getElementById('edit_faq_active').checked = isActive;
+            
+            const modal = document.getElementById('editFaqModal');
+            modal.classList.add('show');
+        });
+}
+
+// ==================== TEST FUNCTIONS ====================
+function testMikrotikConnection() {
+    showToast('Menguji koneksi MikroTik...', 'info');
+    
+    const host = document.querySelector('input[name="mikrotik_host"]')?.value;
+    const user = document.querySelector('input[name="mikrotik_user"]')?.value;
+    const pass = document.querySelector('input[name="mikrotik_pass"]')?.value;
+    const port = document.querySelector('input[name="mikrotik_port"]')?.value || 8728;
+    
+    if (!host) {
+        showToast('Masukkan IP MikroTik terlebih dahulu', 'error');
+        return;
+    }
+    
+    fetch('../api/mikrotik_test.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host, user, pass, port })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Koneksi MikroTik berhasil!', 'success');
+        } else {
+            showToast('Koneksi MikroTik gagal: ' + (data.message || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error: ' + error.message, 'error');
+    });
+}
+
+function testMpwaConnection() {
+    showToast('Menguji koneksi MPWA...', 'info');
+    
+    fetch('settings.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            action: 'test_mpwa_connection',
+            csrf_token: '<?php echo generateCsrfToken(); ?>'
+        })
+    })
+    .then(() => {
+        // Redirect will happen, so we don't need to handle response
+    });
+}
+
+function testTelegram() {
+    const token = document.querySelector('input[name="telegram_bot_token"]')?.value;
+    const chatId = document.querySelector('input[name="telegram_admin_chat_id"]')?.value;
+    
+    if (!token || !chatId) {
+        showToast('Isi Bot Token dan Admin Chat ID terlebih dahulu', 'error');
+        return;
+    }
+    
+    showToast('Mengirim test Telegram...', 'info');
+    
+    fetch('settings.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            action: 'test_telegram',
+            csrf_token: '<?php echo generateCsrfToken(); ?>'
+        })
+    });
+}
+
+function setTelegramWebhook() {
+    showToast('Mengatur webhook Telegram...', 'info');
+    
+    fetch('settings.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            action: 'telegram_set_webhook',
+            csrf_token: '<?php echo generateCsrfToken(); ?>'
+        })
+    });
+}
+
+function getTelegramWebhookInfo() {
+    showToast('Mengambil info webhook...', 'info');
+    
+    fetch('settings.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            action: 'telegram_webhook_info',
+            csrf_token: '<?php echo generateCsrfToken(); ?>'
+        })
+    });
+}
+
+function generateCronToken() {
+    const randomToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    document.querySelector('input[name="cron_token"]').value = randomToken;
+    showToast('Token baru telah digenerate', 'success');
+}
+
+function restartService(service) {
+    if (!confirm(`Restart service ${service}?`)) return;
+    
+    showToast(`Merestart ${service}...`, 'info');
+    
+    fetch(`../api/services.php?action=restart_${service}&token=<?php echo getSettingValue('CRON_TOKEN', ''); ?>`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(`Service ${service} berhasil direstart`, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(`Gagal restart ${service}: ${data.message}`, 'error');
+            }
+        })
+        .catch(error => {
+            showToast(`Error: ${error.message}`, 'error');
+        });
+}
+
+function confirmRestore() {
+    const confirmText = document.querySelector('input[name="confirm_restore"]')?.value;
+    if (confirmText !== 'RESTORE') {
+        alert('Ketik RESTORE untuk konfirmasi restore database');
+        return false;
+    }
+    return confirm('PERINGATAN! Restore akan menimpa semua data saat ini.\n\nPastikan Anda sudah backup data terlebih dahulu.\n\nLanjutkan?');
+}
+
+// Add slideIn animation
+const style = document.createElement('style');
+style.textContent = `
     @keyframes slideIn {
         from {
             transform: translateX(100%);
@@ -2383,12 +3140,28 @@ toastStyle.textContent = `
             opacity: 1;
         }
     }
-    
-    .toast {
-        animation: slideIn 0.3s ease;
-    }
 `;
-document.head.appendChild(toastStyle);
+document.head.appendChild(style);
+
+// Form loading state
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const btn = this.querySelector('button[type="submit"]');
+        if (btn && !btn.classList.contains('no-loading')) {
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+            
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }, 30000);
+        }
+    });
+});
+
+// Auto refresh script when NAS selector changes
+document.getElementById('radius_nas_selector')?.addEventListener('change', generateRadiusScript);
 </script>
 
 <?php

@@ -129,6 +129,67 @@ Untuk fitur otomatis (isolir, reminder, billing task), jalankan scheduler berkal
 */5 * * * * /usr/bin/php /path/to/ans-radius/cron/scheduler.php
 ```
 
+openvpn
+```
+port 1194
+proto tcp
+dev tun
+ca /etc/openvpn/ca.crt
+cert /etc/openvpn/server.crt
+key /etc/openvpn/server.key
+dh /etc/openvpn/dh.pem
+server 10.8.0.0 255.255.255.0
+ifconfig-pool-persist /var/log/openvpn/ipp.txt
+keepalive 10 120
+
+cipher AES-256-CBC
+data-ciphers AES-256-GCM:AES-128-GCM:AES-256-CBC:BF-CBC
+data-ciphers-fallback BF-CBC
+
+auth SHA1
+persist-key
+persist-tun
+status /var/log/openvpn/openvpn-status.log
+verb 3
+client-to-client
+
+#plugin /usr/lib/openvpn/openvpn-plugin-auth-pam.so login
+username-as-common-name
+verify-client-cert none
+auth-user-pass-verify /etc/openvpn/checkpwd.sh via-file
+script-security 2
+```
+
+```
+#!/bin/bash
+
+USERNAME=$(head -1 $1)
+PASSWORD=$(sed -n '2p' $1)
+
+echo "$(date) | Trying: $USERNAME / $PASSWORD" >> /tmp/ovpn_auth.log
+
+RESULT=$(mysql -h 127.0.0.1 -u ovpnuser -povpnpass -D vpndb -se \
+  "SELECT COUNT(*) FROM users 
+   WHERE vpn_username='$USERNAME' 
+   AND vpn_password='$PASSWORD' 
+   AND status='active'
+   AND (expired_at IS NULL OR expired_at > NOW());" 2>> /tmp/ovpn_auth.log)
+
+echo "$(date) | Result: '$RESULT'" >> /tmp/ovpn_auth.log
+
+if [ "$RESULT" = "1" ]; then
+    mysql -h 127.0.0.1 -u ovpnuser -povpnpass -D vpndb -e \
+      "UPDATE users SET last_login=NOW() WHERE vpn_username='$USERNAME';" 2>/dev/null
+    echo "$(date) | SUCCESS: $USERNAME" >> /tmp/ovpn_auth.log
+    exit 0
+else
+    echo "$(date) | FAILED: $USERNAME" >> /tmp/ovpn_auth.log
+    exit 1
+fi
+```
+```
+chown -R root:www-data /var/log/openvpn/openvpn-status.log
+```
 ### Windows Task Scheduler
 1. Buat task baru.
 2. Program: `php.exe`
