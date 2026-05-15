@@ -427,14 +427,27 @@ ob_start();
                         <td data-label="Jatuh Tempo"><?php echo formatDate($inv['due_date']); ?></td>
                         <td data-label="Online">
                             <?php
-                            foreach ($activeSessions as $session) {
-                                if ($session['name'] === $inv['pppoe_username']) {
-                                    echo '<span class="badge badge-success">Ya</span>';
-                                    break;
+                                $isOnline = false;
+                                foreach ($activeSessions as $session) {
+                                    if ($session['name'] === $inv['pppoe_username']) {
+                                        $isOnline = true;
+                                        break;
+                                    }
                                 }
-                            }
+                                echo $isOnline 
+                                    ? '<span class="badge badge-success">Ya</span>' 
+                                    : '<span class="badge badge-secondary">Tidak</span>';
+
+                                if ($inv['status'] === 'unpaid' && $isOnline) {
+                                    $payStmt = $pdo->prepare("
+                                        UPDATE invoices 
+                                        SET status='paid', paid_at=NOW(), payment_method='Auto Online' 
+                                        WHERE id=? AND status='unpaid'
+                                    ");
+                                    $payStmt->execute([$inv['id']]);
+                                    echo '<span class="badge badge-success">Auto Paid</span>';
+                                }
                             ?>
-                            <span class="badge badge-secondary">Tidak</span>
                         </td>
                         <td data-label="Aksi">
                             <div class="action-buttons">
