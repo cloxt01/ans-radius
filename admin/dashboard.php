@@ -154,6 +154,7 @@ ob_start();
                 <div style="color: var(--text-primary); font-weight: 600;">
                     <?php echo htmlspecialchars($routerResource['board-name']); ?>
                 </div>
+                
                 <div style="color: var(--text-muted); font-size: 0.85rem;">RouterOS
                     <?php echo htmlspecialchars($routerResource['version']); ?>
                     (<?php echo htmlspecialchars($routerResource['architecture-name']); ?>)
