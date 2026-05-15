@@ -86,7 +86,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if(isset($script['error'])) {
                     setFlash('error', $script['error']);
                 } else {
-                    radiusAddNas($script['radius']['nas_name'], $nextAddress, $script['radius']['nas_secret']);
+                    $NASAdded = radiusAddNas($script['radius']['nas_name'], $nextAddress, $script['radius']['nas_secret']);
+                    if (!$NASAdded) {
+                        logError('Gagal menambahkan NAS untuk client OVPN. Pastikan database RADIUS terkonfigurasi dengan benar.');
+                    }
+
+                    $clientVpnAdded = upsertVpnUser([
+                        'username' => $script['vpn']['username'],
+                        'password' => $script['vpn']['password']
+                    ]);
+
+                    if (!$clientVpnAdded) {
+                        logError('Gagal menambahkan user VPN untuk client OVPN. Pastikan database VPN terkonfigurasi dengan benar.');
+                    }
+
                     $_SESSION['generated_script'] = $script['script'];
                     setFlash('success', 'Script MikroTik berhasil digenerate. Silahkan Restart Radius Server');
                 }
