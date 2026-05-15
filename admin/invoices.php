@@ -261,7 +261,6 @@ $invoices = fetchAll("
 ");
 
 $customers = fetchAll("SELECT id, name, pppoe_username, package_id FROM customers WHERE status = 'active' ORDER BY name");
-$activeSessions = mikrotikGetActiveSessionsAllRouter();
 $totalInvoices = count($invoices);
 $paidInvoices = count(array_filter($invoices, fn($i) => $i['status'] === 'paid'));
 $unpaidInvoices = $totalInvoices - $paidInvoices;
@@ -425,30 +424,6 @@ ob_start();
                             <?php endif; ?>
                         </td>
                         <td data-label="Jatuh Tempo"><?php echo formatDate($inv['due_date']); ?></td>
-                        <td data-label="Online">
-                            <?php
-                                $isOnline = false;
-                                foreach ($activeSessions as $session) {
-                                    if ($session['name'] === $inv['pppoe_username']) {
-                                        $isOnline = true;
-                                        break;
-                                    }
-                                }
-                                echo $isOnline 
-                                    ? '<span class="badge badge-success">Ya</span>' 
-                                    : '<span class="badge badge-secondary">Tidak</span>';
-
-                                if ($inv['status'] === 'unpaid' && $isOnline) {
-                                    update('invoices', [
-                                        'status' => 'paid',
-                                        'paid_at' => date('Y-m-d H:i:s'),
-                                        'payment_method' => 'Manual',
-                                        'updated_at' => date('Y-m-d H:i:s')
-                                    ], 'id = ?', [$inv['id']]);
-                                    echo '<span class="badge badge-success">Auto Paid</span>';
-                                }
-                            ?>
-                        </td>
                         <td data-label="Aksi">
                             <div class="action-buttons">
                                 <?php if ($inv['status'] === 'unpaid'): ?>
