@@ -132,6 +132,10 @@ function installApplication() {
         
         // Insert default data
         insertDefaultData();
+
+        createDatabaseVpn();
+
+        createTableDbVpn();
         
         // Create installed.lock
         if (file_put_contents('includes/installed.lock', date('Y-m-d H:i:s')) === false) {
@@ -217,6 +221,12 @@ define('MIKROTIK_HOST', '{$mkHost}');
 define('MIKROTIK_USER', '{$mkUser}');
 define('MIKROTIK_PASS', '{$mkPass}');
 define('MIKROTIK_PORT', {$mkPort});
+
+// VPN Database Configuration
+define('VPN_DB_HOST', '{$dbHost}');
+define('VPN_DB_NAME', 'vpndb');
+define('VPN_DB_USER', 'ovpnuser');
+define('VPN_DB_PASS', 'ovpnpass');
 
 // Application Configuration
 define('APP_NAME', 'GEMBOK');
@@ -771,6 +781,46 @@ function insertDefaultData() {
     foreach ($cronSchedules as $schedule) {
         $stmt = $pdo->prepare("INSERT IGNORE INTO cron_schedules (name, task_type, schedule_days, schedule_time, is_active) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute($schedule);
+    }
+}
+
+function createDatabaseVpn() {
+    require_once 'includes/vpn.php';
+    
+    $pdo = vpnDbConnection();
+    $dbName = defined('VPN_DB_NAME') ? VPN_DB_NAME : 'vpndb';
+    
+    $sql = "CREATE DATABASE IF NOT EXISTS `{$dbName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;";
+    $pdo->exec($sql);
+}
+function createTableDbVpn() {
+    require_once 'includes/vpn.php';
+    
+    $pdo = vpnDbConnection();
+    $dbName = defined('VPN_DB_NAME') ? VPN_DB_NAME : 'vpndb';
+    
+    $sql = "
+    USE `{$dbName}`;
+    
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        vpn_username VARCHAR(50) UNIQUE NOT NULL,
+        vpn_password VARCHAR(255) NOT NULL,
+        status ENUM('active', 'suspended', 'expired') DEFAULT 'active',
+        expiry_at DATETIME,
+        last_login DATETIME,
+        notes TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ";
+    
+    $statements = array_filter(array_map('trim', explode(';', $sql)));
+    foreach ($statements as $statement) {
+        if ($statement !== '') {
+            $pdo->exec($statement);
+        }
     }
 }
 ?>

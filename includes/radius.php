@@ -90,6 +90,38 @@ function radiusAddNas($name, $ip, $secret)
         return false;
     }
 }
+function radiusGetNasById($id) {
+    try {
+        $pdo = radiusDbConnection();
+        $stmt = $pdo->prepare("SELECT * FROM nas WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        logError('getNasById error: ' . $e->getMessage());
+        return null;
+    }
+}
+function radiusUpdateNas($id, $name, $ip, $secret)
+{
+    $id = (int) $id;
+    $name = trim((string) $name);
+    $ip = trim((string) $ip);
+    $secret = trim((string) $secret);
+
+    if ($id <= 0 || $name === '' || $ip === '' || $secret === '') {
+        return false;
+    }
+
+    try {
+        $pdo = radiusDbConnection();
+        $sql = "UPDATE nas SET nasname = ?, shortname = ?, secret = ? WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute([$ip, $name, $secret, $id]);
+    } catch (Exception $e) {
+        logError('Failed to update NAS: ' . $e->getMessage());
+        return false;
+    }
+}
 
 function radiusDeleteNas($id)
 {
