@@ -573,8 +573,16 @@ foreach ($myTasks as $task) {
         // User Location
         var userMarker;
         function locateUser() {
-            map.locate({setView: true, maxZoom: 16});
+            if (!navigator.geolocation) {
+                alert('Browser tidak mendukung GPS');
+                return;
+            }
+            map.locate({ setView: true, maxZoom: 16 });
         }
+
+        map.on('locationerror', function(e) {
+            console.warn('Lokasi tidak tersedia:', e.message);
+        });
 
         map.on('locationfound', function(e) {
             if (userMarker) map.removeLayer(userMarker);
@@ -767,8 +775,9 @@ foreach ($myTasks as $task) {
             document.getElementById('modalPassword').value = pass;
         }
 
-        // Auto locate on load
-        locateUser();
+        if (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+            locateUser();
+        }
     </script>
 
     <?php require_once '../includes/bottom_nav.php'; ?>
