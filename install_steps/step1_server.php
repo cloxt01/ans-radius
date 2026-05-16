@@ -26,6 +26,12 @@ $checks = [
         'message' => 'PDO MySQL Extension: ' . (extension_loaded('pdo_mysql') ? 'Installed' : 'Not Installed'),
         'icon' => extension_loaded('pdo_mysql') ? 'fas fa-check-circle' : 'fas fa-times-circle'
     ],
+    'ImageMagick Extension' => [
+        'check' => extension_loaded('imagemagick'),
+        'message' => 'ImageMagick Extension: ' . (extension_loaded('imagemagick') ? 'Installed' : 'Not Installed (Optional)'),
+        'icon' => extension_loaded('imagemagick') ? 'fas fa-check-circle' : 'fas fa-exclamation-circle',
+        'optional' => true
+    ],
     'CURL Extension' => [
         'check' => extension_loaded('curl'),
         'message' => 'CURL Extension: ' . (extension_loaded('curl') ? 'Installed' : 'Not Installed'),
