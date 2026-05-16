@@ -418,7 +418,17 @@ function radiusGetUsersByService($serviceType)
 
     return $users;
 }
+function radiusGetUserPassword($username)
+{
+    if (!radiusUserProvisioningReady()) {
+        return null;
+    }
 
+    $radcheck = radiusQualifiedTable('radcheck');
+    $row = fetchOne("SELECT value FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password', 'User-Password') LIMIT 1", [$username]);
+
+    return $row ? (string) ($row['value'] ?? '') : null;
+}
 function radiusGetHotspotUsers()
 {
     return radiusGetUsersByService('Login-User');

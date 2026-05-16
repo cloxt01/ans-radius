@@ -125,6 +125,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if($customer_username !== $_POST['pppoe_username']) {
                     radiusRenameUser($customer_username, $_POST['pppoe_username']);
                 }
+                if(radiusGetUserPassword($_POST['pppoe_username']) !== $_POST['pppoe_password']) {
+                    radiusUpdateUserPassword($_POST['pppoe_username'], $_POST['pppoe_password']);
+                }
                 $data = [
                     'pppoe_username' => sanitize($_POST['pppoe_username']),
                     'name' => sanitize($_POST['name']),
@@ -676,11 +679,11 @@ ob_start();
     <!-- Pagination -->
     <?php if ($totalPages > 1): ?>
     <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px;">
-        <a href="?page=1" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+        <a href="?page=1"class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
             <i class="fas fa-angle-double-left"></i>
         </a>
         <a href="?page=<?php echo max(1, $page - 1); ?>" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
-            <i class="fas fa-angle-left"></i>
+            <i class="fas fa-angle-left"></i> 
         </a>
         
         <span style="color: var(--text-secondary);">
@@ -743,6 +746,11 @@ ob_start();
                 <div class="form-group">
                     <label class="form-label">Username PPPoE</label>
                     <input type="text" name="pppoe_username" id="edit_pppoe_username" class="form-control" required placeholder="Username di MikroTik" style="background: rgba(255,255,255,0.05);">
+                    <!-- <small style="color: var(--text-muted);">Username PPPoE tidak dapat diubah</small> -->
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="text" name="pppoe_password" id="edit_pppoe_password" class="form-control" required placeholder="Password di MikroTik" value="<?php echo htmlspecialchars(radiusGetUserPassword($customer['pppoe_username']) ?? ''); ?>" style="background: rgba(255,255,255,0.05);">
                     <!-- <small style="color: var(--text-muted);">Username PPPoE tidak dapat diubah</small> -->
                 </div>
                 
