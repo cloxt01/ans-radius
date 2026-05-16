@@ -110,6 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             sendWhatsApp($customer['phone'], $msg);
         }
 
+        logActivity('RENEW USER', "Customer ID: $id, Months: $monthsCount, Total: $totalBill");
+
         setFlash('success', "Pembayaran berhasil untuk $monthsCount bulan.");
         
         // Redirect to Print Page (Admin version?) or Invoice List
@@ -122,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } catch (Exception $e) {
         $pdo->rollBack();
-        logError("Payment Error: " . $e->getMessage());
+        logError("GAGAL RENEW: Customer ID: $id, Error: " . $e->getMessage());
         setFlash('error', 'Gagal memproses pembayaran.');
         redirect("pay_process.php?id=$id&year=$selectedYear");
     }
