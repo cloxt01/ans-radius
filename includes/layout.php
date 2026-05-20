@@ -83,6 +83,7 @@ if (isset($_GET['switch_router'])) {
             --gradient-primary: linear-gradient(135deg, #58a6ff 0%, #1f6feb 100%);
             --gradient-success: linear-gradient(135deg, #3fb950 0%, #2ea043 100%);
             --gradient-warning: linear-gradient(135deg, #d29922 0%, #9e6a03 100%);
+            --gradient-error: linear-gradient(135deg, #f85149 0%, #c41c00 100%);
             
             --shadow-sm: 0 1px 0 rgba(0,0,0,0.2);
             --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
@@ -381,6 +382,12 @@ if (isset($_GET['switch_router'])) {
         .btn-success {
             background: var(--gradient-success);
             border-color: rgba(63, 185, 80, 0.3);
+            color: #fff;
+        }
+
+        .btn-error {
+            background: var(--gradient-error);
+            border-color: rgba(248, 81, 73, 0.3);
             color: #fff;
         }
 

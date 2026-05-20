@@ -300,12 +300,15 @@ if ($customersTableExists) {
     $totalCustomers = fetchOne("SELECT COUNT(*) as total FROM customers")['total'] ?? 0;
     $totalPages = ceil($totalCustomers / $perPage);
 
+    // Build query with proper JOINs to avoid N+1 queries
     $selectParts = [
-        'c.*',
+        'c.id', 'c.name', 'c.phone', 'c.pppoe_username', 'c.package_id', 'c.router_id',
+        'c.isolation_date', 'c.address', 'c.lat', 'c.lng', 'c.status', 'c.created_at', 'c.auto_isolate', 'c.installed_by',
         $packagesTableExists ? 'p.name as package_name' : "'Tanpa Paket' as package_name",
-        $packagesTableExists ? 'p.price as package_price' : '0 as package_price',
+        $packagesTableExists ? 'p.price as package_price' : "'0' as package_price",
         $routersTableExists ? 'r.name as router_name' : "'' as router_name",
-        "(SELECT odp_id FROM onu_locations WHERE serial_number = c.pppoe_username LIMIT 1) as onu_odp_id"
+        'COALESCE(onu.odp_id, NULL) as onu_odp_id',
+        'IF(rc.username IS NOT NULL, TRUE, FALSE) as in_radius'
     ];
 
     $joinParts = [];
@@ -315,37 +318,31 @@ if ($customersTableExists) {
     if ($routersTableExists) {
         $joinParts[] = 'LEFT JOIN routers r ON c.router_id = r.id';
     }
+    
+    // LEFT JOIN untuk ONU locations
+    $joinParts[] = 'LEFT JOIN onu_locations onu ON onu.serial_number = c.pppoe_username';
+    
+    // LEFT JOIN untuk RADIUS check (jika RADIUS ready)
+    if (function_exists('radiusUserProvisioningReady') && radiusUserProvisioningReady()) {
+        try {
+            $radiusDb = defined('RADIUS_DB_NAME') ? '`' . trim((string) RADIUS_DB_NAME) . '`' : '';
+            if ($radiusDb) {
+                $joinParts[] = "LEFT JOIN {$radiusDb}.radcheck rc ON rc.username = c.pppoe_username AND rc.attribute IN ('Cleartext-Password', 'User-Password')";
+            }
+        } catch (Exception $e) {
+            // Silent fail, continue without RADIUS JOIN
+        }
+    }
 
     $customers = fetchAll("
         SELECT " . implode(', ', $selectParts) . "
         FROM customers c 
         " . implode("\n        ", $joinParts) . "
+        GROUP BY c.id
         ORDER BY c.created_at DESC
         LIMIT $perPage OFFSET $offset
     ");
     
-    if (function_exists('radiusUserProvisioningReady') && radiusUserProvisioningReady()) {
-        try {
-            $radiusPdo = radiusDbConnection();
-            if ($radiusPdo) {
-                foreach ($customers as &$customer) {
-                    if (!empty($customer['pppoe_username'])) {
-                        $stmt = $radiusPdo->prepare("SELECT username FROM radcheck WHERE username = ? LIMIT 1");
-                        if ($stmt) {
-                            $stmt->execute([$customer['pppoe_username']]);
-                            $customer['in_radius'] = $stmt->fetch() ? true : false;
-                        } else {
-                            $customer['in_radius'] = null;
-                        }
-                    } else {
-                        $customer['in_radius'] = null;
-                    }
-                }
-            }
-        } catch (Exception $e) {
-            // Silent fail
-        }
-    }
 } else {
     $totalCustomers = 0;
     $totalPages = 0;
@@ -683,7 +680,7 @@ ob_start();
                                 <input type="hidden" name="action" value="isolate">
                                 <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                                 <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                                <button type="submit" class="btn btn-warning btn-sm" title="Isolir">
+                                <button type="submit" class="btn btn-error btn-sm" title="Isolir">
                                     <i class="fas fa-lock"></i>
                                 </button>
                             </form>
@@ -738,106 +735,142 @@ ob_start();
         
 <!-- Edit Customer Modal -->
 <div id="editCustomerModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;">
-    <div class="card" style="width: 800px; max-width: 90%; margin: 2rem; max-height: 90vh; overflow-y: auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: var(--neon-cyan);">
+    <div class="card" style="width: 800px; max-width: 90%; margin: 2rem; max-height: 90vh; overflow-y: auto; padding: 0;">
+        <div style="padding: 20px 25px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: var(--bg-card); z-index: 10;">
+            <h3 style="margin: 0; color: var(--neon-cyan); font-size: 1.2rem;">
                 <i class="fas fa-edit"></i> Edit Pelanggan
             </h3>
-            <button onclick="closeEditModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">&times;</button>
+            <button onclick="closeEditModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">&times;</button>
         </div>
         
+        <div style="padding: 25px;">
         <form method="POST" id="editCustomerForm">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="customer_id" id="edit_customer_id">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
             
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                <div class="form-group">
-                    <label class="form-label">Nama Pelanggan</label>
-                    <input type="text" name="name" id="edit_name" class="form-control" required placeholder="Nama Lengkap">
+            <!-- Basic Information Section -->
+            <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                <h4 style="margin: 0 0 15px 0; color: var(--neon-cyan); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fas fa-user"></i> Informasi Dasar
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Nama Pelanggan</label>
+                        <input type="text" name="name" id="edit_name" class="form-control" required placeholder="Nama Lengkap">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Nomor HP (WhatsApp)</label>
+                        <input type="text" name="phone" id="edit_phone" class="form-control" required placeholder="08xxxxxxxxxx">
+                    </div>
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Nomor HP (WhatsApp)</label>
-                    <input type="text" name="phone" id="edit_phone" class="form-control" required placeholder="08xxxxxxxxxx">
+            </div>
+            
+            <!-- PPPoE Configuration Section -->
+            <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                <h4 style="margin: 0 0 15px 0; color: var(--neon-cyan); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fas fa-network-wired"></i> Konfigurasi PPPoE
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Username PPPoE</label>
+                        <input type="text" name="pppoe_username" id="edit_pppoe_username" class="form-control" required placeholder="Username di MikroTik" style="background: rgba(255,255,255,0.05);">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Password PPPoE</label>
+                        <input type="text" name="pppoe_password" id="edit_pppoe_password" class="form-control" placeholder="(Loading...)" style="background: rgba(255,255,255,0.05);" autocomplete="off">
+                        <small style="color: var(--text-muted); margin-top: 5px; display: block;">Auto-load dari RADIUS. Kosongkan untuk skip update.</small>
+                    </div>
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Username PPPoE</label>
-                    <input type="text" name="pppoe_username" id="edit_pppoe_username" class="form-control" required placeholder="Username di MikroTik" style="background: rgba(255,255,255,0.05);">
-                    <!-- <small style="color: var(--text-muted);">Username PPPoE tidak dapat diubah</small> -->
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Password PPPoE</label>
-                    <input type="text" name="pppoe_password" id="edit_pppoe_password" class="form-control" placeholder="(Loading...)" style="background: rgba(255,255,255,0.05);" autocomplete="off">
-                    <small style="color: var(--text-muted);">Password di-load otomatis dari RADIUS. Kosongkan jika tidak ingin mengubah password.</small>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Paket Langganan</label>
-                    <select name="package_id" id="edit_package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
-                        <option value="">Pilih Paket</option>
-                        <?php foreach ($packages as $pkg): ?>
-                            <option value="<?php echo $pkg['id']; ?>">
-                                <?php echo htmlspecialchars($pkg['name']); ?> (<?php echo formatCurrency($pkg['price']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
+            </div>
 
-                <div class="form-group">
-                    <label class="form-label">Router / MikroTik</label>
-                    <select name="router_id" id="edit_router_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
-                        <option value="0">Default Router</option>
-                        <?php foreach ($routers as $r): ?>
-                            <option value="<?php echo $r['id']; ?>">
-                                <?php echo htmlspecialchars($r['name']); ?> (<?php echo htmlspecialchars($r['host']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Tanggal Isolir (1-28)</label>
-                    <input type="number" name="isolation_date" id="edit_isolation_date" class="form-control" min="1" max="28" required>
-                </div>
+            <!-- Service Configuration Section -->
+            <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                <h4 style="margin: 0 0 15px 0; color: var(--neon-cyan); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fas fa-cogs"></i> Konfigurasi Layanan
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Paket Langganan</label>
+                        <select name="package_id" id="edit_package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                            <option value="">Pilih Paket</option>
+                            <?php foreach ($packages as $pkg): ?>
+                                <option value="<?php echo $pkg['id']; ?>">
+                                    <?php echo htmlspecialchars($pkg['name']); ?> (<?php echo formatCurrency($pkg['price']); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
 
-                <div class="form-group">
-                    <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" name="auto_isolate" id="edit_auto_isolate" value="1">
-                        <span>Isolir Otomatis</span>
-                    </label>
-                    <small style="color: var(--text-muted);">Jika dimatikan, pelanggan ini akan diabaikan oleh isolir otomatis saat tagihan belum dibayar.</small>
+                    <div class="form-group">
+                        <label class="form-label">Router / MikroTik</label>
+                        <select name="router_id" id="edit_router_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                            <option value="0">Default Router</option>
+                            <?php foreach ($routers as $r): ?>
+                                <option value="<?php echo $r['id']; ?>">
+                                    <?php echo htmlspecialchars($r['name']); ?> (<?php echo htmlspecialchars($r['host']); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Isolir (1-28)</label>
+                        <input type="number" name="isolation_date" id="edit_isolation_date" class="form-control" min="1" max="28" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <input type="checkbox" name="auto_isolate" id="edit_auto_isolate" value="1" style="width: 18px; height: 18px; cursor: pointer;">
+                            <span>Isolir Otomatis</span>
+                        </label>
+                        <small style="color: var(--text-muted);">Jika dimatikan, pelanggan diabaikan saat belum bayar.</small>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Address Section -->
+            <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                <h4 style="margin: 0 0 15px 0; color: var(--neon-cyan); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fas fa-map-marker-alt"></i> Lokasi & Alamat
+                </h4>
                 
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 15px;">
                     <label class="form-label">Alamat</label>
-                    <textarea name="address" id="edit_address" class="form-control" rows="2" placeholder="Alamat rumah"></textarea>
+                    <textarea name="address" id="edit_address" class="form-control" rows="2" placeholder="Alamat rumah pelanggan" style="resize: vertical;"></textarea>
                 </div>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Lokasi (Latitude, Longitude)</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <input type="text" name="lat" id="edit_lat" class="form-control" placeholder="Latitude" readonly>
-                    <input type="text" name="lng" id="edit_lng" class="form-control" placeholder="Longitude" readonly>
-                </div>
-                <small style="color: var(--text-muted);">Klik pada peta untuk set lokasi</small>
-            </div>
-            
-            <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden;" id="edit-map-picker"></div>
 
-            <div class="form-group" style="margin-top: 15px; background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                <label class="form-label" style="display: block; margin-bottom: 10px;">
-                    Mapping ONU
-                </label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" name="save_onu" value="1" checked>
-                        <span>Perbarui titik pada ONU Locations</span>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Koordinat (Latitude, Longitude)</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <input type="text" name="lat" id="edit_lat" class="form-control" placeholder="Latitude" readonly style="background: rgba(255,255,255,0.03); cursor: not-allowed;">
+                            <small style="color: var(--text-muted); display: block; margin-top: 4px;">Klik peta untuk set</small>
+                        </div>
+                        <div>
+                            <input type="text" name="lng" id="edit_lng" class="form-control" placeholder="Longitude" readonly style="background: rgba(255,255,255,0.03); cursor: not-allowed;">
+                            <small style="color: var(--text-muted); display: block; margin-top: 4px;">Klik peta untuk set</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);" id="edit-map-picker"></div>
+            </div>
+
+            <!-- ONU Mapping Section -->
+            <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                <h4 style="margin: 0 0 15px 0; color: var(--neon-cyan); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fas fa-link"></i> Mapping ONU
+                </h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; padding: 10px; background: rgba(76,175,80,0.1); border-radius: 6px;">
+                        <input type="checkbox" name="save_onu" value="1" checked style="width: 18px; height: 18px; cursor: pointer;">
+                        <span>Sinkronisasi ke ONU Locations</span>
                     </label>
                     <div>
-                        <label class="form-label">ODP (Opsional)</label>
+                        <label class="form-label">ODP (Optional)</label>
                         <select name="odp_id" id="edit_odp_select" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
                             <option value="">-- Pilih ODP --</option>
                         </select>
@@ -845,15 +878,17 @@ ob_start();
                 </div>
             </div>
             
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="submit" class="btn btn-primary" style="flex: 1;">
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 10px; margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                <button type="submit" class="btn btn-primary" style="flex: 1; padding: 12px; font-size: 1rem; font-weight: 500;">
                     <i class="fas fa-save"></i> Simpan Perubahan
                 </button>
-                <button type="button" class="btn btn-secondary" onclick="closeEditModal()" style="flex: 1;">
-                    Batal
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()" style="flex: 1; padding: 12px; font-size: 1rem; font-weight: 500;">
+                    <i class="fas fa-times"></i> Batal
                 </button>
             </div>
         </form>
+        </div>
     </div>
 </div>
 
