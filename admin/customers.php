@@ -768,9 +768,9 @@ ob_start();
                     <!-- <small style="color: var(--text-muted);">Username PPPoE tidak dapat diubah</small> -->
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <input type="text" name="pppoe_password" id="edit_pppoe_password" class="form-control" required placeholder="Password di MikroTik" value="<?php echo htmlspecialchars(radiusGetUserPassword($customer['pppoe_username']) ?? ''); ?>" style="background: rgba(255,255,255,0.05);">
-                    <!-- <small style="color: var(--text-muted);">Username PPPoE tidak dapat diubah</small> -->
+                    <label class="form-label">Password PPPoE</label>
+                    <input type="text" name="pppoe_password" id="edit_pppoe_password" class="form-control" placeholder="(Loading...)" style="background: rgba(255,255,255,0.05);" autocomplete="off">
+                    <small style="color: var(--text-muted);">Password di-load otomatis dari RADIUS. Kosongkan jika tidak ingin mengubah password.</small>
                 </div>
                 
                 <div class="form-group">
@@ -1103,6 +1103,34 @@ function editCustomer(customer) {
     const odpSelect = document.getElementById('edit_odp_select');
     if (odpSelect) {
         odpSelect.value = customer.onu_odp_id || '';
+    }
+    
+    // Clear password field initially
+    const passwordField = document.getElementById('edit_pppoe_password');
+    passwordField.value = '';
+    passwordField.readOnly = true;
+    
+    // Fetch current password from RADIUS
+    if (customer.pppoe_username) {
+        fetch(`../api/customers.php?action=get_password&username=${encodeURIComponent(customer.pppoe_username)}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Password fetch response:', data);
+                if (data.success && data.password) {
+                    console.log('Setting password:', data.password);
+                    passwordField.value = data.password;
+                } else {
+                    console.warn('No password returned or error:', data.message);
+                    passwordField.value = '(Tidak ada password di RADIUS)';
+                }
+                // Enable editing after password is loaded
+                passwordField.readOnly = false;
+            })
+            .catch(error => {
+                console.error('Error fetching password:', error);
+                passwordField.value = '(Error loading password)';
+                passwordField.readOnly = false;
+            });
     }
     
     // Show modal
