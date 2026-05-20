@@ -252,20 +252,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get data
-$invoices = fetchAll("
-    SELECT i.*, c.name as customer_name, c.pppoe_username, c.phone 
-    FROM invoices i 
-    LEFT JOIN customers c ON i.customer_id = c.id 
-    ORDER BY i.updated_at DESC
-");
+// Get data (refactored): small helper functions make this file easier to read and maintain.
+// TODO: For large installations, replace `loadAllInvoices()` with a paginated query.
+/**
+ * Load all invoices with customer basic info.
+ * Note: returns an array of associative arrays matching original shape.
+ */
+function loadAllInvoices()
+{
+    return fetchAll(
+        "SELECT i.*, c.name as customer_name, c.pppoe_username, c.phone
+         FROM invoices i
+         LEFT JOIN customers c ON i.customer_id = c.id
+         ORDER BY i.updated_at DESC"
+    );
+}
 
-$customers = fetchAll("SELECT id, name, pppoe_username, package_id FROM customers WHERE status = 'active' ORDER BY name");
+/**
+ * Load active customers for select dropdowns and manual invoice creation.
+ */
+function loadActiveCustomers()
+{
+    return fetchAll("SELECT id, name, pppoe_username, package_id FROM customers WHERE status = 'active' ORDER BY name");
+}
+
+$invoices = loadAllInvoices();
+$customers = loadActiveCustomers();
+
 $totalInvoices = count($invoices);
-$paidInvoices = count(array_filter($invoices, fn($i) => $i['status'] === 'paid'));
+$paidInvoices = count(array_filter($invoices, function ($i) { return ($i['status'] ?? '') === 'paid'; }));
 $unpaidInvoices = $totalInvoices - $paidInvoices;
 $currentMonthKey = date('Y-m');
-$paidThisMonth = array_filter($invoices, fn($i) => $i['status'] === 'paid' && !empty($i['paid_at']) && date('Y-m', strtotime($i['paid_at'])) === $currentMonthKey);
+$paidThisMonth = array_filter($invoices, function ($i) use ($currentMonthKey) {
+    return ($i['status'] ?? '') === 'paid' && !empty($i['paid_at']) && date('Y-m', strtotime($i['paid_at'])) === $currentMonthKey;
+});
 $monthRevenue = array_sum(array_column($paidThisMonth, 'amount'));
 
 ob_start();
