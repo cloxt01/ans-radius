@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (!empty($serial)) {
                                 genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username', $serial);
                                 if ($pppoePassword !== '') {
-                                    genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password', $pppoePassword);
+                                     genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password', $pppoePassword);
                                 }
                             }
                         } catch (Exception $e) {
@@ -119,17 +119,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setFlash('error', 'Pelanggan tidak ditemukan');
                     redirect('customers.php');
                 }
-
+            
+                // Ambil username lama dari DB lokal sebelum di-update
                 $customer_username = getPppoeUsernameByCustomerId($customerId);
-
-                if($customer_username !== $_POST['pppoe_username']) {
-                    radiusRenameUser($customer_username, $_POST['pppoe_username']);
+                
+                // Ambil & bersihkan data input baru dari form
+                $new_username = sanitize($_POST['pppoe_username']);
+                $new_password = isset($_POST['pppoe_password']) ? trim((string)$_POST['pppoe_password']) : '';
+            
+                // 1. Sinkronisasi Perubahan Username di RADIUS
+                if($customer_username !== $new_username) {
+                    radiusRenameUser($customer_username, $new_username);
                 }
-                if(radiusGetUserPassword($_POST['pppoe_username']) !== $_POST['pppoe_password']) {
-                    radiusUpdateUserPassword($_POST['pppoe_username'], $_POST['pppoe_password']);
+                
+                // 2. Sinkronisasi Perubahan Password di RADIUS (Hanya jika password baru DIISI)
+                if ($new_password !== '') {
+                    // Ambil password lama di RADIUS (menggunakan username baru jika baru saja di-rename)
+                    $old_radius_password = trim((string)radiusGetUserPassword($new_username));
+                    
+                    if($old_radius_password !== $new_password) {
+                        radiusUpdateUserPassword($new_username, $new_password);
+                    }
                 }
+            
+                // Buat data untuk update ke DB lokal
                 $data = [
-                    'pppoe_username' => sanitize($_POST['pppoe_username']),
+                    'pppoe_username' => $new_username,
                     'name' => sanitize($_POST['name']),
                     'phone' => sanitize($_POST['phone']),
                     'package_id' => (int)$_POST['package_id'],
@@ -141,6 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'installed_by' => !empty($_POST['installed_by']) ? (int)$_POST['installed_by'] : null,
                     'updated_at' => date('Y-m-d H:i:s')
                 ];
+                
                 if ($hasAutoIsolate) {
                     $data['auto_isolate'] = isset($_POST['auto_isolate']) ? 1 : 0;
                 }
@@ -151,13 +167,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($customer && !empty($customer['pppoe_username'])) {
                         syncRadiusTimeoutForCustomer($customer['pppoe_username'], $customerId);
                     }
-
+            
                     // Sync to onu_locations if requested
                     $saveOnu = isset($_POST['save_onu']) && $_POST['save_onu'] == '1';
                     $odpId = isset($_POST['odp_id']) && $_POST['odp_id'] !== '' ? (int) $_POST['odp_id'] : null;
                     if ($saveOnu) {
                         try {
-                            // Get PPPoE username for this customer
                             if (!$customer) {
                                 $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
                             }
@@ -178,9 +193,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     $payload['created_at'] = date('Y-m-d H:i:s');
                                     insert('onu_locations', $payload);
                                 }
-
-                                // Synchronize PPPoE Username to GenieACS if applicable
+            
+                                // Synchronize PPPoE Username to GenieACS
                                 genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username', $serial);
+                                
+                                // JIKA password diganti, kirim juga password barunya ke GenieACS
+                                if ($new_password !== '') {
+                                    genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password', $new_password);
+                                }
                             }
                         } catch (Exception $e) {
                             logError('ONU sync (edit customer) failed: ' . $e->getMessage());
@@ -276,7 +296,6 @@ $routersTableExists = tableExists('routers');
 // Get technicians
 $technicians = fetchAll("SELECT * FROM technician_users WHERE status = 'active' ORDER BY name ASC");
 
-
 if ($customersTableExists) {
     $totalCustomers = fetchOne("SELECT COUNT(*) as total FROM customers")['total'] ?? 0;
     $totalPages = ceil($totalCustomers / $perPage);
@@ -316,15 +335,15 @@ if ($customersTableExists) {
                             $stmt->execute([$customer['pppoe_username']]);
                             $customer['in_radius'] = $stmt->fetch() ? true : false;
                         } else {
-                            $customer['in_radius'] = null; // Error checking
+                            $customer['in_radius'] = null;
                         }
                     } else {
-                        $customer['in_radius'] = null; // No username
+                        $customer['in_radius'] = null;
                     }
                 }
             }
         } catch (Exception $e) {
-            // Silent fail - RADIUS not available
+            // Silent fail
         }
     }
 } else {
