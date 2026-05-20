@@ -17,6 +17,27 @@ try {
     $search = $_GET['search'] ?? '';
 
     if ($method === 'GET') {
+        // Get password for a username
+        if (isset($_GET['action']) && $_GET['action'] === 'get_password') {
+            $username = $_GET['username'] ?? '';
+            if (empty($username)) {
+                echo json_encode(['success' => false, 'message' => 'Username required']);
+                exit;
+            }
+            
+            $password = radiusGetUserPassword($username);
+            
+            echo json_encode([
+                'success' => true,
+                'password' => $password ?? '',
+                'debug' => [
+                    'username' => $username,
+                    'provisioning_ready' => radiusUserProvisioningReady()
+                ]
+            ]);
+            exit;
+        }
+
         // Get single customer
         if (isset($_GET['id'])) {
             $id = (int) $_GET['id'];
