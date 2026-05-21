@@ -303,7 +303,7 @@ if ($customersTableExists) {
     // Build query with proper JOINs to avoid N+1 queries
     $selectParts = [
         'c.id', 'c.name', 'c.phone', 'c.pppoe_username', 'c.package_id', 'c.router_id',
-        'c.isolation_date', 'c.address', 'c.lat', 'c.lng', 'c.status', 'c.created_at', 'c.auto_isolate', 'c.installed_by',
+        'c.isolation_date', 'c.address', 'c.lat', 'c.lng', 'c.status', 'c.created_at', 'c.auto_isolate', 'c.installed_by', 'c.ip_address', 'c.mac_address',
         $packagesTableExists ? 'p.name as package_name' : "'Tanpa Paket' as package_name",
         $packagesTableExists ? 'p.price as package_price' : "'0' as package_price",
         $routersTableExists ? 'r.name as router_name' : "'' as router_name",
