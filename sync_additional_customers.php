@@ -7,16 +7,16 @@
 // --- 1. Konfigurasi Database Utama ---
 $db_main_config = [
     'host' => 'localhost',
-    'user' => 'ans_radius',
-    'pass' => '95b3783482dc8', 
+    'user' => 'root',
+    'pass' => '', 
     'dbname' => 'ans_radius'
 ];
 
 // --- 2. Konfigurasi Database FreeRADIUS ---
 $db_radius_config = [
     'host' => 'localhost',
-    'user' => 'ans_radius', 
-    'pass' => '95b3783482dc8', 
+    'user' => 'root', 
+    'pass' => '', 
     'dbname' => 'radius_db'
 ];
 
