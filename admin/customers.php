@@ -593,6 +593,7 @@ ob_start();
                 <th>Status</th>
                 <th>PPPoE</th>
                 <th>Tgl Isolir</th>
+                <th>Register Date</th>
                 <th>IP Address</th>
                 <th>MAC Address</th>
                 <th>Aksi</th>
@@ -601,7 +602,7 @@ ob_start();
         <tbody>
             <?php if (empty($customers)): ?>
                 <tr>
-                    <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
+                    <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
                         Belum ada data pelanggan
                     </td>
                 </tr>
@@ -644,6 +645,9 @@ ob_start();
                     </td>
                     <td data-label="Tgl Isolir">
                         <span class="badge badge-info">Tgl <?php echo $c['isolation_date']; ?></span>
+                    </td>
+                    <td data-label="Register Date">
+                        <?php echo date('d M Y', strtotime($c['created_at'])); ?>
                     </td>
                     <td data-label="IP Address">
                         <?php echo htmlspecialchars($c['ip_address'] ?? 'N/A'); ?>
