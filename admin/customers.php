@@ -371,8 +371,6 @@ ob_start();
     $activeCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'active'")['total'] ?? 0;
     $isolatedCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'isolated'")['total'] ?? 0;
     
-    // Calculate unpaid customers for current month
-    // Logic: Active customers who don't have a 'paid' invoice for current month
     $currentMonth = date('m');
     $currentYear = date('Y');
     $unpaidCount = fetchOne("
@@ -590,6 +588,7 @@ ob_start();
                 <th>ID</th>
                 <th>Nama & Kontak</th>
                 <th>Paket & Router</th>
+                <th>Last Paid</th>
                 <th>Status</th>
                 <th>PPPoE</th>
                 <th>Tgl Isolir</th>
@@ -602,7 +601,7 @@ ob_start();
         <tbody>
             <?php if (empty($customers)): ?>
                 <tr>
-                    <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
+                    <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
                         Belum ada data pelanggan
                     </td>
                 </tr>
@@ -619,6 +618,16 @@ ob_start();
                         <small style="color: var(--neon-cyan);">
                             <i class="fas fa-server"></i> <?php echo htmlspecialchars($c['router_name'] ?? 'Default Router'); ?>
                         </small>
+                    </td>
+                    <td>
+                        <?php
+                        $lastInvoice = fetchOne("SELECT due_date FROM invoices WHERE customer_id = ? AND status = 'paid' ORDER BY due_date DESC LIMIT 1", [$c['id']]);
+                        if ($lastInvoice && isset($lastInvoice['due_date'])) {
+                            echo date('d M Y', strtotime($lastInvoice['due_date']));
+                        } else {
+                            echo '<span style="color: var(--text-muted);">Belum ada pembayaran</span>';
+                        }
+                        ?>
                     </td>
                     <td data-label="Status">
                         <?php if ($c['status'] === 'active'): ?>
