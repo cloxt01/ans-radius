@@ -628,12 +628,17 @@ ob_start();
                         <?php endif; ?>
                     </td>
                     <td data-label="PPPoE">
-                        <code style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px;">
-                            <?php echo htmlspecialchars($c['pppoe_username']); ?>
-                        </code>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <code style="background: rgba(255,255,255,0.08); padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; font-family: 'Courier New', monospace;">
+                                <?php echo htmlspecialchars($c['pppoe_username']); ?>
+                            </code>
+                            <button type="button" onclick="copyToClipboard('<?php echo htmlspecialchars($c['pppoe_username']); ?>')" title="Salin ke clipboard" style="background: rgba(25, 29, 26, 0.15); border: 1px solid rgba(202, 206, 202, 0.3); color: var(--accent-green); width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; font-size: 0.9rem;" onmouseover="this.style.background='rgba(76,175,80,0.25)'; this.style.borderColor='rgba(7, 7, 7, 0.5)'; this.style.transform='scale(1.05)';" onmouseout="this.style.background='rgba(76,175,80,0.15)'; this.style.borderColor='rgba(76,175,80,0.3)'; this.style.transform='scale(1);">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
                         <?php if (isset($c['in_radius'])): ?>
                             <?php if ($c['in_radius'] === true): ?>
-                                <span class="badge badge-success" style="margin-left: 5px;" title="Username terdaftar di RADIUS">
+                                <span class="badge badge-success" style="margin-left: 5px; margin-top: 5px;" title="Username terdaftar di RADIUS">
                                     <i class="fas fa-check-circle"></i> OK
                                 </span>
                             <?php elseif ($c['in_radius'] === false): ?>
@@ -971,13 +976,17 @@ function renderPppoeUserList(users) {
             return;
         }
         
+        const container = document.createElement('div');
+        container.style.display = 'flex';
+        container.style.gap = '8px';
+        container.style.marginBottom = '8px';
+        container.style.alignItems = 'stretch';
+        
         const item = document.createElement('button');
         item.type = 'button';
         item.className = 'btn btn-secondary';
-        item.style.display = 'block';
-        item.style.width = '100%';
+        item.style.flex = '1';
         item.style.textAlign = 'left';
-        item.style.marginBottom = '8px';
         item.textContent = username;
         item.onclick = function() {
             const input = document.getElementById('pppoe_username_input') || document.querySelector('input[name="pppoe_username"]');
@@ -987,7 +996,41 @@ function renderPppoeUserList(users) {
             closePppoeUserModal();
         };
         
-        list.appendChild(item);
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.style.flex = '0 0 38px';
+        copyBtn.style.padding = '0';
+        copyBtn.style.background = 'rgba(255,255,255,0.08)';
+        copyBtn.style.border = '1px solid rgba(255,255,255,0.2)';
+        copyBtn.style.color = 'rgba(255,255,255,0.7)';
+        copyBtn.style.borderRadius = '6px';
+        copyBtn.style.cursor = 'pointer';
+        copyBtn.style.transition = 'all 0.2s ease';
+        copyBtn.style.display = 'flex';
+        copyBtn.style.alignItems = 'center';
+        copyBtn.style.justifyContent = 'center';
+        copyBtn.title = 'Salin ke clipboard';
+        copyBtn.innerHTML = '<i class="fas fa-copy" style="font-size: 0.9rem;"></i>';
+        copyBtn.onmouseover = function() {
+            this.style.background = 'rgba(255,255,255,0.15)';
+            this.style.borderColor = 'rgba(255,255,255,0.4)';
+            this.style.color = 'rgba(255,255,255,0.95)';
+            this.style.transform = 'scale(1.08)';
+        };
+        copyBtn.onmouseout = function() {
+            this.style.background = 'rgba(255,255,255,0.08)';
+            this.style.borderColor = 'rgba(255,255,255,0.2)';
+            this.style.color = 'rgba(255,255,255,0.7)';
+            this.style.transform = 'scale(1)';
+        };
+        copyBtn.onclick = function(e) {
+            e.stopPropagation();
+            copyToClipboard(username);
+        };
+        
+        container.appendChild(item);
+        container.appendChild(copyBtn);
+        list.appendChild(container);
     });
 }
 
@@ -1239,6 +1282,68 @@ function loadOdpOptions() {
 }
 
 document.addEventListener('DOMContentLoaded', loadOdpOptions);
+
+// Copy to clipboard helper function
+function copyToClipboard(text) {
+    if (!text) return;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        // Show success feedback
+        const feedback = document.createElement('div');
+        feedback.textContent = '✓ Username disalin!';
+        feedback.style.position = 'fixed';
+        feedback.style.top = '24px';
+        feedback.style.right = '24px';
+        feedback.style.background = 'rgba(255,255,255,0.95)';
+        feedback.style.color = '#000';
+        feedback.style.padding = '12px 20px';
+        feedback.style.borderRadius = '8px';
+        feedback.style.zIndex = '9999';
+        feedback.style.fontWeight = '600';
+        feedback.style.fontSize = '0.9rem';
+        feedback.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+        feedback.style.border = '1px solid rgba(0,0,0,0.1)';
+        feedback.style.animation = 'slideInOut 2.5s ease-in-out forwards';
+        
+        document.body.appendChild(feedback);
+        
+        setTimeout(() => feedback.remove(), 2500);
+    }).catch(err => {
+        console.error('Gagal menyalin:', err);
+        // Show error feedback
+        const error = document.createElement('div');
+        error.textContent = '✕ Gagal menyalin';
+        error.style.position = 'fixed';
+        error.style.top = '24px';
+        error.style.right = '24px';
+        error.style.background = 'rgba(255,0,0,0.1)';
+        error.style.color = '#ff6b6b';
+        error.style.padding = '12px 20px';
+        error.style.borderRadius = '8px';
+        error.style.zIndex = '9999';
+        error.style.fontWeight = '600';
+        error.style.fontSize = '0.9rem';
+        error.style.boxShadow = '0 4px 12px rgba(255,0,0,0.2)';
+        error.style.border = '1px solid rgba(255,0,0,0.3)';
+        error.style.animation = 'slideInOut 2.5s ease-in-out forwards';
+        
+        document.body.appendChild(error);
+        
+        setTimeout(() => error.remove(), 2500);
+    });
+}
+
+// Add animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInOut {
+        0% { opacity: 0; transform: translateX(20px) translateY(-10px); }
+        10% { opacity: 1; transform: translateX(0) translateY(0); }
+        90% { opacity: 1; transform: translateX(0) translateY(0); }
+        100% { opacity: 0; transform: translateX(20px) translateY(-10px); }
+    }
+`;
+document.head.appendChild(style);
 </script>
 
 <?php
