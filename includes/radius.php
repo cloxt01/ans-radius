@@ -199,6 +199,9 @@ function radiusSetUser($username, $password, $profile, $serviceType = 'Login-Use
     query("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password')", [$username]);
     query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Cleartext-Password', ':=', ?)", [$username, $password]);
 
+    query("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Simultaneous-Use')", [$username]);
+    query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Simultaneous-Use', ':=', '1')", [$username]);
+
     query("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
     query("INSERT INTO {$radusergroup} (username, groupname, priority) VALUES (?, ?, 1)", [$username, $profile]);
 
