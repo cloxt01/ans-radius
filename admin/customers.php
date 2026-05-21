@@ -646,10 +646,10 @@ ob_start();
                         <span class="badge badge-info">Tgl <?php echo $c['isolation_date']; ?></span>
                     </td>
                     <td data-label="IP Address">
-                        <?php echo htmlspecialchars($c['ip_address']); ?>
+                        <?php echo htmlspecialchars($c['ip_address'] ?? 'N/A'); ?>
                     </td>
                     <td data-label="MAC Address">
-                        <?php echo htmlspecialchars($c['mac_address']); ?>
+                        <?php echo htmlspecialchars($c['mac_address'] ?? 'N/A'); ?>
                     </td>
                     <td data-label="Aksi" style="display: flex; gap: 5px; flex-wrap: wrap;">
                         <a href="pay_process.php?id=<?php echo $c['id']; ?>" class="btn btn-success btn-sm" title="Bayar Tagihan">
