@@ -1,8 +1,10 @@
 <?php
 /**
- * MikroTik PPPoE Management - dengan AJAX Search
+ * MikroTik PPPoE Management - Active Session Hanya 1x Saat Load
  * 
- * Fitur: Search real-time ke backend, hanya tampilkan hasil pencarian
+ * Fitur: 
+ * - Active session di-fetch 1x saat halaman dimuat
+ * - Search hanya mencari user, tanpa fetch ulang active session
  */
 
 require_once '../../includes/auth.php';
@@ -13,19 +15,25 @@ $pageTitle = 'PPPoE Management';
 // Get MikroTik settings
 $mikrotikSettings = getMikrotikSettings();
 
-// Get MikroTik users (hanya untuk statistik awal)
+// Get MikroTik users (untuk statistik awal)
 $mikrotikUsers = mikrotikGetPppoeUsers();
 $totalUsers = count($mikrotikUsers);
 
-// Get active PPPoE sessions
+// ============================================
+// LOAD ACTIVE SESSION HANYA SEKALI DI SINI
+// ============================================
 $activeSessions = mikrotikGetActiveSessionsAllRouter();
 $onlineCount = count($activeSessions);
+$onlineUsernames = array_column($activeSessions, 'name');
 
 // Calculate stats
 $disabledCount = count(array_filter($mikrotikUsers, fn($u) => ($u['disabled'] ?? 'false') === 'true'));
 $offlineCount = $totalUsers - $onlineCount;
 
 $isMikrotikConnected = mikrotikConnect();
+
+// Kirim online usernames ke JavaScript
+$onlineUsernamesJson = json_encode($onlineUsernames);
 
 // Quick actions for technician
 $quickActions = [
@@ -645,23 +653,59 @@ $quickActions = [
 <?php require_once '../includes/bottom_nav.php'; ?>
 
 <script>
+    // ============================================
+    // DATA ACTIVE SESSION - DI-LOAD 1x SAAT PAGE LOAD
+    // ============================================
+    // Data ini dikirim dari PHP, hasil fetch mikrotikGetActiveSessionsAllRouter()
+    const ONLINE_USERNAMES = <?php echo $onlineUsernamesJson; ?>;
+    
+    console.log(`✅ Active sessions loaded once: ${ONLINE_USERNAMES.length} users online`);
+    
+    // Variables
+    let currentFilter = 'all';
+    let searchTimeout = null;
+    let currentRequest = null;
+    
     // DOM Elements
     const searchInput = document.getElementById('searchInput');
     const userListDiv = document.getElementById('userList');
     const searchLoading = document.getElementById('searchLoading');
-    let currentFilter = 'all';
-    let searchTimeout = null;
-    let currentRequest = null; // Untuk abort request sebelumnya
-
-    // Debounce function untuk menghindari terlalu banyak request
+    
+    // Helper: Cek apakah user online (pakai cache ONLINE_USERNAMES)
+    function isUserOnline(username) {
+        return ONLINE_USERNAMES.includes(username);
+    }
+    
+    // Debounce function
     function debounce(func, delay) {
         return function(...args) {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => func.apply(this, args), delay);
         };
     }
-
-    // Render user cards ke dalam list
+    
+    // Escape HTML
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    // Format tanggal
+    function formatDate(dateStr) {
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch(e) {
+            return dateStr;
+        }
+    }
+    
+    // Render user cards (dengan status online dari cache)
     function renderUsers(users) {
         if (!users || users.length === 0) {
             userListDiv.innerHTML = `
@@ -673,17 +717,18 @@ $quickActions = [
             `;
             return;
         }
-
+        
         let html = '';
         users.forEach((user, index) => {
-            const isOnline = user.online;
+            // Gunakan cache ONLINE_USERNAMES untuk menentukan status online
+            const isOnline = isUserOnline(user.name);
             const isDisabled = user.disabled;
             const avatarClass = isDisabled ? 'avatar-disabled' : (isOnline ? 'avatar-online' : 'avatar-offline');
             const statusText = isDisabled ? 'Disabled' : (isOnline ? 'Online' : 'Offline');
             const statusColor = isDisabled ? 'red' : (isOnline ? 'green' : 'orange');
             
             html += `
-                <div class="user-card" data-username="${user.name.toLowerCase()}">
+                <div class="user-card" data-username="${escapeHtml(user.name)}">
                     <div class="user-card-header">
                         <div class="user-avatar ${avatarClass}">
                             ${(user.name?.charAt(0) || 'U').toUpperCase()}
@@ -693,7 +738,7 @@ $quickActions = [
                             <div class="user-profile">${escapeHtml(user.profile)}</div>
                         </div>
                         <div class="user-status" style="background: rgba(${statusColor === 'green' ? '63,185,80' : (statusColor === 'orange' ? '210,153,34' : '248,81,73')}, 0.15);">
-                            <i class="fas fa-circle" style="font-size: 0.5rem; color: var(--accent-${statusColor});"></i>
+                            <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
                             ${statusText}
                         </div>
                     </div>
@@ -721,31 +766,9 @@ $quickActions = [
         });
         userListDiv.innerHTML = html;
     }
-
-    // Escape HTML untuk keamanan
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
-
-    // Format tanggal
-    function formatDate(dateStr) {
-        try {
-            const date = new Date(dateStr);
-            return date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        } catch(e) {
-            return dateStr;
-        }
-    }
-
-    // Search ke backend
+    
+    // Search ke backend - CUKUP MENCARI USER, TANPA LOAD ACTIVE SESSION
     async function searchUsers(query) {
-        // Hanya search jika minimal 2 karakter
         if (!query || query.length < 2) {
             userListDiv.innerHTML = `
                 <div class="empty-state">
@@ -756,21 +779,21 @@ $quickActions = [
             `;
             return;
         }
-
-        // Tampilkan loading
+        
         searchLoading.classList.add('active');
         
-        // Abort request sebelumnya jika ada
+        // Abort request sebelumnya
         if (currentRequest) {
             currentRequest.abort();
         }
         
-        // Buat AbortController baru
         const controller = new AbortController();
         currentRequest = controller;
         
         try {
-            const response = await fetch(`api_search_users.php?q=${encodeURIComponent(query)}&filter=${currentFilter}`, {
+            // Kirim online_usernames dari cache ke API
+            const onlineUsernamesParam = encodeURIComponent(JSON.stringify(ONLINE_USERNAMES));
+            const response = await fetch(`api_search_users.php?q=${encodeURIComponent(query)}&filter=${currentFilter}&online_usernames=${onlineUsernamesParam}`, {
                 signal: controller.signal
             });
             const data = await response.json();
@@ -806,35 +829,31 @@ $quickActions = [
             }
         }
     }
-
-    // Debounced search
+    
     const debouncedSearch = debounce(searchUsers, 500);
-
-    // Event listener untuk search input
+    
     searchInput?.addEventListener('input', (e) => {
         const query = e.target.value.trim();
         debouncedSearch(query);
     });
-
-    // Filter Function
+    
+    // Filter Functions
     function toggleFilter() {
         document.getElementById('filterDrawer').classList.add('open');
         document.getElementById('filterOverlay').classList.add('open');
     }
-
+    
     function closeFilter() {
         document.getElementById('filterDrawer').classList.remove('open');
         document.getElementById('filterOverlay').classList.remove('open');
     }
-
-    // Filter chips
+    
     document.querySelectorAll('.filter-chip[data-filter]').forEach(chip => {
         chip.addEventListener('click', function() {
             document.querySelectorAll('.filter-chip[data-filter]').forEach(c => c.classList.remove('active'));
             this.classList.add('active');
             currentFilter = this.dataset.filter;
             
-            // Re-search dengan filter baru
             const currentQuery = searchInput?.value.trim() || '';
             if (currentQuery.length >= 2) {
                 searchUsers(currentQuery);
@@ -842,7 +861,7 @@ $quickActions = [
             closeFilter();
         });
     });
-
+    
     // Toggle Password
     function togglePasswordById(inputId, btn) {
         const field = document.getElementById(inputId);
@@ -856,7 +875,7 @@ $quickActions = [
             window.navigator.vibrate(20);
         }
     }
-
+    
     // Show Toast
     function showToast(message, isError = false) {
         const toast = document.getElementById('toast');
@@ -872,11 +891,11 @@ $quickActions = [
             toast.classList.remove('show');
         }, 2500);
     }
-
+    
     function addUser() {
         showToast('Fitur tambah user akan segera hadir', false);
     }
-
+    
     // Haptic feedback
     function vibrate() {
         if (window.navigator && window.navigator.vibrate) {

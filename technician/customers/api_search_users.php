@@ -1,7 +1,7 @@
 <?php
 /**
  * API Endpoint untuk mencari PPPoE user dari MikroTik
- * Dipanggil via AJAX saat teknisi mengetik di search box
+ * Active session tidak di-load ulang, cukup gunakan data yang dikirim dari frontend
  */
 
 require_once '../../includes/auth.php';
@@ -11,7 +11,15 @@ header('Content-Type: application/json');
 
 // Ambil query parameter
 $query = $_GET['q'] ?? '';
-$filter = $_GET['filter'] ?? 'all'; // all, online, offline, disabled
+$filter = $_GET['filter'] ?? 'all';
+
+// Online usernames dikirim dari frontend (sudah di-load di halaman utama)
+$onlineUsernamesRaw = $_GET['online_usernames'] ?? '[]';
+$onlineUsernames = json_decode($onlineUsernamesRaw, true);
+
+if (!is_array($onlineUsernames)) {
+    $onlineUsernames = [];
+}
 
 if (strlen($query) < 2) {
     echo json_encode([
@@ -23,12 +31,8 @@ if (strlen($query) < 2) {
     exit;
 }
 
-// Ambil semua user dari MikroTik
+// Ambil semua user dari MikroTik (hanya user, tanpa active sessions)
 $allUsers = mikrotikGetPppoeUsers();
-
-// Get active PPPoE sessions untuk mengetahui status online
-$activeSessions = mikrotikGetActiveSessionsAllRouter();
-$onlineUsernames = array_column($activeSessions, 'name');
 
 // Filter berdasarkan username (LIKE %query%)
 $matchedUsers = [];
