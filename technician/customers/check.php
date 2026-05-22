@@ -1,6 +1,8 @@
 <?php
 /**
- * MikroTik PPPoE Management - GitHub Dark Theme
+ * MikroTik PPPoE Management - Mobile-First untuk Teknisi
+ * 
+ * Fokus: Cepat, Touch-Friendly, Mudah di Lapangan
  */
 
 require_once '../../includes/auth.php';
@@ -30,377 +32,381 @@ if (empty($mikrotikProfiles)) {
     $mikrotikProfiles = [['name' => 'default']];
 }
 
+$isMikrotikConnected = mikrotikConnect();
+
+// Quick actions for technician
+$quickActions = [
+    ['icon' => 'fa-plus', 'label' => 'Tambah User', 'action' => 'addUser()', 'color' => 'green'],
+    ['icon' => 'fa-sync-alt', 'label' => 'Refresh', 'action' => 'location.reload()', 'color' => 'blue'],
+    ['icon' => 'fa-filter', 'label' => 'Filter', 'action' => 'toggleFilter()', 'color' => 'orange'],
+];
 ?>
 
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <meta name="theme-color" content="#0d1117">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title><?php echo htmlspecialchars($pageTitle); ?> - Teknisi</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800;14..32,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* ==================== GITHUB DARK THEME ==================== */
+        /* ==================== MOBILE-FIRST GITHUB DARK ==================== */
         :root {
             --bg-canvas: #0d1117;
-            --bg-inset: #010409;
             --bg-primary: #161b22;
-            --bg-secondary: #0d1117;
             --bg-tertiary: #21262d;
             --border-default: #30363d;
             --border-muted: #21262d;
             --fg-default: #e6edf3;
             --fg-muted: #7d8590;
-            --fg-subtle: #6e7681;
             --accent-blue: #2f81f7;
-            --accent-blue-hover: #58a6ff;
             --accent-green: #3fb950;
             --accent-red: #f85149;
             --accent-orange: #d29922;
-            --accent-purple: #a371f7;
-            --shadow-small: 0 0 0 1px rgba(255,255,255,0.05);
-            --shadow-medium: 0 4px 12px rgba(0,0,0,0.3);
-            --shadow-large: 0 8px 24px rgba(0,0,0,0.4);
-            --radius-sm: 6px;
-            --radius-md: 8px;
-            --radius-lg: 12px;
-            --transition-fast: 0.15s ease;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --touch-target: 44px;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--bg-canvas);
             color: var(--fg-default);
-            line-height: 1.5;
-            padding-bottom: 76px;
+            line-height: 1.4;
+            padding-bottom: 80px;
         }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--bg-primary);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-default);
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--fg-muted);
-        }
-
-        /* ==================== HEADER ==================== */
+        /* Header - Mobile Friendly */
         .header {
-            background: var(--bg-primary);
-            border-bottom: 1px solid var(--border-default);
-            padding: 16px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
             position: sticky;
             top: 0;
             z-index: 100;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-default);
+            padding: 12px 16px;
         }
 
-        .header .title {
-            font-size: 1rem;
-            font-weight: 600;
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .header-title {
+            font-size: 1.1rem;
+            font-weight: 700;
         }
 
         .back-btn {
             color: var(--fg-default);
-            text-decoration: none;
-            padding: 8px 12px;
-            border-radius: var(--radius-sm);
-            transition: background var(--transition-fast);
-        }
-
-        .back-btn:hover {
-            background: var(--bg-tertiary);
-        }
-
-        /* ==================== CONTAINER ==================== */
-        .container {
-            padding: 20px;
-            max-width: 1280px;
-            margin: 0 auto;
-        }
-
-        /* ==================== ALERT ==================== */
-        .alert {
-            padding: 14px 16px;
-            border-radius: var(--radius-md);
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border: 1px solid;
-            font-size: 0.85rem;
-        }
-
-        .alert-warning {
-            background: rgba(210, 153, 34, 0.1);
-            border-color: rgba(210, 153, 34, 0.3);
-            color: var(--accent-orange);
-        }
-
-        .alert-warning a {
-            color: var(--accent-blue);
-        }
-
-        /* ==================== STATS GRID ==================== */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 28px;
-        }
-
-        .stat-card {
-            background: var(--bg-primary);
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-lg);
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all var(--transition-fast);
-        }
-
-        .stat-card:hover {
-            border-color: var(--accent-blue);
-            transform: translateY(-2px);
-        }
-
-        .stat-info h3 {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .stat-info p {
-            font-size: 0.7rem;
-            color: var(--fg-muted);
-        }
-
-        .stat-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: var(--radius-md);
-            display: flex;
+            font-size: 1.2rem;
+            padding: 10px;
+            margin: -10px;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            min-width: var(--touch-target);
+            min-height: var(--touch-target);
         }
 
-        .stat-icon.blue { color: var(--accent-blue); background: rgba(47, 129, 247, 0.1); }
-        .stat-icon.green { color: var(--accent-green); background: rgba(63, 185, 80, 0.1); }
-        .stat-icon.orange { color: var(--accent-orange); background: rgba(210, 153, 34, 0.1); }
-        .stat-icon.red { color: var(--accent-red); background: rgba(248, 81, 73, 0.1); }
-
-        /* ==================== CARD ==================== */
-        .card {
-            background: var(--bg-primary);
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-lg);
-            margin-bottom: 20px;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
+        .connection-status {
+            display: inline-flex;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border-muted);
-        }
-
-        .card-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--fg-default);
-        }
-
-        .card-title i {
-            color: var(--accent-blue);
-            margin-right: 8px;
-        }
-
-        /* ==================== SEARCH ==================== */
-        .search-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        .search-wrapper i {
-            position: absolute;
-            left: 12px;
-            color: var(--fg-muted);
-            font-size: 0.8rem;
-        }
-
-        .search-wrapper .form-control {
-            padding-left: 36px;
-            width: 250px;
-        }
-
-        /* ==================== TABLE ==================== */
-        .table-responsive {
-            overflow-x: auto;
-            padding: 0 20px 20px;
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .data-table thead tr {
-            border-bottom: 1px solid var(--border-default);
-        }
-
-        .data-table th {
-            padding: 12px 16px;
-            text-align: left;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 20px;
             font-size: 0.7rem;
             font-weight: 600;
-            color: var(--fg-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
         }
 
-        .data-table td {
-            padding: 14px 16px;
-            border-bottom: 1px solid var(--border-muted);
-            font-size: 0.85rem;
-        }
-
-        .data-table tbody tr:hover {
-            background: var(--bg-tertiary);
-        }
-
-        /* ==================== USER AVATAR ==================== */
-        .user-avatar {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: var(--radius-md);
-            background: var(--bg-tertiary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 0.85rem;
-        }
-
-        .avatar.online {
+        .status-connected {
             background: rgba(63, 185, 80, 0.15);
             color: var(--accent-green);
             border: 1px solid rgba(63, 185, 80, 0.3);
         }
 
-        .avatar.offline {
+        .status-disconnected {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--accent-red);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+        }
+
+        /* Quick Actions Bar */
+        .quick-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .quick-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: 40px;
+            color: var(--fg-default);
+            font-size: 0.8rem;
+            font-weight: 500;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .quick-btn:active {
+            transform: scale(0.96);
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .quick-btn i {
+            font-size: 0.9rem;
+        }
+
+        /* Stats Grid - Mobile Optimized */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 16px;
+        }
+
+        .stat-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stat-card:active {
+            background: var(--bg-tertiary);
+        }
+
+        .stat-number {
+            font-size: 1.8rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--fg-muted);
+            margin-top: 4px;
+        }
+
+        .stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+        }
+
+        /* Search Bar */
+        .search-bar {
+            padding: 0 16px 12px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-default);
+            border-radius: 44px;
+            color: var(--fg-default);
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .search-wrapper {
+            position: relative;
+        }
+
+        .search-wrapper i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--fg-muted);
+        }
+
+        /* User List - Mobile Card Style */
+        .user-list {
+            padding: 0 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .user-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            transition: all 0.15s ease;
+        }
+
+        .user-card:active {
+            background: var(--bg-tertiary);
+        }
+
+        .user-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .user-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .avatar-online {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(63, 185, 80, 0.3);
+        }
+
+        .avatar-offline {
             background: rgba(210, 153, 34, 0.15);
             color: var(--accent-orange);
             border: 1px solid rgba(210, 153, 34, 0.3);
         }
 
-        .avatar.disabled {
+        .avatar-disabled {
             background: rgba(248, 81, 73, 0.15);
             color: var(--accent-red);
             border: 1px solid rgba(248, 81, 73, 0.3);
             opacity: 0.6;
         }
 
-        .user-details strong {
-            font-size: 0.85rem;
-            display: block;
+        .user-info {
+            flex: 1;
         }
 
-        .user-details small {
+        .user-name {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .user-profile {
             font-size: 0.7rem;
             color: var(--fg-muted);
         }
 
-        /* ==================== BADGES ==================== */
-        .badge {
+        .user-status {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 10px;
+            gap: 4px;
+            padding: 4px 8px;
             border-radius: 20px;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: 600;
         }
 
-        .badge-success {
-            background: rgba(63, 185, 80, 0.15);
-            color: var(--accent-green);
-            border: 1px solid rgba(63, 185, 80, 0.3);
+        .user-card-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-muted);
         }
 
-        .badge-warning {
-            background: rgba(210, 153, 34, 0.15);
-            color: var(--accent-orange);
-            border: 1px solid rgba(210, 153, 34, 0.3);
+        .detail-item {
+            flex: 1;
+            min-width: 100px;
         }
 
-        .badge-danger {
-            background: rgba(248, 81, 73, 0.15);
-            color: var(--accent-red);
-            border: 1px solid rgba(248, 81, 73, 0.3);
-        }
-
-        .badge-info {
-            background: rgba(47, 129, 247, 0.15);
-            color: var(--accent-blue);
-            border: 1px solid rgba(47, 129, 247, 0.3);
-        }
-
-        .badge-muted {
-            background: var(--bg-tertiary);
+        .detail-label {
+            font-size: 0.6rem;
             color: var(--fg-muted);
-            border: 1px solid var(--border-default);
+            text-transform: uppercase;
+            margin-bottom: 4px;
         }
 
-        /* ==================== LAST LOGIN ==================== */
-        .last-login {
+        .detail-value {
             font-size: 0.75rem;
-            color: var(--fg-muted);
+            font-weight: 500;
         }
 
-        .last-login i {
-            margin-right: 4px;
+        .password-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .password-field {
+            flex: 1;
+            padding: 8px 12px;
+            background: var(--bg-canvas);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            color: var(--fg-default);
             font-size: 0.7rem;
+            font-family: monospace;
         }
 
-        /* ==================== EMPTY STATE ==================== */
+        .toggle-pw-btn {
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            color: var(--fg-default);
+            font-size: 0.7rem;
+            cursor: pointer;
+            min-width: 60px;
+        }
+
+        .toggle-pw-btn:active {
+            background: var(--accent-blue);
+        }
+
+        /* Empty State */
         .empty-state {
             text-align: center;
-            padding: 60px 20px !important;
+            padding: 60px 20px;
             color: var(--fg-muted);
         }
 
@@ -410,274 +416,393 @@ if (empty($mikrotikProfiles)) {
             opacity: 0.5;
         }
 
-        .empty-state p {
-            font-size: 0.9rem;
-            margin-bottom: 4px;
-        }
-
-        .empty-state small {
-            font-size: 0.75rem;
-        }
-
-        /* ==================== RESPONSIVE TABLE ==================== */
-        @media (max-width: 768px) {
-            .data-table thead {
-                display: none;
-            }
-
-            .data-table tbody tr {
-                display: block;
-                border: 1px solid var(--border-default);
-                border-radius: var(--radius-md);
-                padding: 12px;
-                margin-bottom: 12px;
-                background: var(--bg-primary);
-            }
-
-            .data-table td {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 8px 0;
-                border: none;
-            }
-
-            .data-table td[data-label]::before {
-                content: attr(data-label) ": ";
-                font-weight: 600;
-                color: var(--fg-muted);
-                margin-right: 12px;
-            }
-
-            .search-wrapper .form-control {
-                width: 100%;
-            }
-
-            .card-header {
-                flex-direction: column;
-                align-items: stretch;
-            }
-        }
-
-        @media (min-width: 769px) {
-            .data-table thead {
-                display: table-header-group;
-            }
-            .data-table tbody tr {
-                display: table-row;
-                border: none;
-                background: transparent;
-                margin: 0;
-            }
-            .data-table td {
-                display: table-cell;
-                padding: 12px 16px;
-            }
-            .data-table td[data-label]::before {
-                content: none;
-            }
-        }
-
-        /* ==================== FORM CONTROLS ==================== */
-        .form-control {
-            width: 100%;
-            padding: 10px 14px;
-            background: var(--bg-canvas);
-            border: 1px solid var(--border-default);
+        /* Loading Skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-primary) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
             border-radius: var(--radius-sm);
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: 40px;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 200;
+            transition: transform 0.3s ease;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Filter Drawer */
+        .filter-drawer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-default);
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 150;
+        }
+
+        .filter-drawer.open {
+            transform: translateY(0);
+        }
+
+        .filter-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .filter-chip {
+            flex: 1;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border: none;
+            border-radius: 40px;
             color: var(--fg-default);
             font-size: 0.85rem;
-            transition: all var(--transition-fast);
+            text-align: center;
+            cursor: pointer;
         }
 
-        .form-control:focus {
-            outline: none;
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.1);
+        .filter-chip.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 140;
+            display: none;
+        }
+
+        .drawer-overlay.open {
+            display: block;
+        }
+
+        /* Responsive Desktop */
+        @media (min-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+                max-width: 800px;
+                margin: 0 auto;
+            }
+
+            .user-list {
+                max-width: 800px;
+                margin: 0 auto;
+            }
+
+            .search-bar {
+                max-width: 800px;
+                margin: 0 auto;
+            }
+
+            .quick-actions {
+                justify-content: center;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <div class="header">
-        <div class="title">
-            <i class="fas fa-network-wired" style="margin-right: 8px; color: var(--accent-blue);"></i>
-            <?php echo htmlspecialchars($pageTitle); ?>
-        </div>
+
+<!-- Header -->
+<div class="header">
+    <div class="header-top">
         <a href="../dashboard.php" class="back-btn">
-            <i class="fas fa-arrow-left"></i> Kembali
+            <i class="fas fa-arrow-left"></i>
         </a>
-    </div>
-
-    <div class="container">
-        <!-- Warning Connection -->
-        <?php if (!mikrotikConnect()): ?>
-        <div class="alert alert-warning">
-            <i class="fas fa-exclamation-triangle"></i>
-            <div>
-                <strong>Gagal terhubung ke MikroTik!</strong>
-                <p style="margin: 4px 0 0 0; font-size: 0.75rem;">
-                    Profile yang ditampilkan adalah profil default. 
-                    Silakan periksa pengaturan MikroTik di <a href="settings.php" style="color: var(--accent-blue);">Settings</a>.
-                </p>
-            </div>
+        <div class="header-title">
+            <i class="fas fa-network-wired" style="color: var(--accent-blue);"></i> PPPoE
         </div>
-        <?php endif; ?>
-
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-info">
-                    <h3><?php echo $totalUsers; ?></h3>
-                    <p>Total User</p>
-                </div>
-                <div class="stat-icon blue">
-                    <i class="fas fa-users"></i>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-info">
-                    <h3><?php echo $onlineCount; ?></h3>
-                    <p>Online</p>
-                </div>
-                <div class="stat-icon green">
-                    <i class="fas fa-signal"></i>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-info">
-                    <h3><?php echo $offlineCount; ?></h3>
-                    <p>Offline</p>
-                </div>
-                <div class="stat-icon orange">
-                    <i class="fas fa-circle"></i>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-info">
-                    <h3><?php echo $disabledCount; ?></h3>
-                    <p>Disabled</p>
-                </div>
-                <div class="stat-icon red">
-                    <i class="fas fa-ban"></i>
-                </div>
-            </div>
-        </div>
-
-        <!-- Users Table -->
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-list"></i> Daftar PPPoE User
-                </h3>
-                <div class="search-wrapper">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchUser" class="form-control" placeholder="Cari username...">
-                </div>
-            </div>
-            
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>Profile</th>
-                            <th>Status</th>
-                            <th>Aktif</th>
-                            <th>Last Login</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($mikrotikUsers)): ?>
-                            <tr class="empty-state">
-                                <td colspan="5">
-                                    <i class="fas fa-inbox"></i>
-                                    <p>Belum ada PPPoE user</p>
-                                    <small>atau tidak terhubung ke MikroTik</small>
-                                </td>
-                            </tr>
-                        <?php else: ?>
-                            <?php foreach ($mikrotikUsers as $user): ?>
-                            <?php 
-                                $isOnline = in_array($user['name'] ?? '', $onlineUsernames);
-                                $isDisabled = ($user['disabled'] ?? 'false') === 'true';
-                                $userInitial = strtoupper(substr($user['name'] ?? 'U', 0, 1));
-                                $statusClass = $isDisabled ? 'disabled' : ($isOnline ? 'online' : 'offline');
-                                $statusIcon = $isDisabled ? 'fa-ban' : 'fa-circle';
-                            ?>
-                            <tr>
-                                <td data-label="Username">
-                                    <div class="user-avatar">
-                                        <div class="avatar <?php echo $statusClass; ?>">
-                                            <?php echo $userInitial; ?>
-                                        </div>
-                                        <div class="user-details">
-                                            <strong><?php echo htmlspecialchars($user['name'] ?? 'N/A'); ?></strong>
-                                            <?php if (!empty($user['password'])): ?>
-                                                <small><i class="fas fa-lock"></i> <?php echo str_repeat('•', 8); ?></small>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td data-label="Profile">
-                                    <span class="badge badge-info"><?php echo htmlspecialchars($user['profile'] ?? 'default'); ?></span>
-                                </td>
-                                <td data-label="Status">
-                                    <?php if ($isDisabled): ?>
-                                        <span class="badge badge-danger">
-                                            <i class="fas fa-ban"></i> Disabled
-                                        </span>
-                                    <?php elseif ($isOnline): ?>
-                                        <span class="badge badge-success">
-                                            <i class="fas fa-circle"></i> Online
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="badge badge-warning">
-                                            <i class="fas fa-circle"></i> Offline
-                                        </span>
-                                    <?php endif; ?>
-                                </td>
-                                <td data-label="Aktif">
-                                    <?php if ($isDisabled): ?>
-                                        <span class="badge badge-muted">Tidak</span>
-                                    <?php else: ?>
-                                        <span class="badge badge-success">Ya</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td data-label="Last Login">
-                                    <span class="last-login">
-                                        <?php echo !empty($user['last-login']) && $user['last-login'] !== 'never' 
-                                            ? '<i class="fas fa-clock"></i> ' . date('d/m/Y H:i', strtotime($user['last-login'])) 
-                                            : '<i class="fas fa-minus-circle"></i> Tidak pernah'; ?>
-                                    </span>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+        <div class="connection-status <?php echo $isMikrotikConnected ? 'status-connected' : 'status-disconnected'; ?>">
+            <i class="fas <?php echo $isMikrotikConnected ? 'fa-circle-check' : 'fa-exclamation-triangle'; ?>"></i>
+            <?php echo $isMikrotikConnected ? 'Online' : 'Offline'; ?>
         </div>
     </div>
 
-    <!-- Bottom Navigation -->
-    <?php require_once '../includes/bottom_nav.php'; ?>
+    <!-- Quick Actions - Touch Friendly -->
+    <div class="quick-actions">
+        <button class="quick-btn" onclick="addUser()">
+            <i class="fas fa-plus" style="color: var(--accent-green);"></i> Tambah
+        </button>
+        <button class="quick-btn" onclick="location.reload()">
+            <i class="fas fa-sync-alt" style="color: var(--accent-blue);"></i> Refresh
+        </button>
+        <button class="quick-btn" onclick="toggleFilter()">
+            <i class="fas fa-filter" style="color: var(--accent-orange);"></i> Filter
+        </button>
+    </div>
+</div>
 
-    <script>
-        // Search functionality
-        document.getElementById('searchUser')?.addEventListener('input', function(e) {
-            const search = e.target.value.toLowerCase();
-            const rows = document.querySelectorAll('.data-table tbody tr');
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div>
+            <div class="stat-number"><?php echo $totalUsers; ?></div>
+            <div class="stat-label">Total User</div>
+        </div>
+        <div class="stat-icon" style="background: rgba(47,129,247,0.1); color: var(--accent-blue);">
+            <i class="fas fa-users"></i>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div>
+            <div class="stat-number" style="color: var(--accent-green);"><?php echo $onlineCount; ?></div>
+            <div class="stat-label">Online</div>
+        </div>
+        <div class="stat-icon" style="background: rgba(63,185,80,0.1); color: var(--accent-green);">
+            <i class="fas fa-signal"></i>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div>
+            <div class="stat-number" style="color: var(--accent-orange);"><?php echo $offlineCount; ?></div>
+            <div class="stat-label">Offline</div>
+        </div>
+        <div class="stat-icon" style="background: rgba(210,153,34,0.1); color: var(--accent-orange);">
+            <i class="fas fa-circle"></i>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div>
+            <div class="stat-number" style="color: var(--accent-red);"><?php echo $disabledCount; ?></div>
+            <div class="stat-label">Disabled</div>
+        </div>
+        <div class="stat-icon" style="background: rgba(248,81,73,0.1); color: var(--accent-red);">
+            <i class="fas fa-ban"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Search Bar -->
+<div class="search-bar">
+    <div class="search-wrapper">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" class="search-input" placeholder="Cari username, profile...">
+    </div>
+</div>
+
+<!-- User List (Mobile Card Style) -->
+<div class="user-list" id="userList">
+    <?php if (empty($mikrotikUsers) && !$isMikrotikConnected): ?>
+        <div class="empty-state">
+            <i class="fas fa-plug"></i>
+            <p>Tidak terhubung ke MikroTik</p>
+            <small>Periksa koneksi atau setting</small>
+        </div>
+    <?php elseif (empty($mikrotikUsers)): ?>
+        <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <p>Belum ada PPPoE user</p>
+            <small>Tekan tombol Tambah untuk membuat user baru</small>
+        </div>
+    <?php else: ?>
+        <?php foreach ($mikrotikUsers as $user): 
+            $isOnline = in_array($user['name'] ?? '', $onlineUsernames);
+            $isDisabled = ($user['disabled'] ?? 'false') === 'true';
+            $statusClass = $isDisabled ? 'disabled' : ($isOnline ? 'online' : 'offline');
+            $avatarClass = $isDisabled ? 'avatar-disabled' : ($isOnline ? 'avatar-online' : 'avatar-offline');
+            $statusText = $isDisabled ? 'Disabled' : ($isOnline ? 'Online' : 'Offline');
+            $statusColor = $isDisabled ? 'red' : ($isOnline ? 'green' : 'orange');
+        ?>
+        <div class="user-card" data-username="<?php echo strtolower($user['name'] ?? ''); ?>" data-profile="<?php echo strtolower($user['profile'] ?? ''); ?>">
+            <div class="user-card-header">
+                <div class="user-avatar <?php echo $avatarClass; ?>">
+                    <?php echo strtoupper(substr($user['name'] ?? 'U', 0, 1)); ?>
+                </div>
+                <div class="user-info">
+                    <div class="user-name"><?php echo htmlspecialchars($user['name'] ?? 'N/A'); ?></div>
+                    <div class="user-profile"><?php echo htmlspecialchars($user['profile'] ?? 'default'); ?></div>
+                </div>
+                <div class="user-status" style="background: rgba(<?php echo $statusColor === 'green' ? '63,185,80' : ($statusColor === 'orange' ? '210,153,34' : '248,81,73'); ?>, 0.15);">
+                    <i class="fas fa-circle" style="font-size: 0.5rem; color: var(--accent-<?php echo $statusColor; ?>);"></i>
+                    <?php echo $statusText; ?>
+                </div>
+            </div>
+            <div class="user-card-details">
+                <div class="detail-item">
+                    <div class="detail-label">Status Aktif</div>
+                    <div class="detail-value"><?php echo $isDisabled ? 'Tidak' : 'Ya'; ?></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Last Login</div>
+                    <div class="detail-value">
+                        <?php echo !empty($user['last-login']) && $user['last-login'] !== 'never' 
+                            ? date('d/m/Y H:i', strtotime($user['last-login'])) 
+                            : 'Tidak pernah'; ?>
+                    </div>
+                </div>
+                <?php if (!empty($user['password'])): ?>
+                <div class="detail-item" style="flex: 2;">
+                    <div class="detail-label">Password</div>
+                    <div class="password-row">
+                        <input type="password" class="password-field" value="<?php echo htmlspecialchars($user['password']); ?>" readonly>
+                        <button class="toggle-pw-btn" onclick="togglePassword(this)">Show</button>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+</div>
+
+<!-- Filter Drawer -->
+<div class="drawer-overlay" id="filterOverlay" onclick="closeFilter()"></div>
+<div class="filter-drawer" id="filterDrawer">
+    <h4 style="margin-bottom: 12px;">Filter Status</h4>
+    <div class="filter-options">
+        <button class="filter-chip active" data-filter="all">Semua</button>
+        <button class="filter-chip" data-filter="online">Online</button>
+        <button class="filter-chip" data-filter="offline">Offline</button>
+        <button class="filter-chip" data-filter="disabled">Disabled</button>
+    </div>
+    <button class="filter-chip" onclick="closeFilter()" style="margin-top: 16px; background: var(--bg-tertiary);">Tutup</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+    <i class="fas fa-check-circle" style="color: var(--accent-green);"></i>
+    <span id="toastMsg">Tersimpan</span>
+</div>
+
+<!-- Bottom Navigation -->
+<?php require_once '../includes/bottom_nav.php'; ?>
+
+<script>
+    // Search Function
+    const searchInput = document.getElementById('searchInput');
+    const userCards = document.querySelectorAll('.user-card');
+    let currentFilter = 'all';
+
+    function filterUsers() {
+        const searchTerm = searchInput?.value.toLowerCase() || '';
+        
+        userCards.forEach(card => {
+            const username = card.dataset.username || '';
+            const profile = card.dataset.profile || '';
+            const matchesSearch = username.includes(searchTerm) || profile.includes(searchTerm);
             
-            rows.forEach(row => {
-                if (row.classList.contains('empty-state')) return;
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(search) ? '' : 'none';
-            });
+            let matchesFilter = true;
+            if (currentFilter !== 'all') {
+                const statusText = card.querySelector('.user-status')?.innerText.toLowerCase() || '';
+                matchesFilter = statusText.includes(currentFilter);
+            }
+            
+            card.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
         });
-    </script>
+    }
+
+    searchInput?.addEventListener('input', filterUsers);
+
+    // Filter Function
+    function toggleFilter() {
+        document.getElementById('filterDrawer').classList.add('open');
+        document.getElementById('filterOverlay').classList.add('open');
+    }
+
+    function closeFilter() {
+        document.getElementById('filterDrawer').classList.remove('open');
+        document.getElementById('filterOverlay').classList.remove('open');
+    }
+
+    document.querySelectorAll('.filter-chip[data-filter]').forEach(chip => {
+        chip.addEventListener('click', function() {
+            document.querySelectorAll('.filter-chip[data-filter]').forEach(c => c.classList.remove('active'));
+            this.classList.add('active');
+            currentFilter = this.dataset.filter;
+            filterUsers();
+            closeFilter();
+        });
+    });
+
+    // Toggle Password
+    function togglePassword(btn) {
+        const field = btn.previousElementSibling;
+        if (field.type === 'password') {
+            field.type = 'text';
+            btn.textContent = 'Hide';
+        } else {
+            field.type = 'password';
+            btn.textContent = 'Show';
+        }
+    }
+
+    // Show Toast
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        const icon = toast.querySelector('i');
+        const msgSpan = document.getElementById('toastMsg');
+        
+        icon.className = isError ? 'fas fa-exclamation-circle' : 'fas fa-check-circle';
+        icon.style.color = isError ? 'var(--accent-red)' : 'var(--accent-green)';
+        msgSpan.textContent = message;
+        toast.classList.add('show');
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 2500);
+    }
+
+    // Add User - Placeholder
+    function addUser() {
+        showToast('Fitur tambah user akan segera hadir', false);
+        // Redirect ke halaman tambah user jika ada
+        // window.location.href = 'add_user.php';
+    }
+
+    // Pull to Refresh (for mobile)
+    let touchStartY = 0;
+    document.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+    });
+    
+    document.addEventListener('touchmove', (e) => {
+        const touchEndY = e.touches[0].clientY;
+        const scrollTop = window.scrollY;
+        
+        if (touchEndY > touchStartY + 80 && scrollTop === 0) {
+            showToast('Me-refresh...', false);
+            setTimeout(() => location.reload(), 500);
+        }
+    });
+
+    // Haptic feedback on button click (if supported)
+    function vibrate() {
+        if (window.navigator && window.navigator.vibrate) {
+            window.navigator.vibrate(50);
+        }
+    }
+    
+    document.querySelectorAll('button, .quick-btn, .user-card').forEach(el => {
+        el.addEventListener('click', vibrate);
+    });
+</script>
 </body>
 </html>
