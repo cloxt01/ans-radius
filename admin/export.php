@@ -16,7 +16,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
             c.name,
             c.phone,
             c.pppoe_username,
-            (SELECT due_date FROM invoices WHERE customer_id = c.id AND status = 'paid' ORDER BY due_date DESC LIMIT 1) as last_paid,
+            (SELECT paid_at FROM invoices WHERE customer_id = c.id AND status = 'paid' ORDER BY paid_at DESC LIMIT 1) as paid_at,
             c.package_id,
             p.name as package_name,
             p.price as package_price,
@@ -62,7 +62,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['name']) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['phone']) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['pppoe_username']) . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . ($customer['last_paid'] ? date('d/m/Y H:i', strtotime($customer['last_paid'])) : '') . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . ($customer['paid_at'] ? date('d/m/Y H:i', strtotime($customer['paid_at'])) : '') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['package_name'] ?? 'Tanpa Paket') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . ($customer['status'] == 'active' ? 'Aktif' : 'Isolir') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . ($customer['created_at'] ? date('d/m/Y H:i', strtotime($customer['created_at'])) : 'N/A') . '</Data></Cell>' . "\n";
@@ -89,7 +89,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
             c.name,
             c.phone,
             c.pppoe_username,
-            (SELECT due_date FROM invoices WHERE customer_id = c.id AND status = 'paid' ORDER BY due_date DESC LIMIT 1) as last_paid,
+            (SELECT paid_at FROM invoices WHERE customer_id = c.id AND status = 'paid' ORDER BY paid_at DESC LIMIT 1) as paid_at,
             c.package_id,
             p.name as package_name,
             p.price as package_price,
@@ -121,8 +121,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
         'Nama',
         'No HP',
         'PPPoE Username',
-        'Last Paid',
         'Paket',
+            'Last Paid',
         'Status',
         'Register Date',
         'Tgl Isolir',
@@ -140,8 +140,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
             $customer['name'],
             $customer['phone'],
             $customer['pppoe_username'],
-            $customer['last_paid'] ? date('d M Y', strtotime($customer['last_paid'])) : '',
-            $customer['package_name'] ?? 'Tanpa Paket',
+                $customer['package_name'] ?? 'Tanpa Paket',
+                $customer['paid_at'] ? date('d M Y', strtotime($customer['paid_at'])) : '',
             $customer['status'] == 'active' ? 'Aktif' : 'Isolir',
             $customer['created_at'] ? date('d M Y', strtotime($customer['created_at'])) : 'N/A',
             $customer['isolation_date'],

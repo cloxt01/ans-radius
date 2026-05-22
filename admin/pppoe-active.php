@@ -97,9 +97,9 @@ ob_start();
                 <tr>
                     <th>Username</th>
                     <th>Alamat IP</th>
-                    <th>Caller ID</th>
-                    <th>Upload</th>
-                    <th>Download</th>
+                    <!-- <th>Caller ID</th> -->
+                    <!-- <th>Upload</th> -->
+                    <!-- <th>Download</th> -->
                     <th>Uptime</th>
                     <th>Radius</th>
                 </tr>
@@ -138,21 +138,21 @@ ob_start();
                             <td data-label="Alamat IP">
                                 <code class="ip-address"><?php echo htmlspecialchars($session['address'] ?? '-'); ?></code>
                             </td>
-                            <td data-label="Caller ID">
+                            <!-- <td data-label="Caller ID">
                                 <span class="caller-id"><?php echo htmlspecialchars($session['caller-id'] ?? '-'); ?></span>
-                            </td>
-                            <td data-label="Upload">
+                            </td> -->
+                            <!-- <td data-label="Upload">
                                 <div class="traffic-info upload">
                                     <i class="fas fa-arrow-up"></i>
                                     <span class="traffic-value"><?php echo formatBytes($upload); ?></span>
                                 </div>
-                            </td>
-                            <td data-label="Download">
+                            </td> -->
+                            <!-- <td data-label="Download">
                                 <div class="traffic-info download">
                                     <i class="fas fa-arrow-down"></i>
                                     <span class="traffic-value"><?php echo formatBytes($download); ?></span>
                                 </div>
-                            </td>
+                            </td> -->
                             <td data-label="Uptime">
                                 <div class="uptime-info">
                                     <i class="fas fa-clock"></i>
