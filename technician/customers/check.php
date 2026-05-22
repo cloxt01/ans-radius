@@ -1,8 +1,8 @@
 <?php
 /**
- * MikroTik PPPoE Management - Mobile-First untuk Teknisi
+ * MikroTik PPPoE Management - dengan AJAX Search
  * 
- * Fokus: Cepat, Touch-Friendly, Mudah di Lapangan
+ * Fitur: Search real-time ke backend, hanya tampilkan hasil pencarian
  */
 
 require_once '../../includes/auth.php';
@@ -13,24 +13,17 @@ $pageTitle = 'PPPoE Management';
 // Get MikroTik settings
 $mikrotikSettings = getMikrotikSettings();
 
-// Get MikroTik users (secrets)
+// Get MikroTik users (hanya untuk statistik awal)
 $mikrotikUsers = mikrotikGetPppoeUsers();
 $totalUsers = count($mikrotikUsers);
 
 // Get active PPPoE sessions
 $activeSessions = mikrotikGetActiveSessionsAllRouter();
 $onlineCount = count($activeSessions);
-$onlineUsernames = array_column($activeSessions, 'name');
 
 // Calculate stats
 $disabledCount = count(array_filter($mikrotikUsers, fn($u) => ($u['disabled'] ?? 'false') === 'true'));
 $offlineCount = $totalUsers - $onlineCount;
-
-// Get MikroTik profiles
-$mikrotikProfiles = mikrotikGetProfiles();
-if (empty($mikrotikProfiles)) {
-    $mikrotikProfiles = [['name' => 'default']];
-}
 
 $isMikrotikConnected = mikrotikConnect();
 
@@ -92,7 +85,7 @@ $quickActions = [
             padding-bottom: 80px;
         }
 
-        /* Header - Mobile Friendly */
+        /* Header */
         .header {
             position: sticky;
             top: 0;
@@ -148,7 +141,7 @@ $quickActions = [
             border: 1px solid rgba(248, 81, 73, 0.3);
         }
 
-        /* Quick Actions Bar */
+        /* Quick Actions */
         .quick-actions {
             display: flex;
             gap: 12px;
@@ -180,11 +173,7 @@ $quickActions = [
             border-color: var(--accent-blue);
         }
 
-        .quick-btn i {
-            font-size: 0.9rem;
-        }
-
-        /* Stats Grid - Mobile Optimized */
+        /* Stats Grid */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -200,10 +189,6 @@ $quickActions = [
             display: flex;
             align-items: center;
             justify-content: space-between;
-        }
-
-        .stat-card:active {
-            background: var(--bg-tertiary);
         }
 
         .stat-number {
@@ -235,7 +220,7 @@ $quickActions = [
 
         .search-input {
             width: 100%;
-            padding: 12px 16px 12px 44px;
+            padding: 14px 16px 14px 48px;
             background: var(--bg-primary);
             border: 1px solid var(--border-default);
             border-radius: 44px;
@@ -255,13 +240,36 @@ $quickActions = [
 
         .search-wrapper i {
             position: absolute;
-            left: 16px;
+            left: 18px;
             top: 50%;
             transform: translateY(-50%);
             color: var(--fg-muted);
         }
 
-        /* User List - Mobile Card Style */
+        /* Loading Indicator */
+        .search-loading {
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-default);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: translateY(-50%) rotate(360deg); }
+        }
+
+        .search-loading.active {
+            display: block;
+        }
+
+        /* User List */
         .user-list {
             padding: 0 16px;
             display: flex;
@@ -275,10 +283,12 @@ $quickActions = [
             border-radius: var(--radius-md);
             padding: 14px;
             transition: all 0.15s ease;
+            animation: fadeIn 0.2s ease;
         }
 
-        .user-card:active {
-            background: var(--bg-tertiary);
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .user-card-header {
@@ -370,120 +380,56 @@ $quickActions = [
             font-weight: 500;
         }
 
-        /* ==================== PASSWORD FIELD - FULL RESPONSIVE ==================== */
-    .password-container {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        width: 100%;
-    }
+        /* Password Field */
+        .password-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
 
-    .password-label {
-        font-size: 0.65rem;
-        color: var(--fg-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-    }
-
-    .password-input-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        width: 100%;
-        flex-wrap: nowrap;
-    }
-
-    .password-field {
-        flex: 1;
-        min-width: 0; /* Penting untuk flex shrink */
-        padding: 10px 12px;
-        background: var(--bg-canvas);
-        border: 1px solid var(--border-default);
-        border-radius: var(--radius-sm);
-        color: var(--fg-default);
-        font-size: 0.75rem;
-        font-family: 'SF Mono', 'Fira Code', monospace;
-        letter-spacing: 0.5px;
-        transition: all 0.15s ease;
-    }
-
-    .password-field:focus {
-        outline: none;
-        border-color: var(--accent-blue);
-        box-shadow: 0 0 0 2px rgba(47, 129, 247, 0.2);
-    }
-
-    .password-toggle {
-        flex-shrink: 0;
-        padding: 10px 14px;
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-default);
-        border-radius: var(--radius-sm);
-        color: var(--fg-default);
-        font-size: 0.7rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        min-width: 60px;
-    }
-
-    .password-toggle:active {
-        background: var(--accent-blue);
-        color: white;
-        transform: scale(0.96);
-    }
-
-    /* Mobile: stack vertical jika layar sangat kecil */
-    @media (max-width: 480px) {
         .password-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
             flex-wrap: wrap;
         }
-        
+
         .password-field {
-            width: 100%;
-            flex: auto;
-        }
-        
-        .password-toggle {
-            width: 100%;
-            text-align: center;
-        }
-    }
-
-    /* Untuk detail item di card */
-    .detail-item .password-container {
-        margin-top: 4px;
-    }
-
-    .detail-item .password-input-group {
-        gap: 6px;
-    }
-
-    .detail-item .password-field {
-        margin-bottom: 5px;
-        padding: 8px 10px;
-        font-size: 0.7rem;
-    }
-
-    .detail-item .password-toggle {
-        padding: 8px 12px;
-        font-size: 0.65rem;
-        min-width: 55px;
-    }
-
-        .toggle-pw-btn {
+            flex: 2;
+            min-width: 120px;
             padding: 8px 12px;
+            background: var(--bg-canvas);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            color: var(--fg-default);
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+
+        .password-toggle {
+            flex-shrink: 0;
+            padding: 8px 14px;
             background: var(--bg-tertiary);
             border: 1px solid var(--border-default);
             border-radius: var(--radius-sm);
             color: var(--fg-default);
             font-size: 0.7rem;
             cursor: pointer;
-            min-width: 60px;
         }
 
-        .toggle-pw-btn:active {
-            background: var(--accent-blue);
+        @media (max-width: 480px) {
+            .password-input-group {
+                flex-direction: column;
+            }
+            .password-field {
+                width: 100%;
+            }
+            .password-toggle {
+                width: 100%;
+                text-align: center;
+            }
         }
 
         /* Empty State */
@@ -499,20 +445,7 @@ $quickActions = [
             opacity: 0.5;
         }
 
-        /* Loading Skeleton */
-        .skeleton {
-            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-primary) 50%, var(--bg-tertiary) 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-            border-radius: var(--radius-sm);
-        }
-
-        @keyframes loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        /* Toast Notification */
+        /* Toast */
         .toast {
             position: fixed;
             bottom: 80px;
@@ -557,6 +490,7 @@ $quickActions = [
             display: flex;
             gap: 10px;
             margin-top: 16px;
+            flex-wrap: wrap;
         }
 
         .filter-chip {
@@ -588,30 +522,20 @@ $quickActions = [
             display: block;
         }
 
-        /* Responsive Desktop */
         @media (min-width: 768px) {
             .stats-grid {
                 grid-template-columns: repeat(4, 1fr);
                 max-width: 800px;
                 margin: 0 auto;
             }
-
             .user-list {
                 max-width: 800px;
                 margin: 0 auto;
             }
-
-            .detail-item .password_field {
-                margin-bottom: 8px;
-                padding: 10px 12px;
-                font-size: 0.75rem;
-            }
-
             .search-bar {
                 max-width: 800px;
                 margin: 0 auto;
             }
-
             .quick-actions {
                 justify-content: center;
             }
@@ -635,7 +559,6 @@ $quickActions = [
         </div>
     </div>
 
-    <!-- Quick Actions - Touch Friendly -->
     <div class="quick-actions">
         <button class="quick-btn" onclick="addUser()">
             <i class="fas fa-plus" style="color: var(--accent-green);"></i> Tambah
@@ -656,36 +579,28 @@ $quickActions = [
             <div class="stat-number"><?php echo $totalUsers; ?></div>
             <div class="stat-label">Total User</div>
         </div>
-        <div class="stat-icon" style="background: rgba(47,129,247,0.1); color: var(--accent-blue);">
-            <i class="fas fa-users"></i>
-        </div>
+        <div class="stat-icon" style="background: rgba(47,129,247,0.1); color: var(--accent-blue);"><i class="fas fa-users"></i></div>
     </div>
     <div class="stat-card">
         <div>
             <div class="stat-number" style="color: var(--accent-green);"><?php echo $onlineCount; ?></div>
             <div class="stat-label">Online</div>
         </div>
-        <div class="stat-icon" style="background: rgba(63,185,80,0.1); color: var(--accent-green);">
-            <i class="fas fa-signal"></i>
-        </div>
+        <div class="stat-icon" style="background: rgba(63,185,80,0.1); color: var(--accent-green);"><i class="fas fa-signal"></i></div>
     </div>
     <div class="stat-card">
         <div>
             <div class="stat-number" style="color: var(--accent-orange);"><?php echo $offlineCount; ?></div>
             <div class="stat-label">Offline</div>
         </div>
-        <div class="stat-icon" style="background: rgba(210,153,34,0.1); color: var(--accent-orange);">
-            <i class="fas fa-circle"></i>
-        </div>
+        <div class="stat-icon" style="background: rgba(210,153,34,0.1); color: var(--accent-orange);"><i class="fas fa-circle"></i></div>
     </div>
     <div class="stat-card">
         <div>
             <div class="stat-number" style="color: var(--accent-red);"><?php echo $disabledCount; ?></div>
             <div class="stat-label">Disabled</div>
         </div>
-        <div class="stat-icon" style="background: rgba(248,81,73,0.1); color: var(--accent-red);">
-            <i class="fas fa-ban"></i>
-        </div>
+        <div class="stat-icon" style="background: rgba(248,81,73,0.1); color: var(--accent-red);"><i class="fas fa-ban"></i></div>
     </div>
 </div>
 
@@ -693,73 +608,18 @@ $quickActions = [
 <div class="search-bar">
     <div class="search-wrapper">
         <i class="fas fa-search"></i>
-        <input type="text" id="searchInput" class="search-input" placeholder="Cari username, profile...">
+        <input type="text" id="searchInput" class="search-input" placeholder="Cari username... minimal 2 karakter" autocomplete="off">
+        <div class="search-loading" id="searchLoading"></div>
     </div>
 </div>
 
-<!-- User List (Mobile Card Style) -->
+<!-- User List -->
 <div class="user-list" id="userList">
-    <?php if (empty($mikrotikUsers) && !$isMikrotikConnected): ?>
-        <div class="empty-state">
-            <i class="fas fa-plug"></i>
-            <p>Tidak terhubung ke MikroTik</p>
-            <small>Periksa koneksi atau setting</small>
-        </div>
-    <?php elseif (empty($mikrotikUsers)): ?>
-        <div class="empty-state">
-            <i class="fas fa-inbox"></i>
-            <p>Belum ada PPPoE user</p>
-            <small>Tekan tombol Tambah untuk membuat user baru</small>
-        </div>
-    <?php else: ?>
-        <?php foreach ($mikrotikUsers as $user): 
-            $isOnline = in_array($user['name'] ?? '', $onlineUsernames);
-            $isDisabled = ($user['disabled'] ?? 'false') === 'true';
-            $statusClass = $isDisabled ? 'disabled' : ($isOnline ? 'online' : 'offline');
-            $avatarClass = $isDisabled ? 'avatar-disabled' : ($isOnline ? 'avatar-online' : 'avatar-offline');
-            $statusText = $isDisabled ? 'Disabled' : ($isOnline ? 'Online' : 'Offline');
-            $statusColor = $isDisabled ? 'red' : ($isOnline ? 'green' : 'orange');
-        ?>
-        <div class="user-card" data-username="<?php echo strtolower($user['name'] ?? ''); ?>" data-profile="<?php echo strtolower($user['profile'] ?? ''); ?>">
-            <div class="user-card-header">
-                <div class="user-avatar <?php echo $avatarClass; ?>">
-                    <?php echo strtoupper(substr($user['name'] ?? 'U', 0, 1)); ?>
-                </div>
-                <div class="user-info">
-                    <div class="user-name"><?php echo htmlspecialchars($user['name'] ?? 'N/A'); ?></div>
-                    <div class="user-profile"><?php echo htmlspecialchars($user['profile'] ?? 'default'); ?></div>
-                </div>
-                <div class="user-status" style="background: rgba(<?php echo $statusColor === 'green' ? '63,185,80' : ($statusColor === 'orange' ? '210,153,34' : '248,81,73'); ?>, 0.15);">
-                    <i class="fas fa-circle" style="font-size: 0.5rem; color: var(--accent-<?php echo $statusColor; ?>);"></i>
-                    <?php echo $statusText; ?>
-                </div>
-            </div>
-            <div class="user-card-details">
-                <div class="detail-item">
-                    <div class="detail-label">Status Aktif</div>
-                    <div class="detail-value"><?php echo $isDisabled ? 'Tidak' : 'Ya'; ?></div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Last Login</div>
-                    <div class="detail-value">
-                        <?php echo !empty($user['last-login']) && $user['last-login'] !== 'never' 
-                            ? date('d/m/Y H:i', strtotime($user['last-login'])) 
-                            : 'Tidak pernah'; ?>
-                    </div>
-                </div>
-                <?php if (!empty($user['password'])): ?>
-                <div class="detail-item" style="flex: 2;">
-                    <div class="detail-label">Password</div>
-                    <div class="password-row">
-                        <input type="password" class="password-field" value="<?php echo htmlspecialchars($user['password']); ?>" readonly>
-                        <button class="toggle-pw-btn" onclick="togglePassword(this)">Show</button>
-                    </div>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-        <?php endforeach; ?>
-    <?php endif; ?>
+    <div class="empty-state">
+        <i class="fas fa-search"></i>
+        <p>Ketik username untuk mencari</p>
+        <small>Contoh: "kar", "rtrw", "pelanggan"</small>
+    </div>
 </div>
 
 <!-- Filter Drawer -->
@@ -772,12 +632,12 @@ $quickActions = [
         <button class="filter-chip" data-filter="offline">Offline</button>
         <button class="filter-chip" data-filter="disabled">Disabled</button>
     </div>
-    <button class="filter-chip" onclick="closeFilter()" style="margin-top: 16px; background: var(--bg-tertiary);">Tutup</button>
+    <button class="filter-chip" onclick="closeFilter()" style="margin-top: 16px;">Tutup</button>
 </div>
 
 <!-- Toast -->
 <div class="toast" id="toast">
-    <i class="fas fa-check-circle" style="color: var(--accent-green);"></i>
+    <i class="fas fa-check-circle"></i>
     <span id="toastMsg">Tersimpan</span>
 </div>
 
@@ -785,30 +645,176 @@ $quickActions = [
 <?php require_once '../includes/bottom_nav.php'; ?>
 
 <script>
-    // Search Function
+    // DOM Elements
     const searchInput = document.getElementById('searchInput');
-    const userCards = document.querySelectorAll('.user-card');
+    const userListDiv = document.getElementById('userList');
+    const searchLoading = document.getElementById('searchLoading');
     let currentFilter = 'all';
+    let searchTimeout = null;
+    let currentRequest = null; // Untuk abort request sebelumnya
 
-    function filterUsers() {
-        const searchTerm = searchInput?.value.toLowerCase() || '';
-        
-        userCards.forEach(card => {
-            const username = card.dataset.username || '';
-            const profile = card.dataset.profile || '';
-            const matchesSearch = username.includes(searchTerm) || profile.includes(searchTerm);
+    // Debounce function untuk menghindari terlalu banyak request
+    function debounce(func, delay) {
+        return function(...args) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    // Render user cards ke dalam list
+    function renderUsers(users) {
+        if (!users || users.length === 0) {
+            userListDiv.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-user-slash"></i>
+                    <p>Tidak ada user yang ditemukan</p>
+                    <small>Coba dengan kata kunci lain</small>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        users.forEach((user, index) => {
+            const isOnline = user.online;
+            const isDisabled = user.disabled;
+            const avatarClass = isDisabled ? 'avatar-disabled' : (isOnline ? 'avatar-online' : 'avatar-offline');
+            const statusText = isDisabled ? 'Disabled' : (isOnline ? 'Online' : 'Offline');
+            const statusColor = isDisabled ? 'red' : (isOnline ? 'green' : 'orange');
             
-            let matchesFilter = true;
-            if (currentFilter !== 'all') {
-                const statusText = card.querySelector('.user-status')?.innerText.toLowerCase() || '';
-                matchesFilter = statusText.includes(currentFilter);
-            }
-            
-            card.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
+            html += `
+                <div class="user-card" data-username="${user.name.toLowerCase()}">
+                    <div class="user-card-header">
+                        <div class="user-avatar ${avatarClass}">
+                            ${(user.name?.charAt(0) || 'U').toUpperCase()}
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name">${escapeHtml(user.name)}</div>
+                            <div class="user-profile">${escapeHtml(user.profile)}</div>
+                        </div>
+                        <div class="user-status" style="background: rgba(${statusColor === 'green' ? '63,185,80' : (statusColor === 'orange' ? '210,153,34' : '248,81,73')}, 0.15);">
+                            <i class="fas fa-circle" style="font-size: 0.5rem; color: var(--accent-${statusColor});"></i>
+                            ${statusText}
+                        </div>
+                    </div>
+                    <div class="user-card-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Status Aktif</div>
+                            <div class="detail-value">${isDisabled ? 'Tidak' : 'Ya'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Last Login</div>
+                            <div class="detail-value">${user.last_login && user.last_login !== 'never' ? formatDate(user.last_login) : 'Tidak pernah'}</div>
+                        </div>
+                        <div class="detail-item" style="flex: 2;">
+                            <div class="password-container">
+                                <div class="password-label"><i class="fas fa-lock"></i> Password</div>
+                                <div class="password-input-group">
+                                    <input type="password" class="password-field" id="pw_${index}" value="${escapeHtml(user.password)}" readonly>
+                                    <button type="button" class="password-toggle" onclick="togglePasswordById('pw_${index}', this)"><i class="fas fa-eye"></i> Show</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        userListDiv.innerHTML = html;
+    }
+
+    // Escape HTML untuk keamanan
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
         });
     }
 
-    searchInput?.addEventListener('input', filterUsers);
+    // Format tanggal
+    function formatDate(dateStr) {
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch(e) {
+            return dateStr;
+        }
+    }
+
+    // Search ke backend
+    async function searchUsers(query) {
+        // Hanya search jika minimal 2 karakter
+        if (!query || query.length < 2) {
+            userListDiv.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-search"></i>
+                    <p>Ketik minimal 2 karakter untuk mencari</p>
+                    <small>Contoh: "kar", "rtrw", "pelanggan"</small>
+                </div>
+            `;
+            return;
+        }
+
+        // Tampilkan loading
+        searchLoading.classList.add('active');
+        
+        // Abort request sebelumnya jika ada
+        if (currentRequest) {
+            currentRequest.abort();
+        }
+        
+        // Buat AbortController baru
+        const controller = new AbortController();
+        currentRequest = controller;
+        
+        try {
+            const response = await fetch(`api_search_users.php?q=${encodeURIComponent(query)}&filter=${currentFilter}`, {
+                signal: controller.signal
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                renderUsers(data.users);
+            } else {
+                userListDiv.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Gagal mengambil data</p>
+                        <small>${data.message || 'Silakan coba lagi'}</small>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Request dibatalkan');
+                return;
+            }
+            console.error('Search error:', error);
+            userListDiv.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-wifi"></i>
+                    <p>Gagal terhubung ke server</p>
+                    <small>Periksa koneksi Anda</small>
+                </div>
+            `;
+        } finally {
+            searchLoading.classList.remove('active');
+            if (currentRequest === controller) {
+                currentRequest = null;
+            }
+        }
+    }
+
+    // Debounced search
+    const debouncedSearch = debounce(searchUsers, 500);
+
+    // Event listener untuk search input
+    searchInput?.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        debouncedSearch(query);
+    });
 
     // Filter Function
     function toggleFilter() {
@@ -821,25 +827,33 @@ $quickActions = [
         document.getElementById('filterOverlay').classList.remove('open');
     }
 
+    // Filter chips
     document.querySelectorAll('.filter-chip[data-filter]').forEach(chip => {
         chip.addEventListener('click', function() {
             document.querySelectorAll('.filter-chip[data-filter]').forEach(c => c.classList.remove('active'));
             this.classList.add('active');
             currentFilter = this.dataset.filter;
-            filterUsers();
+            
+            // Re-search dengan filter baru
+            const currentQuery = searchInput?.value.trim() || '';
+            if (currentQuery.length >= 2) {
+                searchUsers(currentQuery);
+            }
             closeFilter();
         });
     });
 
     // Toggle Password
-    function togglePassword(btn) {
-        const field = btn.previousElementSibling;
-        if (field.type === 'password') {
-            field.type = 'text';
-            btn.textContent = 'Hide';
-        } else {
-            field.type = 'password';
-            btn.textContent = 'Show';
+    function togglePasswordById(inputId, btn) {
+        const field = document.getElementById(inputId);
+        if (!field) return;
+        
+        const isHidden = field.type === 'password';
+        field.type = isHidden ? 'text' : 'password';
+        btn.innerHTML = isHidden ? '<i class="fas fa-eye-slash"></i> Hide' : '<i class="fas fa-eye"></i> Show';
+        
+        if (window.navigator && window.navigator.vibrate) {
+            window.navigator.vibrate(20);
         }
     }
 
@@ -859,37 +873,18 @@ $quickActions = [
         }, 2500);
     }
 
-    // Add User - Placeholder
     function addUser() {
         showToast('Fitur tambah user akan segera hadir', false);
-        // Redirect ke halaman tambah user jika ada
-        // window.location.href = 'add_user.php';
     }
 
-    // Pull to Refresh (for mobile)
-    let touchStartY = 0;
-    document.addEventListener('touchstart', (e) => {
-        touchStartY = e.touches[0].clientY;
-    });
-    
-    document.addEventListener('touchmove', (e) => {
-        const touchEndY = e.touches[0].clientY;
-        const scrollTop = window.scrollY;
-        
-        if (touchEndY > touchStartY + 80 && scrollTop === 0) {
-            showToast('Me-refresh...', false);
-            setTimeout(() => location.reload(), 500);
-        }
-    });
-
-    // Haptic feedback on button click (if supported)
+    // Haptic feedback
     function vibrate() {
         if (window.navigator && window.navigator.vibrate) {
             window.navigator.vibrate(50);
         }
     }
     
-    document.querySelectorAll('button, .quick-btn, .user-card').forEach(el => {
+    document.querySelectorAll('button, .quick-btn').forEach(el => {
         el.addEventListener('click', vibrate);
     });
 </script>
