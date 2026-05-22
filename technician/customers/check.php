@@ -370,23 +370,106 @@ $quickActions = [
             font-weight: 500;
         }
 
-        .password-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        /* ==================== PASSWORD FIELD - FULL RESPONSIVE ==================== */
+    .password-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .password-label {
+        font-size: 0.65rem;
+        color: var(--fg-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .password-input-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        flex-wrap: nowrap;
+    }
+
+    .password-field {
+        flex: 1;
+        min-width: 0; /* Penting untuk flex shrink */
+        padding: 10px 12px;
+        background: var(--bg-canvas);
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-sm);
+        color: var(--fg-default);
+        font-size: 0.75rem;
+        font-family: 'SF Mono', 'Fira Code', monospace;
+        letter-spacing: 0.5px;
+        transition: all 0.15s ease;
+    }
+
+    .password-field:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 0 2px rgba(47, 129, 247, 0.2);
+    }
+
+    .password-toggle {
+        flex-shrink: 0;
+        padding: 10px 14px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-sm);
+        color: var(--fg-default);
+        font-size: 0.7rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        min-width: 60px;
+    }
+
+    .password-toggle:active {
+        background: var(--accent-blue);
+        color: white;
+        transform: scale(0.96);
+    }
+
+    /* Mobile: stack vertical jika layar sangat kecil */
+    @media (max-width: 480px) {
+        .password-input-group {
             flex-wrap: wrap;
         }
-
+        
         .password-field {
-            flex: 1;
-            padding: 8px 12px;
-            background: var(--bg-canvas);
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-sm);
-            color: var(--fg-default);
-            font-size: 0.7rem;
-            font-family: monospace;
+            width: 100%;
+            flex: auto;
         }
+        
+        .password-toggle {
+            width: 100%;
+            text-align: center;
+        }
+    }
+
+    /* Untuk detail item di card */
+    .detail-item .password-container {
+        margin-top: 4px;
+    }
+
+    .detail-item .password-input-group {
+        gap: 6px;
+    }
+
+    .detail-item .password-field {
+        margin-bottom: 5px;
+        padding: 8px 10px;
+        font-size: 0.7rem;
+    }
+
+    .detail-item .password-toggle {
+        padding: 8px 12px;
+        font-size: 0.65rem;
+        min-width: 55px;
+    }
 
         .toggle-pw-btn {
             padding: 8px 12px;
@@ -516,6 +599,12 @@ $quickActions = [
             .user-list {
                 max-width: 800px;
                 margin: 0 auto;
+            }
+
+            .detail-item .password_field {
+                margin-bottom: 8px;
+                padding: 10px 12px;
+                font-size: 0.75rem;
             }
 
             .search-bar {
