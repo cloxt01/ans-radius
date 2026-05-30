@@ -13,7 +13,7 @@ requireAdminLogin();
 try {
     $method = $_SERVER['REQUEST_METHOD'];
     $page = max(1, (int) ($_GET['page'] ?? 1));
-    $perPage = min(100, max(1, (int) ($_GET['per_page'] ?? 20)));
+    $perPage = min(500, max(1, (int) ($_GET['per_page'] ?? 20)));
     $search = $_GET['search'] ?? '';
     $routersTableExists = tableExists('routers');
 
