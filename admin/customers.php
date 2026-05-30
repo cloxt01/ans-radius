@@ -429,6 +429,7 @@ if ($customersTableExists) {
 $packages = $packagesTableExists ? fetchAll("SELECT * FROM packages ORDER BY name") : [];
 $routers = $routersTableExists ? getAllRouters() : [];
 $csrfToken = generateCsrfToken();
+$randomCustomer = getRandomCustomer();
 $paginationQuery = $_GET;
 unset($paginationQuery['page']);
 $paginationQueryString = http_build_query($paginationQuery);
@@ -530,10 +531,30 @@ ob_start();
     }
 </style>
 
+<div class="alert" style="background: var(--accent-orange); color: #fff; border: 1px solid rgba(0,0,0,0.06); padding: 12px; border-radius: 6px;">
+    <i class="fas fa-warning" style="color: #fff; margin-right:5px;"></i>
+    <strong>PENTING !!!</strong> Pastikan untuk membuat invoice setelah menambahkan pelanggan agar tagihan muncul di portal pelanggan dan pelanggan tidak langsung terisolir di hari berikutnya.
+</div>
+<?php if (empty($randomCustomer)): ?>
+    <div class="alert alert-warning" style="margin-top:8px;">
+        <i class="fas fa-exclamation-triangle"></i> Tidak ada username PPPoE cadangan yang memenuhi kriteria (%ans%, status isolir, tanpa invoice). Tombol "Tambah Pelanggan (via Rename)" dinonaktifkan.
+    </div>
+<?php endif; ?>
 <!-- Add Customer Form -->
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-user-plus"></i> Tambah Pelanggan</h3>
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <h3 class="card-title" style="margin:0; display:flex; align-items:center; gap:8px;"><i class="fas fa-user-plus"></i> Tambah Pelanggan</h3>
+        <div>
+        <?php if ($randomCustomer): ?>
+            <button type="button" onclick="editCustomer(<?php echo htmlspecialchars(json_encode($randomCustomer), ENT_QUOTES, 'UTF-8'); ?>)" class="btn btn-primary">
+                <i class="fas fa-save"></i> Tambah Pelanggan (via Rename)
+            </button>
+        <?php else: ?>
+            <button type="button" class="btn btn-secondary" style="opacity: 0.7; cursor: not-allowed;" title="Tidak ada username cadangan untuk rename" disabled>
+                <i class="fas fa-save"></i> Tambah Pelanggan (via Rename)
+            </button>
+        <?php endif; ?>
+        </div>
     </div>
     
     <form method="POST" style="padding: 20px;" data-no-loading="true">
@@ -935,6 +956,11 @@ ob_start();
             
             <!-- Basic Information Section -->
             <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                <div class="form-group">
+                    <label class="form-label">Load Form (paste data form disini)</label>
+                    <textarea name="form" id="formInput" class="form-control" rows="10" placeholder="Nama yang di daftarkan : XXX&#10;Username : XXX@XXX &#10;Password : 1234&#10;Nama wifi : XXXX&#10;Password : XXXX&#10;Alamat : KP XXX&#10;RT/RW : XX/XX&#10;Kecamatan : XXXXX&#10;NO HP : +62 8XXXXXXXX&#10;Paket Wifi : STAR LEGEND" style="background: rgba(255,255,255,0.05); font-family: 'Courier New', monospace; font-size: 0.75rem; color: var(--text-muted);"></textarea>
+                    <button type="button" onclick="loadFormCreate()" style="margin-top: 10px;" class="btn btn-primary">Load</button>
+                </div>
                 <h4 style="margin: 0 0 15px 0; color: var(--neon-cyan); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">
                     <i class="fas fa-user"></i> Informasi Dasar
                 </h4>
@@ -1563,7 +1589,91 @@ function initMap() {
         document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
     });
 }
+function formatPhoneNumber(phoneStr) {
+    if (!phoneStr) return '';
+    
+    let cleanNumber = phoneStr.replace(/\D/g, '');
+    
+    if (cleanNumber.startsWith('0')) {
+        cleanNumber = '62' + cleanNumber.slice(1);
+    }
+    
+    return cleanNumber;
+}
 
+function formatPhoneNumber(phoneStr) {
+    if (!phoneStr) return '';
+    let cleanNumber = phoneStr.replace(/\D/g, '');
+    if (cleanNumber.startsWith('0')) {
+        cleanNumber = '62' + cleanNumber.slice(1);
+    }
+    return cleanNumber;
+}
+
+function loadFormCreate(){
+    const formInput = document.getElementById('formInput');
+    if (formInput && formInput.value.trim() === '') {
+        alert('Form input kosong!');
+        return;
+    }
+
+    // LOGIC PARSING (Dibuat toleran terhadap Spasi & Huruf Kapital pada Key)
+    const formInputObject = formInput.value.split("\n")
+        .filter(baris => baris.trim() !== "") 
+        .reduce((acc, baris) => {
+            // Memastikan baris mengandung karakter ":" sebelum di-split
+            if (baris.includes(":")) {
+                const [rawKey, rawValue] = baris.split(":");
+                
+                // Normalisasi KEY: ubah ke lowercase, trim spasi luar, dan ganti spasi ganda menjadi single spasi
+                const key = rawKey.trim().toLowerCase().replace(/\s+/g, ' ');
+                const value = rawValue ? rawValue.trim() : '';
+                
+                // Kunci agar password pertama tidak tertimpa password kedua jika namanya mirip
+                if (!acc[key]) {
+                    acc[key] = value;
+                }
+            }
+            return acc;
+        }, {});
+
+    const tgl = new Date(Date.now() + 7 * 3600000);
+    const hariIni = tgl.getDate() > 28 
+        ? `${tgl.getFullYear()}-${String(tgl.getMonth() + 1).padStart(2, '0')}-28` 
+        : tgl.toISOString().slice(0, 10);
+
+    console.log('Parsed form input:', formInputObject);
+    
+    // PEMANGGILAN SEKARANG MENGGUNAKAN KEY HURUF KECIL (LOWERCASE)
+    
+    // Toleransi: "nama yang di daftarkan" atau "nama yg di daftarkan"
+    const nameValue = formInputObject['nama yang di daftarkan'] || formInputObject['nama yg di daftarkan'] || '';
+    document.getElementById('edit_name').value = nameValue;
+    
+    // Toleransi: "no hp" atau "no. hp"
+    const rawPhone = formInputObject['no hp'] || formInputObject['no. hp'] || '';
+    document.getElementById('edit_phone').value = formatPhoneNumber(rawPhone);
+    
+    // Toleransi: "paket wifi"
+    const paketWifi = formInputObject['paket wifi'] || '';
+    document.getElementById('edit_package_id').value = <?php echo getPackageIdbyProfileName($formInputObject['paket wifi'] ?? '') ?: 1; ?>;
+    
+    // Ambil Username
+    document.getElementById('edit_pppoe_username').value = formInputObject['username'] || '';
+    
+    // Toleransi: "password" atau "pasword"
+    const passwordValue = formInputObject['password'] || formInputObject['pasword'] || '';
+    document.getElementById('edit_pppoe_password').value = passwordValue; 
+    
+    document.getElementById('edit_router_id').value = 4;
+    document.getElementById('edit_isolation_date').value = hariIni.slice(-2); 
+    
+    // Gabungkan Alamat
+    document.getElementById('edit_address').value = 
+        (formInputObject['alamat'] || '') + 
+        ' RT/RW ' + (formInputObject['rt/rw'] || '') + 
+        ' Kecamatan ' + (formInputObject['kecamatan'] || '');
+}
 function initEditMap() {
     if (editMap) return;
     

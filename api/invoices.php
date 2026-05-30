@@ -130,10 +130,36 @@ try {
 
         $countSql = "SELECT COUNT(*) as total FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id {$where}";;
 
+        // Debug: log the SELECT SQL and bound params to help diagnose
+        // cases where COUNT > 0 but SELECT returns an empty array.
+        $debugLogPath = __DIR__ . '/../logs/invoices_api_debug.log';
+        $logEntry = "[" . date('Y-m-d H:i:s') . "] SELECT: " . $selectSql . PHP_EOL
+            . "PARAMS: " . json_encode($params, JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        @file_put_contents($debugLogPath, $logEntry, FILE_APPEND);
+
         $invoices = fetchAll($selectSql, $params);
+
+        // Log number of rows returned by SELECT
+        @file_put_contents($debugLogPath, "[" . date('Y-m-d H:i:s') . "] ROWS: " . count($invoices) . PHP_EOL, FILE_APPEND);
+
+        // Also log COUNT SQL and params
+        @file_put_contents($debugLogPath, "[" . date('Y-m-d H:i:s') . "] COUNT: " . $countSql . PHP_EOL, FILE_APPEND);
+        @file_put_contents($debugLogPath, "[" . date('Y-m-d H:i:s') . "] COUNT_PARAMS: " . json_encode($params, JSON_UNESCAPED_UNICODE) . PHP_EOL, FILE_APPEND);
 
         $totalResult = fetchOne($countSql, $params);
         $total = $totalResult['total'] ?? 0;
+
+        // If COUNT > 0 but SELECT returned no rows, try SELECT without LIMIT to diagnose
+        if ($total > 0 && count($invoices) === 0) {
+            $selectNoLimit = "SELECT i.*, c.name as customer_name, c.pppoe_username, c.phone 
+                FROM invoices i 
+                LEFT JOIN customers c ON i.customer_id = c.id 
+                {$where}
+                ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC";
+
+            $allRows = fetchAll($selectNoLimit, $params);
+            @file_put_contents($debugLogPath, "[" . date('Y-m-d H:i:s') . "] NO_LIMIT_ROWS: " . count($allRows) . PHP_EOL, FILE_APPEND);
+        }
 
         echo json_encode([
             'success' => true,
