@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 
-$appName = getSetting('app_name', 'GEMBOK');
+$appName = getSetting('app_name', 'ANS Radius');
 $pageTitle = 'Login Admin';
 $content = '';
 

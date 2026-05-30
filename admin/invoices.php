@@ -252,15 +252,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get data with initial lightweight load.
-function loadInitialInvoices($limit = 10, $offset = 0)
+function loadInitialInvoices($limit = 10, $offset = 0, $whereSql = '', $params = [])
 {
     return fetchAll(
         "SELECT i.*, c.name as customer_name, c.pppoe_username, c.phone
          FROM invoices i
          LEFT JOIN customers c ON i.customer_id = c.id
+         {$whereSql}
          ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC
          LIMIT " . (int) $limit . " OFFSET " . (int) $offset
+        , $params
     );
+}
+
+function renderInvoiceStatusBadges(array $invoice)
+{
+    if (($invoice['status'] ?? '') === 'paid') {
+        $html = '<span class="badge badge-success"><i class="fas fa-check-circle"></i> Lunas</span>';
+        if (!empty($invoice['paid_at'])) {
+            $html .= '<small class="date-info">' . date('d/m/Y', strtotime($invoice['paid_at'])) . '</small>';
+        }
+
+        return $html;
+    }
+
+    if (($invoice['status'] ?? '') === 'cancelled') {
+        return '<span class="badge badge-muted">Batal</span>';
+    }
+
+    $isOverdue = !empty($invoice['due_date']) && strtotime($invoice['due_date']) < time();
+
+    return '<span class="badge badge-warning"><i class="fas fa-hourglass-half"></i> Belum Bayar</span>'
+        . ($isOverdue
+            ? '<span class="badge badge-danger">Telat</span>'
+            : '');
 }
 
 /**
@@ -272,10 +297,73 @@ function loadActiveCustomers()
 }
 
 $page = max(1, (int)($_GET['page'] ?? 1));
-$perPage = 10;
+$perPage = min(500, max(10, (int)($_GET['per_page'] ?? 10)));
 $offset = ($page - 1) * $perPage;
 
-$invoices = loadInitialInvoices($perPage, $offset);
+$search = trim((string)($_GET['search'] ?? ''));
+$filter_status = trim((string)($_GET['filter_status'] ?? ''));
+$filter_due_from = trim((string)($_GET['filter_due_from'] ?? ''));
+$filter_due_to = trim((string)($_GET['filter_due_to'] ?? ''));
+$filter_created_from = trim((string)($_GET['filter_created_from'] ?? ''));
+$filter_created_to = trim((string)($_GET['filter_created_to'] ?? ''));
+$filter_paid_from = trim((string)($_GET['filter_paid_from'] ?? ''));
+$filter_paid_to = trim((string)($_GET['filter_paid_to'] ?? ''));
+
+$whereClauses = ['1=1'];
+$whereParams = [];
+
+if ($filter_status !== '') {
+    if ($filter_status === 'telat') {
+        $whereClauses[] = "i.status = 'unpaid'";
+        $whereClauses[] = 'i.due_date < CURDATE()';
+    } elseif ($filter_status === 'unpaid') {
+        $whereClauses[] = "i.status = 'unpaid'";
+        $whereClauses[] = 'i.due_date >= CURDATE()';
+    } else {
+        $whereClauses[] = 'i.status = ?';
+        $whereParams[] = $filter_status;
+    }
+}
+if ($filter_due_from !== '') {
+    $whereClauses[] = 'i.due_date >= ?';
+    $whereParams[] = $filter_due_from;
+}
+if ($filter_due_to !== '') {
+    $whereClauses[] = 'i.due_date <= ?';
+    $whereParams[] = $filter_due_to;
+}
+if ($filter_created_from !== '') {
+    $whereClauses[] = 'i.created_at >= ?';
+    $whereParams[] = $filter_created_from . ' 00:00:00';
+}
+if ($filter_created_to !== '') {
+    $whereClauses[] = 'i.created_at <= ?';
+    $whereParams[] = $filter_created_to . ' 23:59:59';
+}
+if ($filter_paid_from !== '') {
+    $whereClauses[] = 'i.paid_at >= ?';
+    $whereParams[] = $filter_paid_from . ' 00:00:00';
+}
+if ($filter_paid_to !== '') {
+    $whereClauses[] = 'i.paid_at <= ?';
+    $whereParams[] = $filter_paid_to . ' 23:59:59';
+}
+if ($search !== '' && mb_strlen($search) >= 2) {
+    $whereClauses[] = '(i.invoice_number LIKE ? OR c.name LIKE ? OR c.pppoe_username LIKE ? OR c.phone LIKE ?)';
+    $like = '%' . $search . '%';
+    $whereParams[] = $like;
+    $whereParams[] = $like;
+    $whereParams[] = $like;
+    $whereParams[] = $like;
+}
+
+$whereSql = 'WHERE ' . implode(' AND ', $whereClauses);
+$hasActiveFilters = $filter_status !== '' || $filter_due_from !== '' || $filter_due_to !== '' || $filter_created_from !== '' || $filter_created_to !== '' || $filter_paid_from !== '' || $filter_paid_to !== '';
+
+$totalInvoicesFiltered = (int) (fetchOne("SELECT COUNT(*) as total FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id {$whereSql}", $whereParams)['total'] ?? 0);
+$totalPages = (int) max(1, ceil($totalInvoicesFiltered / $perPage));
+
+$invoices = loadInitialInvoices($perPage, $offset, $whereSql, $whereParams);
 $customers = loadActiveCustomers();
 
 $totalInvoices = (int) (fetchOne("SELECT COUNT(*) as total FROM invoices")['total'] ?? 0);
@@ -284,7 +372,12 @@ $unpaidInvoices = (int) (fetchOne("SELECT COUNT(*) as total FROM invoices WHERE 
 $currentMonthKey = date('Y-m');
 $monthRevenue = (float) (fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM invoices WHERE status = 'paid' AND paid_at IS NOT NULL AND DATE_FORMAT(paid_at, '%Y-%m') = ?", [$currentMonthKey])['total'] ?? 0);
 $csrfToken = generateCsrfToken();
-$initialInvoiceTableHtml = '';
+$paginationQuery = $_GET;
+unset($paginationQuery['page']);
+$paginationQueryString = http_build_query($paginationQuery);
+if ($paginationQueryString !== '') {
+    $paginationQueryString = '&' . $paginationQueryString;
+}
 
 ob_start();
 ?>
@@ -378,6 +471,13 @@ ob_start();
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
         <h3 class="card-title" style="margin: 0; display: flex; align-items: center; gap: 8px;"><i class="fas fa-history"></i> Riwayat Tagihan</h3>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <select id="perPageSelect" class="form-control" style="width: 110px;">
+                <option value="10" <?php echo $perPage === 10 ? 'selected' : ''; ?>>10 / page</option>
+                <option value="50" <?php echo $perPage === 50 ? 'selected' : ''; ?>>50 / page</option>
+                <option value="100" <?php echo $perPage === 100 ? 'selected' : ''; ?>>100 / page</option>
+                <option value="250" <?php echo $perPage === 250 ? 'selected' : ''; ?>>250 / page</option>
+                <option value="500" <?php echo $perPage === 500 ? 'selected' : ''; ?>>500 / page</option>
+            </select>
             <div class="search-wrapper" style="margin: 0;">
                 <i class="fas fa-search"></i>
                 <input type="text" id="searchInvoice" class="form-control" placeholder="Cari invoice...">
@@ -385,6 +485,50 @@ ob_start();
             <a href="export_invoices.php?action=export_excel" class="btn btn-primary btn-sm">
                 <i class="fas fa-file-excel"></i> Export
             </a>
+        </div>
+    </div>
+    <div class="card-body" style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.04);">
+        <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Status</label>
+                    <select id="filterStatus" class="form-control" style="width: 150px;">
+                        <option value="">Semua Status</option>
+                        <option value="unpaid" <?php echo $filter_status === 'unpaid' ? 'selected' : ''; ?>>Belum Bayar</option>
+                        <option value="telat" <?php echo $filter_status === 'telat' ? 'selected' : ''; ?>>Belum Bayar + Telat</option>
+                        <option value="paid" <?php echo $filter_status === 'paid' ? 'selected' : ''; ?>>Lunas</option>
+                        <option value="cancelled" <?php echo $filter_status === 'cancelled' ? 'selected' : ''; ?>>Batal</option>
+                    </select>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Jatuh Tempo Dari</label>
+                    <input type="date" id="filterDueFrom" class="form-control" value="<?php echo htmlspecialchars($filter_due_from); ?>">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Jatuh Tempo Sampai</label>
+                    <input type="date" id="filterDueTo" class="form-control" value="<?php echo htmlspecialchars($filter_due_to); ?>">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Register From</label>
+                    <input type="date" id="filterCreatedFrom" class="form-control" value="<?php echo htmlspecialchars($filter_created_from); ?>">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Register To</label>
+                    <input type="date" id="filterCreatedTo" class="form-control" value="<?php echo htmlspecialchars($filter_created_to); ?>">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Paid From</label>
+                    <input type="date" id="filterPaidFrom" class="form-control" value="<?php echo htmlspecialchars($filter_paid_from); ?>">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Paid To</label>
+                    <input type="date" id="filterPaidTo" class="form-control" value="<?php echo htmlspecialchars($filter_paid_to); ?>">
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: center; margin-top: 8px;">
+                <button id="applyFilterBtn" class="btn btn-primary" style="padding: 10px 18px; font-size: 1rem; min-width: 110px; border-radius: 8px;">Filter</button>
+                <button id="resetFilterBtn" class="btn btn-secondary" style="padding: 10px 18px; font-size: 1rem; min-width: 110px; border-radius: 8px;">Reset</button>
+            </div>
         </div>
     </div>
     
@@ -428,23 +572,7 @@ ob_start();
                             <strong class="price"><?php echo formatCurrency($inv['amount']); ?></strong>
                         </td>
                         <td data-label="Status">
-                            <?php if ($inv['status'] === 'paid'): ?>
-                                <span class="badge badge-success">
-                                    <i class="fas fa-check-circle"></i> Lunas
-                                </span>
-                                <?php if ($inv['paid_at']): ?>
-                                    <small class="date-info"><?php echo date('d/m/Y', strtotime($inv['paid_at'])); ?></small>
-                                <?php endif; ?>
-                            <?php elseif ($inv['status'] === 'cancelled'): ?>
-                                <span class="badge badge-muted">Batal</span>
-                            <?php else: ?>
-                                <span class="badge badge-warning">
-                                    <i class="fas fa-hourglass-half"></i> Belum Bayar
-                                </span>
-                                <?php if (strtotime($inv['due_date']) < time()): ?>
-                                    <span class="badge badge-danger">Telat</span>
-                                <?php endif; ?>
-                            <?php endif; ?>
+                            <?php echo renderInvoiceStatusBadges($inv); ?>
                         </td>
                         <td data-label="Jatuh Tempo"><?php echo formatDate($inv['due_date']); ?></td>
                         <td data-label="Aksi">
@@ -516,6 +644,27 @@ ob_start();
             </tbody>
         </table>
     </div>
+
+    <?php if ($totalPages > 1): ?>
+    <div id="invoicePagination" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px;">
+        <a href="?page=1<?php echo $paginationQueryString; ?>" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+            <i class="fas fa-angle-double-left"></i>
+        </a>
+        <a href="?page=<?php echo max(1, $page - 1); ?><?php echo $paginationQueryString; ?>" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+            <i class="fas fa-angle-left"></i>
+        </a>
+        <span style="color: var(--text-secondary); display: inline-block; text-align: center; min-width: 260px;">
+            Halaman <?php echo $page; ?> dari <?php echo $totalPages; ?>
+            (Total: <?php echo $totalInvoicesFiltered; ?> invoice)
+        </span>
+        <a href="?page=<?php echo min($totalPages, $page + 1); ?><?php echo $paginationQueryString; ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+            <i class="fas fa-angle-right"></i>
+        </a>
+        <a href="?page=<?php echo $totalPages; ?><?php echo $paginationQueryString; ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+            <i class="fas fa-angle-double-right"></i>
+        </a>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- Edit Invoice Modal -->
@@ -844,12 +993,31 @@ function formatCurrencyIdr(amount) {
     }).format(number);
 }
 
+function buildInvoiceStatusBadges(invoice) {
+    if (invoice.status === 'paid') {
+        return `<span class="badge badge-success"><i class="fas fa-check-circle"></i> Lunas</span>${invoice.paid_at ? `<small class="date-info">${formatDateLabel(invoice.paid_at)}</small>` : ''}`;
+    }
+
+    if (invoice.status === 'cancelled') {
+        return '<span class="badge badge-muted">Batal</span>';
+    }
+
+    const isOverdue = invoice.due_date && new Date(invoice.due_date).getTime() < Date.now();
+
+    return `<span class="badge badge-warning"><i class="fas fa-hourglass-half"></i> Belum Bayar</span>${isOverdue ? '<span class="badge badge-danger">Telat</span>' : ''}`;
+}
+
 function restoreInitialInvoices() {
     if (!invoiceTableBody) {
         return;
     }
 
     invoiceTableBody.innerHTML = initialInvoiceTableHtml;
+
+    const pagination = document.getElementById('invoicePagination');
+    if (pagination) {
+        pagination.style.display = '';
+    }
 }
 
 function renderFetchedInvoices(invoices) {
@@ -871,11 +1039,7 @@ function renderFetchedInvoices(invoices) {
 
     invoiceTableBody.innerHTML = invoices.map(invoice => {
         const invoiceJson = JSON.stringify(invoice).replace(/'/g, '&#39;');
-        const statusBadge = invoice.status === 'paid'
-            ? `<span class="badge badge-success"><i class="fas fa-check-circle"></i> Lunas</span>${invoice.paid_at ? `<small class="date-info">${formatDateLabel(invoice.paid_at)}</small>` : ''}`
-            : (invoice.status === 'cancelled'
-                ? '<span class="badge badge-muted">Batal</span>'
-                : `<span class="badge badge-warning"><i class="fas fa-hourglass-half"></i> Belum Bayar</span>${new Date(invoice.due_date).getTime() < Date.now() ? '<span class="badge badge-danger">Telat</span>' : ''}`);
+        const statusBadge = buildInvoiceStatusBadges(invoice);
 
         const actionButtons = [];
 
@@ -951,9 +1115,24 @@ function renderFetchedInvoices(invoices) {
 }
 
 async function fetchInvoiceSearch(search) {
-    if (!search || search.length < 2) {
+    const status = document.getElementById('filterStatus') ? document.getElementById('filterStatus').value : '';
+    const dueFrom = document.getElementById('filterDueFrom') ? document.getElementById('filterDueFrom').value : '';
+    const dueTo = document.getElementById('filterDueTo') ? document.getElementById('filterDueTo').value : '';
+    const createdFrom = document.getElementById('filterCreatedFrom') ? document.getElementById('filterCreatedFrom').value : '';
+    const createdTo = document.getElementById('filterCreatedTo') ? document.getElementById('filterCreatedTo').value : '';
+    const paidFrom = document.getElementById('filterPaidFrom') ? document.getElementById('filterPaidFrom').value : '';
+    const paidTo = document.getElementById('filterPaidTo') ? document.getElementById('filterPaidTo').value : '';
+    const perPage = document.getElementById('perPageSelect') ? document.getElementById('perPageSelect').value : '10';
+    const hasFilters = status || dueFrom || dueTo || createdFrom || createdTo || paidFrom || paidTo;
+
+    if ((!search || search.length < 2) && !hasFilters) {
         restoreInitialInvoices();
         return;
+    }
+
+    const pagination = document.getElementById('invoicePagination');
+    if (pagination) {
+        pagination.style.display = 'none';
     }
 
     if (invoiceTableBody) {
@@ -968,7 +1147,19 @@ async function fetchInvoiceSearch(search) {
     }
 
     try {
-        const response = await fetch(`../api/invoices.php?search=${encodeURIComponent(search)}&per_page=100&page=1`);
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (status) params.append('filter_status', status);
+        if (dueFrom) params.append('filter_due_from', dueFrom);
+        if (dueTo) params.append('filter_due_to', dueTo);
+        if (createdFrom) params.append('filter_created_from', createdFrom);
+        if (createdTo) params.append('filter_created_to', createdTo);
+        if (paidFrom) params.append('filter_paid_from', paidFrom);
+        if (paidTo) params.append('filter_paid_to', paidTo);
+        params.append('per_page', perPage);
+        params.append('page', '1');
+
+        const response = await fetch(`../api/invoices.php?${params.toString()}`);
         const data = await response.json();
 
         if (data.success && data.data && Array.isArray(data.data.invoices)) {
@@ -998,6 +1189,11 @@ async function fetchInvoiceSearch(search) {
     }
 }
 
+function getInvoiceFilterValue(id) {
+    const element = document.getElementById(id);
+    return element ? element.value.trim() : '';
+}
+
 function editInvoiceFromRow(button) {
     const row = button.closest('tr');
     if (!row || !row.dataset.invoice) {
@@ -1021,6 +1217,59 @@ if (searchInput) {
         invoiceSearchTimer = setTimeout(() => {
             fetchInvoiceSearch(search);
         }, 350);
+    });
+}
+
+const applyFilterBtn = document.getElementById('applyFilterBtn');
+const resetFilterBtn = document.getElementById('resetFilterBtn');
+const perPageSelect = document.getElementById('perPageSelect');
+
+if (applyFilterBtn) {
+    applyFilterBtn.addEventListener('click', function() {
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', '1');
+        params.set('search', (document.getElementById('searchInvoice') || { value: '' }).value.trim());
+
+        const filterParamMap = {
+            filterStatus: 'filter_status',
+            filterDueFrom: 'filter_due_from',
+            filterDueTo: 'filter_due_to',
+            filterCreatedFrom: 'filter_created_from',
+            filterCreatedTo: 'filter_created_to',
+            filterPaidFrom: 'filter_paid_from',
+            filterPaidTo: 'filter_paid_to'
+        };
+
+        Object.keys(filterParamMap).forEach(id => {
+            const value = getInvoiceFilterValue(id);
+            const paramName = filterParamMap[id];
+            if (value) {
+                params.set(paramName, value);
+            } else {
+                params.delete(paramName);
+            }
+        });
+
+        if (perPageSelect && perPageSelect.value) {
+            params.set('per_page', perPageSelect.value);
+        }
+
+        window.location.search = params.toString();
+    });
+}
+
+if (resetFilterBtn) {
+    resetFilterBtn.addEventListener('click', function() {
+        window.location.href = window.location.pathname;
+    });
+}
+
+if (perPageSelect) {
+    perPageSelect.addEventListener('change', function() {
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', '1');
+        params.set('per_page', perPageSelect.value || '10');
+        window.location.search = params.toString();
     });
 }
 
