@@ -375,11 +375,16 @@ ob_start();
 
 <!-- Invoices Table -->
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-history"></i> Riwayat Tagihan</h3>
-        <div class="search-wrapper">
-            <i class="fas fa-search"></i>
-            <input type="text" id="searchInvoice" class="form-control" placeholder="Cari invoice...">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <h3 class="card-title" style="margin: 0; display: flex; align-items: center; gap: 8px;"><i class="fas fa-history"></i> Riwayat Tagihan</h3>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <div class="search-wrapper" style="margin: 0;">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInvoice" class="form-control" placeholder="Cari invoice...">
+            </div>
+            <a href="export_invoices.php?action=export_excel" class="btn btn-primary btn-sm">
+                <i class="fas fa-file-excel"></i> Export
+            </a>
         </div>
     </div>
     
