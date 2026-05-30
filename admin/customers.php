@@ -729,7 +729,7 @@ ob_start();
             <i class="fas fa-angle-left"></i> 
         </a>
         
-        <span style="color: var(--text-secondary);">
+        <span style="color: var(--text-secondary); display: inline-block; text-align: center; min-width: 260px;">
             Halaman <?php echo $page; ?> dari <?php echo $totalPages; ?>
             (Total: <?php echo $totalCustomers; ?> pelanggan)
         </span>

@@ -252,19 +252,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get data (refactored): small helper functions make this file easier to read and maintain.
-// TODO: For large installations, replace `loadAllInvoices()` with a paginated query.
-/**
- * Load all invoices with customer basic info.
- * Note: returns an array of associative arrays matching original shape.
- */
-function loadAllInvoices()
+// Get data with initial lightweight load.
+function loadInitialInvoices($limit = 10, $offset = 0)
 {
     return fetchAll(
         "SELECT i.*, c.name as customer_name, c.pppoe_username, c.phone
          FROM invoices i
          LEFT JOIN customers c ON i.customer_id = c.id
-         ORDER BY i.updated_at DESC"
+         ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC
+         LIMIT " . (int) $limit . " OFFSET " . (int) $offset
     );
 }
 
@@ -276,17 +272,20 @@ function loadActiveCustomers()
     return fetchAll("SELECT id, name, pppoe_username, package_id FROM customers WHERE status = 'active' ORDER BY name");
 }
 
-$invoices = loadAllInvoices();
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 10;
+$offset = ($page - 1) * $perPage;
+
+$invoices = loadInitialInvoices($perPage, $offset);
 $customers = loadActiveCustomers();
 
-$totalInvoices = count($invoices);
-$paidInvoices = count(array_filter($invoices, function ($i) { return ($i['status'] ?? '') === 'paid'; }));
-$unpaidInvoices = $totalInvoices - $paidInvoices;
+$totalInvoices = (int) (fetchOne("SELECT COUNT(*) as total FROM invoices")['total'] ?? 0);
+$paidInvoices = (int) (fetchOne("SELECT COUNT(*) as total FROM invoices WHERE status = 'paid'")['total'] ?? 0);
+$unpaidInvoices = (int) (fetchOne("SELECT COUNT(*) as total FROM invoices WHERE status = 'unpaid'")['total'] ?? 0);
 $currentMonthKey = date('Y-m');
-$paidThisMonth = array_filter($invoices, function ($i) use ($currentMonthKey) {
-    return ($i['status'] ?? '') === 'paid' && !empty($i['paid_at']) && date('Y-m', strtotime($i['paid_at'])) === $currentMonthKey;
-});
-$monthRevenue = array_sum(array_column($paidThisMonth, 'amount'));
+$monthRevenue = (float) (fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM invoices WHERE status = 'paid' AND paid_at IS NOT NULL AND DATE_FORMAT(paid_at, '%Y-%m') = ?", [$currentMonthKey])['total'] ?? 0);
+$csrfToken = generateCsrfToken();
+$initialInvoiceTableHtml = '';
 
 ob_start();
 ?>
@@ -348,7 +347,7 @@ ob_start();
                 <p>Buat invoice untuk semua pelanggan aktif bulan ini</p>
                 <form method="POST" data-no-loading="true">
                     <input type="hidden" name="action" value="generate">
-                    <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-magic"></i> Generate
                     </button>
@@ -399,7 +398,7 @@ ob_start();
                     <th>Aksi</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="invoiceTableBody">
                 <?php if (empty($invoices)): ?>
                     <tr>
                         <td colspan="7" class="empty-state">
@@ -409,7 +408,7 @@ ob_start();
                     </tr>
                 <?php else: ?>
                     <?php foreach ($invoices as $inv): ?>
-                    <tr>
+                    <tr data-invoice="<?php echo htmlspecialchars(json_encode($inv), ENT_QUOTES, 'UTF-8'); ?>">
                         <td data-label="No. Invoice">
                             <code class="invoice-code"><?php echo htmlspecialchars($inv['invoice_number']); ?></code>
                         </td>
@@ -449,7 +448,7 @@ ob_start();
                                 <?php if ($inv['status'] === 'unpaid'): ?>
                                     <form method="POST" class="inline-form">
                                         <input type="hidden" name="action" value="pay">
-                                        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                        <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                         <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
                                         <input type="hidden" name="payment_method" value="Manual">
                                         <button type="submit" class="btn-icon success" title="Bayar Lunas">
@@ -459,7 +458,7 @@ ob_start();
                                     
                                     <form method="POST" class="inline-form">
                                         <input type="hidden" name="action" value="unisolate_only">
-                                        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                        <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                         <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
                                         <button type="submit" class="btn-icon" title="Buka Isolir">
                                             <i class="fas fa-unlock-alt"></i>
@@ -468,7 +467,7 @@ ob_start();
                                     
                                     <form method="POST" class="inline-form" onsubmit="return confirm('Tunda jatuh tempo invoice ini ke bulan berikutnya?');">
                                         <input type="hidden" name="action" value="defer_next_month">
-                                        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                        <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                         <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
                                         <button type="submit" class="btn-icon" title="Tunda ke Bulan Depan">
                                             <i class="fas fa-calendar-plus"></i>
@@ -477,7 +476,7 @@ ob_start();
 
                                     <form method="POST" class="inline-form">
                                         <input type="hidden" name="action" value="generate_payment_link">
-                                        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                        <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                         <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
                                         <button type="submit" class="btn-icon" title="Payment Link">
                                             <i class="fas fa-link"></i>
@@ -492,7 +491,7 @@ ob_start();
                                 <?php if ($inv['status'] !== 'paid'): ?>
                                     <form method="POST" class="inline-form" onsubmit="return confirm('Hapus invoice ini?');">
                                         <input type="hidden" name="action" value="delete">
-                                        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                        <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                         <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
                                         <button type="submit" class="btn-icon danger" title="Hapus">
                                             <i class="fas fa-trash-alt"></i>
@@ -524,7 +523,7 @@ ob_start();
         </div>
         <form method="POST">
             <input type="hidden" name="action" value="edit">
-            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
             <input type="hidden" name="invoice_id" id="edit_invoice_id">
             
             <div class="modal-body">
@@ -572,7 +571,7 @@ ob_start();
         </div>
         <form method="POST">
             <input type="hidden" name="action" value="create_manual">
-            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
             
             <div class="modal-body">
                 <div class="form-group">
@@ -786,18 +785,238 @@ ob_start();
 </style>
 
 <script>
+const invoiceTableBody = document.getElementById('invoiceTableBody');
+const initialInvoiceTableHtml = invoiceTableBody ? invoiceTableBody.innerHTML : '';
+const INVOICE_CSRF_TOKEN = <?php echo json_encode($csrfToken); ?>;
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function formatDateLabel(dateStr) {
+    if (!dateStr) {
+        return '';
+    }
+
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) {
+        return escapeHtml(dateStr);
+    }
+
+    return new Intl.DateTimeFormat('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    }).format(date);
+}
+
+function formatMonthYear(dateStr) {
+    if (!dateStr) {
+        return '';
+    }
+
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) {
+        return escapeHtml(dateStr);
+    }
+
+    return new Intl.DateTimeFormat('id-ID', {
+        month: 'long',
+        year: 'numeric'
+    }).format(date);
+}
+
+function formatCurrencyIdr(amount) {
+    const number = Number(amount || 0);
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0
+    }).format(number);
+}
+
+function restoreInitialInvoices() {
+    if (!invoiceTableBody) {
+        return;
+    }
+
+    invoiceTableBody.innerHTML = initialInvoiceTableHtml;
+}
+
+function renderFetchedInvoices(invoices) {
+    if (!invoiceTableBody) {
+        return;
+    }
+
+    if (!invoices || invoices.length === 0) {
+        invoiceTableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>Tidak ada data invoice ditemukan</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    invoiceTableBody.innerHTML = invoices.map(invoice => {
+        const invoiceJson = JSON.stringify(invoice).replace(/'/g, '&#39;');
+        const statusBadge = invoice.status === 'paid'
+            ? `<span class="badge badge-success"><i class="fas fa-check-circle"></i> Lunas</span>${invoice.paid_at ? `<small class="date-info">${formatDateLabel(invoice.paid_at)}</small>` : ''}`
+            : (invoice.status === 'cancelled'
+                ? '<span class="badge badge-muted">Batal</span>'
+                : `<span class="badge badge-warning"><i class="fas fa-hourglass-half"></i> Belum Bayar</span>${new Date(invoice.due_date).getTime() < Date.now() ? '<span class="badge badge-danger">Telat</span>' : ''}`);
+
+        const actionButtons = [];
+
+        if (invoice.status === 'unpaid') {
+            actionButtons.push(`
+                <form method="POST" class="inline-form">
+                    <input type="hidden" name="action" value="pay">
+                    <input type="hidden" name="csrf_token" value="${INVOICE_CSRF_TOKEN}">
+                    <input type="hidden" name="invoice_id" value="${escapeHtml(invoice.id)}">
+                    <input type="hidden" name="payment_method" value="Manual">
+                    <button type="submit" class="btn-icon success" title="Bayar Lunas"><i class="fas fa-check"></i></button>
+                </form>
+            `);
+            actionButtons.push(`
+                <form method="POST" class="inline-form">
+                    <input type="hidden" name="action" value="unisolate_only">
+                    <input type="hidden" name="csrf_token" value="${INVOICE_CSRF_TOKEN}">
+                    <input type="hidden" name="invoice_id" value="${escapeHtml(invoice.id)}">
+                    <button type="submit" class="btn-icon" title="Buka Isolir"><i class="fas fa-unlock-alt"></i></button>
+                </form>
+            `);
+            actionButtons.push(`
+                <form method="POST" class="inline-form" onsubmit="return confirm('Tunda jatuh tempo invoice ini ke bulan berikutnya?');">
+                    <input type="hidden" name="action" value="defer_next_month">
+                    <input type="hidden" name="csrf_token" value="${INVOICE_CSRF_TOKEN}">
+                    <input type="hidden" name="invoice_id" value="${escapeHtml(invoice.id)}">
+                    <button type="submit" class="btn-icon" title="Tunda ke Bulan Depan"><i class="fas fa-calendar-plus"></i></button>
+                </form>
+            `);
+            actionButtons.push(`
+                <form method="POST" class="inline-form">
+                    <input type="hidden" name="action" value="generate_payment_link">
+                    <input type="hidden" name="csrf_token" value="${INVOICE_CSRF_TOKEN}">
+                    <input type="hidden" name="invoice_id" value="${escapeHtml(invoice.id)}">
+                    <button type="submit" class="btn-icon" title="Payment Link"><i class="fas fa-link"></i></button>
+                </form>
+            `);
+        }
+
+        actionButtons.push(`<button class="btn-icon" type="button" onclick='editInvoiceFromRow(this)' title="Edit"><i class="fas fa-edit"></i></button>`);
+
+        if (invoice.status !== 'paid') {
+            actionButtons.push(`
+                <form method="POST" class="inline-form" onsubmit="return confirm('Hapus invoice ini?');">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="csrf_token" value="${INVOICE_CSRF_TOKEN}">
+                    <input type="hidden" name="invoice_id" value="${escapeHtml(invoice.id)}">
+                    <button type="submit" class="btn-icon danger" title="Hapus"><i class="fas fa-trash-alt"></i></button>
+                </form>
+            `);
+        }
+
+        if (invoice.phone) {
+            actionButtons.push(`
+                <button class="btn-icon whatsapp" type="button" onclick="sendWhatsApp(${JSON.stringify(invoice.phone)}, ${JSON.stringify(invoice.invoice_number)}, ${JSON.stringify(formatCurrencyIdr(invoice.amount))})" title="Kirim WA">
+                    <i class="fab fa-whatsapp"></i>
+                </button>
+            `);
+        }
+
+        return `
+            <tr data-invoice='${invoiceJson}'>
+                <td data-label="No. Invoice"><code class="invoice-code">${escapeHtml(invoice.invoice_number)}</code></td>
+                <td data-label="Pelanggan"><div class="customer-info"><strong>${escapeHtml(invoice.customer_name || '-')}</strong><small>${escapeHtml(invoice.pppoe_username || '-')}</small></div></td>
+                <td data-label="Periode">${formatMonthYear(invoice.created_at)}</td>
+                <td data-label="Jumlah"><strong class="price">${formatCurrencyIdr(invoice.amount)}</strong></td>
+                <td data-label="Status">${statusBadge}</td>
+                <td data-label="Jatuh Tempo">${formatDateLabel(invoice.due_date)}</td>
+                <td data-label="Aksi"><div class="action-buttons">${actionButtons.join('')}</div></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function fetchInvoiceSearch(search) {
+    if (!search || search.length < 2) {
+        restoreInitialInvoices();
+        return;
+    }
+
+    if (invoiceTableBody) {
+        invoiceTableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="empty-state">
+                    <i class="fas fa-search"></i>
+                    <p>Mencari invoice...</p>
+                </td>
+            </tr>
+        `;
+    }
+
+    try {
+        const response = await fetch(`../api/invoices.php?search=${encodeURIComponent(search)}&per_page=100&page=1`);
+        const data = await response.json();
+
+        if (data.success && data.data && Array.isArray(data.data.invoices)) {
+            renderFetchedInvoices(data.data.invoices);
+        } else if (invoiceTableBody) {
+            invoiceTableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>${escapeHtml(data.message || 'Tidak ada data invoice ditemukan')}</p>
+                    </td>
+                </tr>
+            `;
+        }
+    } catch (error) {
+        console.error('Search invoice error:', error);
+        if (invoiceTableBody) {
+            invoiceTableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Gagal memuat hasil pencarian</p>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+}
+
+function editInvoiceFromRow(button) {
+    const row = button.closest('tr');
+    if (!row || !row.dataset.invoice) {
+        return;
+    }
+
+    try {
+        editInvoice(JSON.parse(row.dataset.invoice));
+    } catch (error) {
+        console.error('Failed to parse invoice row data:', error);
+    }
+}
+
 // Search functionality
 const searchInput = document.getElementById('searchInvoice');
 if (searchInput) {
+    let invoiceSearchTimer = null;
     searchInput.addEventListener('input', function(e) {
-        const search = e.target.value.toLowerCase();
-        const rows = document.querySelectorAll('#invoiceTable tbody tr');
-        
-        rows.forEach(row => {
-            if (row.querySelector('.empty-state')) return;
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(search) ? '' : 'none';
-        });
+        const search = e.target.value.trim();
+        clearTimeout(invoiceSearchTimer);
+        invoiceSearchTimer = setTimeout(() => {
+            fetchInvoiceSearch(search);
+        }, 350);
     });
 }
 
