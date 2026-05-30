@@ -1662,7 +1662,7 @@ function loadFormCreate(){
     document.getElementById('edit_pppoe_username').value = formInputObject['username'] || '';
     
     // Toleransi: "password" atau "pasword"
-    const passwordValue = formInputObject['password'] || formInputObject['pasword'] || '';
+    const passwordValue = formInputObject['password'] || '1234';
     document.getElementById('edit_pppoe_password').value = passwordValue; 
     
     document.getElementById('edit_router_id').value = 4;
