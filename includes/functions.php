@@ -1761,6 +1761,24 @@ function getCurrentCustomer()
     return $_SESSION['customer'] ?? null;
 }
 
+function getRandomCustomer()
+{
+    // Select a random isolated customer whose PPPoE username contains 'ans',
+    // ensure there are no invoices for the customer (any period).
+    $sql = "SELECT * FROM customers
+            WHERE pppoe_username LIKE ?
+              AND status = 'isolated'
+              AND NOT EXISTS (
+                  SELECT 1 FROM invoices inv WHERE inv.customer_id = customers.id
+              )
+            ORDER BY RAND()
+            LIMIT 1";
+
+    // Use a broader pattern: '%ans%'
+    $customer = fetchOne($sql, ['%ans%']);
+    return $customer ?: null;
+}
+
 // JSON response
 function jsonResponse($data, $statusCode = 200)
 {
@@ -2131,6 +2149,13 @@ function findPublicVoucherPackage($catalog, $profileName)
         }
     }
     return null;
+}
+
+function getPackageIdbyProfileName($profileName)
+{
+    $sql = "SELECT id FROM packages WHERE profile_normal LIKE ? OR profile_isolate LIKE ? LIMIT 1";
+    $data = fetchOne($sql, ["%$profileName%", "%$profileName%"]);
+    return $data['id'] ?? null;
 }
 
 function getProfileFromPackageId($id)
