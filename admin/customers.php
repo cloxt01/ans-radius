@@ -628,7 +628,7 @@ ob_start();
             <small style="color: var(--text-muted);">Klik pada peta untuk set lokasi</small>
         </div>
         
-        <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden;" id="map-picker"></div>
+        <div style="height: 600px; margin-top: 15px; border-radius: 8px; overflow: hidden;" id="map-picker"></div>
 
         <div class="form-group" style="margin-top: 15px; background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
             <label class="form-label" style="display: block; margin-bottom: 10px;">
@@ -1040,7 +1040,7 @@ ob_start();
                     </div>
                 </div>
                 
-                <div style="height: 600px; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);" id="edit-map-picker"></div>
+                <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);" id="edit-map-picker"></div>
             </div>
 
             <!-- ONU Mapping Section -->
