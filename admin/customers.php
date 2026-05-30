@@ -286,7 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get data with pagination
 $page = (int)($_GET['page'] ?? 1);
-$perPage = 10;
+$perPage = min(500, max(10, (int)($_GET['per_page'] ?? 10)));
 $offset = ($page - 1) * $perPage;
 
 $customersTableExists = tableExists('customers');
@@ -660,6 +660,13 @@ ob_start();
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
         <h3 class="card-title" style="margin: 0; display: flex; align-items: center; gap: 8px;"><i class="fas fa-users"></i> Daftar Pelanggan</h3>
         <div style="display: flex; gap: 8px; align-items: center;">
+            <select id="perPageSelect" class="form-control" style="width: 110px;">
+                <option value="10" <?php echo $perPage === 10 ? 'selected' : ''; ?>>10 / page</option>
+                <option value="50" <?php echo $perPage === 50 ? 'selected' : ''; ?>>50 / page</option>
+                <option value="100" <?php echo $perPage === 100 ? 'selected' : ''; ?>>100 / page</option>
+                <option value="250" <?php echo $perPage === 250 ? 'selected' : ''; ?>>250 / page</option>
+                <option value="500" <?php echo $perPage === 500 ? 'selected' : ''; ?>>500 / page</option>
+            </select>
             <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan..." style="width: 220px;" value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>">
             <a href="export.php" class="btn btn-primary btn-sm">
                 <i class="fas fa-file-excel"></i> Export/Import
@@ -1243,6 +1250,8 @@ async function fetchCustomerSearch(search) {
     const isolationTo = getFilterElementValue('filterIsolationTo');
     const registerFrom = getFilterElementValue('filterRegisterFrom');
     const registerTo = getFilterElementValue('filterRegisterTo');
+    const perPageSelect = document.getElementById('perPageSelect');
+    const perPage = perPageSelect ? perPageSelect.value : '10';
     const hasFilters = status || pkg || router || tech || lastPaidFrom || lastPaidTo || isolationFrom || isolationTo || registerFrom || registerTo;
 
     // If no search and no filters, restore initial server-rendered rows
@@ -1276,7 +1285,7 @@ async function fetchCustomerSearch(search) {
         if (isolationTo) params.append('filter_isolation_to', isolationTo);
         if (registerFrom) params.append('filter_register_from', registerFrom);
         if (registerTo) params.append('filter_register_to', registerTo);
-        params.append('per_page', '100');
+        params.append('per_page', perPage);
         params.append('page', '1');
 
         const response = await fetch(`../api/customers.php?${params.toString()}`);
@@ -1306,12 +1315,16 @@ async function fetchCustomerSearch(search) {
 // Filter button handlers (separate from live-search)
 const applyFilterBtn = document.getElementById('applyFilterBtn');
 const resetFilterBtn = document.getElementById('resetFilterBtn');
+const perPageSelect = document.getElementById('perPageSelect');
 if (applyFilterBtn) {
     applyFilterBtn.addEventListener('click', function() {
         const searchVal = (document.getElementById('searchCustomer') || { value: '' }).value.trim();
         const params = new URLSearchParams(window.location.search);
         params.set('page', '1');
         params.set('search', searchVal);
+        if (perPageSelect && perPageSelect.value) {
+            params.set('per_page', perPageSelect.value);
+        }
 
         const filterParamMap = {
             filterStatus: 'filter_status',
@@ -1344,6 +1357,14 @@ if (applyFilterBtn) {
 if (resetFilterBtn) {
     resetFilterBtn.addEventListener('click', function() {
         window.location.href = window.location.pathname;
+    });
+}
+if (perPageSelect) {
+    perPageSelect.addEventListener('change', function() {
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', '1');
+        params.set('per_page', perPageSelect.value || '10');
+        window.location.search = params.toString();
     });
 }
 
@@ -1593,24 +1614,7 @@ if (searchCustomerInput) {
     });
 }
 
-['filterStatus','filterPackage','filterRouter','filterTech','filterLastPaidFrom','filterLastPaidTo','filterIsolationFrom','filterIsolationTo','filterRegisterFrom','filterRegisterTo'].forEach(id => {
-    const element = document.getElementById(id);
-    if (!element) {
-        return;
-    }
-    element.addEventListener('change', function() {
-        const searchVal = (document.getElementById('searchCustomer') || { value: '' }).value.trim();
-        if (searchVal.length >= 2 || getFilterElementValue('filterStatus') || getFilterElementValue('filterPackage') || getFilterElementValue('filterRouter') || getFilterElementValue('filterTech') || getFilterElementValue('filterLastPaidFrom') || getFilterElementValue('filterLastPaidTo') || getFilterElementValue('filterIsolationFrom') || getFilterElementValue('filterIsolationTo') || getFilterElementValue('filterRegisterFrom') || getFilterElementValue('filterRegisterTo')) {
-            fetchCustomerSearch(searchVal);
-        }
-    });
-    element.addEventListener('input', function() {
-        const searchVal = (document.getElementById('searchCustomer') || { value: '' }).value.trim();
-        if (searchVal.length >= 2 || getFilterElementValue('filterStatus') || getFilterElementValue('filterPackage') || getFilterElementValue('filterRouter') || getFilterElementValue('filterTech') || getFilterElementValue('filterLastPaidFrom') || getFilterElementValue('filterLastPaidTo') || getFilterElementValue('filterIsolationFrom') || getFilterElementValue('filterIsolationTo') || getFilterElementValue('filterRegisterFrom') || getFilterElementValue('filterRegisterTo')) {
-            fetchCustomerSearch(searchVal);
-        }
-    });
-});
+// Filter fields are applied through the Filter button so pagination stays visible.
 
 // Edit customer
 function editCustomer(customer) {
