@@ -16,7 +16,6 @@ try {
     $perPage = min(100, max(1, (int) ($_GET['per_page'] ?? 20)));
     $search = $_GET['search'] ?? '';
     $routersTableExists = tableExists('routers');
-    $invoicesTableExists = tableExists('invoices');
 
     if ($method === 'GET') {
         // Get password for a username
@@ -84,13 +83,16 @@ try {
                 p.name as package_name,
                 p.price as package_price,
                 " . ($routersTableExists ? "r.name as router_name," : "'' as router_name,") . "
-                " . ($invoicesTableExists ? "inv.last_paid as last_paid," : "NULL as last_paid,") . "
+                (
+                    SELECT MAX(i.due_date)
+                    FROM invoices i
+                    WHERE i.customer_id = c.id AND i.status = 'paid'
+                ) as last_paid
             FROM customers c 
             LEFT JOIN packages p ON c.package_id = p.id 
             " . ($routersTableExists ? "LEFT JOIN routers r ON c.router_id = r.id" : "") . "
-            " . ($invoicesTableExists ? "LEFT JOIN (SELECT customer_id, MAX(due_date) AS last_paid FROM invoices WHERE status = 'paid' GROUP BY customer_id) inv ON inv.customer_id = c.id" : "") . "
             {$where}
-            ORDER BY c.updated_at DESC, c.id DESC 
+            ORDER BY COALESCE(c.updated_at, c.created_at) DESC, c.id DESC 
             LIMIT {$perPage} OFFSET {$offset}
         ", $params);
 

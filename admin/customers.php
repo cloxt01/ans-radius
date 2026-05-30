@@ -318,10 +318,6 @@ if ($customersTableExists) {
     if ($routersTableExists) {
         $joinParts[] = 'LEFT JOIN routers r ON c.router_id = r.id';
     }
-    if (tableExists('invoices')) {
-        $joinParts[] = 'LEFT JOIN (SELECT customer_id, MAX(due_date) AS last_paid FROM invoices WHERE status = "paid" GROUP BY customer_id) inv ON inv.customer_id = c.id';
-        $selectParts[] = 'inv.last_paid as last_paid';
-    }
     
     // LEFT JOIN untuk ONU locations
     $joinParts[] = 'LEFT JOIN onu_locations onu ON onu.serial_number = c.pppoe_username';
@@ -343,7 +339,7 @@ if ($customersTableExists) {
         FROM customers c 
         " . implode("\n        ", $joinParts) . "
         GROUP BY c.id
-        ORDER BY c.updated_at DESC, c.id DESC
+        ORDER BY COALESCE(c.updated_at, c.created_at) DESC, c.id DESC
         LIMIT $perPage OFFSET $offset
     ");
     
@@ -376,8 +372,8 @@ ob_start();
     $activeCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'active'")['total'] ?? 0;
     $isolatedCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'isolated'")['total'] ?? 0;
     
-    $currentMonthStart = date('Y-m-01');
-    $currentMonthEnd = date('Y-m-t');
+    $currentMonth = date('m');
+    $currentYear = date('Y');
     $unpaidCount = fetchOne("
         SELECT COUNT(*) as total 
         FROM customers c 
@@ -385,10 +381,11 @@ ob_start();
         AND NOT EXISTS (
             SELECT 1 FROM invoices i 
             WHERE i.customer_id = c.id 
-            AND i.due_date BETWEEN ? AND ? 
+            AND MONTH(i.due_date) = ? 
+            AND YEAR(i.due_date) = ? 
             AND i.status = 'paid'
         )
-    ", [$currentMonthStart, $currentMonthEnd])['total'] ?? 0;
+    ", [$currentMonth, $currentYear])['total'] ?? 0;
     ?>
     <div class="stat-card">
         <div class="stat-icon green">
@@ -625,8 +622,9 @@ ob_start();
                     </td>
                     <td>
                         <?php
-                        if (!empty($c['last_paid'])) {
-                            echo date('d M Y', strtotime($c['last_paid']));
+                        $lastInvoice = fetchOne("SELECT due_date FROM invoices WHERE customer_id = ? AND status = 'paid' ORDER BY due_date DESC LIMIT 1", [$c['id']]);
+                        if ($lastInvoice && isset($lastInvoice['due_date'])) {
+                            echo date('d M Y', strtotime($lastInvoice['due_date']));
                         } else {
                             echo '<span style="color: var(--text-muted);">Belum ada pembayaran</span>';
                         }
