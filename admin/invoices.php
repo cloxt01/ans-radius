@@ -2,7 +2,6 @@
 /**
  * Invoices Management - Elegant Dark Minimalis Theme
  */
-ini_set('memory_limit', '512M');
 require_once '../includes/auth.php';
 requireAdminLogin();
 

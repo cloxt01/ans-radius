@@ -297,7 +297,82 @@ $routersTableExists = tableExists('routers');
 $technicians = fetchAll("SELECT * FROM technician_users WHERE status = 'active' ORDER BY name ASC");
 
 if ($customersTableExists) {
-    $totalCustomers = fetchOne("SELECT COUNT(*) as total FROM customers")['total'] ?? 0;
+    // Read filter parameters (used for initial server-side listing when provided)
+    $search = trim((string)($_GET['search'] ?? ''));
+    $filter_status = trim((string)($_GET['filter_status'] ?? ''));
+    $filter_package = isset($_GET['filter_package']) && $_GET['filter_package'] !== '' ? (int)$_GET['filter_package'] : null;
+    $filter_router = isset($_GET['filter_router']) && $_GET['filter_router'] !== '' ? (int)$_GET['filter_router'] : null;
+    $filter_tech = isset($_GET['filter_tech']) && $_GET['filter_tech'] !== '' ? (int)$_GET['filter_tech'] : null;
+    // New range filters
+    $filter_last_paid_from = trim((string)($_GET['filter_last_paid_from'] ?? ''));
+    $filter_last_paid_to = trim((string)($_GET['filter_last_paid_to'] ?? ''));
+    $filter_isolation_from = isset($_GET['filter_isolation_from']) && $_GET['filter_isolation_from'] !== '' ? (int)$_GET['filter_isolation_from'] : null;
+    $filter_isolation_to = isset($_GET['filter_isolation_to']) && $_GET['filter_isolation_to'] !== '' ? (int)$_GET['filter_isolation_to'] : null;
+    $filter_register_from = trim((string)($_GET['filter_register_from'] ?? ''));
+    $filter_register_to = trim((string)($_GET['filter_register_to'] ?? ''));
+
+    $whereClauses = ['1=1'];
+    $whereParams = [];
+
+    if ($filter_status !== '') {
+        $whereClauses[] = 'c.status = ?';
+        $whereParams[] = $filter_status;
+    }
+    if ($filter_package) {
+        $whereClauses[] = 'c.package_id = ?';
+        $whereParams[] = $filter_package;
+    }
+    if ($filter_router) {
+        $whereClauses[] = 'c.router_id = ?';
+        $whereParams[] = $filter_router;
+    }
+    if ($filter_tech) {
+        $whereClauses[] = 'c.installed_by = ?';
+        $whereParams[] = $filter_tech;
+    }
+
+    // Last paid range (dates expected in YYYY-MM-DD)
+    if ($filter_last_paid_from !== '') {
+        $whereClauses[] = "(SELECT MAX(i.due_date) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') >= ?";
+        $whereParams[] = $filter_last_paid_from . ' 00:00:00';
+    }
+    if ($filter_last_paid_to !== '') {
+        $whereClauses[] = "(SELECT MAX(i.due_date) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') <= ?";
+        $whereParams[] = $filter_last_paid_to . ' 23:59:59';
+    }
+
+    // Isolation date (day of month) range
+    if ($filter_isolation_from !== null) {
+        $whereClauses[] = 'c.isolation_date >= ?';
+        $whereParams[] = $filter_isolation_from;
+    }
+    if ($filter_isolation_to !== null) {
+        $whereClauses[] = 'c.isolation_date <= ?';
+        $whereParams[] = $filter_isolation_to;
+    }
+
+    // Register date range
+    if ($filter_register_from !== '') {
+        $whereClauses[] = 'c.created_at >= ?';
+        $whereParams[] = $filter_register_from . ' 00:00:00';
+    }
+    if ($filter_register_to !== '') {
+        $whereClauses[] = 'c.created_at <= ?';
+        $whereParams[] = $filter_register_to . ' 23:59:59';
+    }
+
+    // Only apply text search when at least 2 characters provided
+    if ($search !== '' && mb_strlen($search) >= 2) {
+        $whereClauses[] = '(c.name LIKE ? OR c.phone LIKE ? OR c.pppoe_username LIKE ?)';
+        $like = '%' . $search . '%';
+        $whereParams[] = $like;
+        $whereParams[] = $like;
+        $whereParams[] = $like;
+    }
+
+    $whereSql = 'WHERE ' . implode(' AND ', $whereClauses);
+
+    $totalCustomers = fetchOne("SELECT COUNT(*) as total FROM customers c $whereSql", $whereParams)['total'] ?? 0;
     $totalPages = ceil($totalCustomers / $perPage);
 
     // Build query with proper JOINs to avoid N+1 queries
@@ -309,6 +384,7 @@ if ($customersTableExists) {
         $routersTableExists ? 'r.name as router_name' : "'' as router_name",
         'COALESCE(onu.odp_id, NULL) as onu_odp_id',
         'IF(rc.username IS NOT NULL, TRUE, FALSE) as in_radius'
+        , '(SELECT MAX(i.due_date) FROM invoices i WHERE i.customer_id = c.id AND i.status = \'paid\') as last_paid'
     ];
 
     $joinParts = [];
@@ -338,10 +414,11 @@ if ($customersTableExists) {
         SELECT " . implode(', ', $selectParts) . "
         FROM customers c 
         " . implode("\n        ", $joinParts) . "
+        $whereSql
         GROUP BY c.id
         ORDER BY COALESCE(c.updated_at, c.created_at) DESC, c.id DESC
         LIMIT $perPage OFFSET $offset
-    ");
+    ", $whereParams);
     
 } else {
     $totalCustomers = 0;
@@ -352,6 +429,13 @@ if ($customersTableExists) {
 $packages = $packagesTableExists ? fetchAll("SELECT * FROM packages ORDER BY name") : [];
 $routers = $routersTableExists ? getAllRouters() : [];
 $csrfToken = generateCsrfToken();
+$paginationQuery = $_GET;
+unset($paginationQuery['page']);
+$paginationQueryString = http_build_query($paginationQuery);
+
+if ($paginationQueryString !== '') {
+    $paginationQueryString = '&' . $paginationQueryString;
+}
 
 ob_start();
 ?>
@@ -573,16 +657,82 @@ ob_start();
 
 <!-- Customers Table -->
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-users"></i> Daftar Pelanggan</h3>
-        <div style="display: flex; gap: 10px;">
-            <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan..." style="width: 250px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+        <h3 class="card-title" style="margin: 0; display: flex; align-items: center; gap: 8px;"><i class="fas fa-users"></i> Daftar Pelanggan</h3>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan..." style="width: 220px;" value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>">
             <a href="export.php" class="btn btn-primary btn-sm">
                 <i class="fas fa-file-excel"></i> Export/Import
             </a>
         </div>
     </div>
+    <div class="card-body" style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.04);">
+        <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;">
+                <select id="filterStatus" class="form-control" style="width: 140px;">
+                <option value="">Semua Status</option>
+                <option value="active" <?php echo (isset($_GET['filter_status']) && $_GET['filter_status'] === 'active') ? 'selected' : ''; ?>>Aktif</option>
+                <option value="isolated" <?php echo (isset($_GET['filter_status']) && $_GET['filter_status'] === 'isolated') ? 'selected' : ''; ?>>Isolir</option>
+            </select>
+            <select id="filterPackage" class="form-control" style="width: 180px;">
+                <option value="">Semua Paket</option>
+                <?php foreach ($packages as $pkg): ?>
+                    <option value="<?php echo $pkg['id']; ?>" <?php echo (isset($_GET['filter_package']) && (int)$_GET['filter_package'] === (int)$pkg['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($pkg['name']); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <select id="filterRouter" class="form-control" style="width: 180px;">
+                <option value="">Semua Router</option>
+                <?php foreach ($routers as $r): ?>
+                    <option value="<?php echo $r['id']; ?>" <?php echo (isset($_GET['filter_router']) && (int)$_GET['filter_router'] === (int)$r['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($r['name']); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <select id="filterTech" class="form-control" style="width: 180px;">
+                <option value="">Semua Teknisi</option>
+                <?php foreach ($technicians as $tech): ?>
+                    <option value="<?php echo $tech['id']; ?>" <?php echo (isset($_GET['filter_tech']) && (int)$_GET['filter_tech'] === (int)$tech['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($tech['name']); ?></option>
+                <?php endforeach; ?>
+            </select>
+            </div>
+
+            <!-- Additional range filters -->
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; margin-top: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Last Paid From</label>
+                    <input type="date" id="filterLastPaidFrom" class="form-control" value="<?php echo htmlspecialchars($_GET['filter_last_paid_from'] ?? ''); ?>">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Last Paid To</label>
+                    <input type="date" id="filterLastPaidTo" class="form-control" value="<?php echo htmlspecialchars($_GET['filter_last_paid_to'] ?? ''); ?>">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Isolir From (day)</label>
+                    <input type="number" id="filterIsolationFrom" class="form-control" min="1" max="28" style="width: 120px;" value="<?php echo htmlspecialchars($_GET['filter_isolation_from'] ?? ''); ?>">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Isolir To (day)</label>
+                    <input type="number" id="filterIsolationTo" class="form-control" min="1" max="28" style="width: 120px;" value="<?php echo htmlspecialchars($_GET['filter_isolation_to'] ?? ''); ?>">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Register From</label>
+                    <input type="date" id="filterRegisterFrom" class="form-control" value="<?php echo htmlspecialchars($_GET['filter_register_from'] ?? ''); ?>">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Register To</label>
+                    <input type="date" id="filterRegisterTo" class="form-control" value="<?php echo htmlspecialchars($_GET['filter_register_to'] ?? ''); ?>">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: center; margin-top: 8px;">
+                <button id="applyFilterBtn" class="btn btn-primary" style="padding: 10px 18px; font-size: 1rem; min-width: 110px; border-radius: 8px;">Filter</button>
+                <button id="resetFilterBtn" class="btn btn-secondary" style="padding: 10px 18px; font-size: 1rem; min-width: 110px; border-radius: 8px;">Reset</button>
+            </div>
+        </div>
+    </div>
     
+    <div style="border-top: 2px solid rgba(255,255,255,0.04); margin-top: 10px;"></div>
+
     <table class="data-table" id="customerTable">
         <thead>
             <tr>
@@ -722,10 +872,10 @@ ob_start();
     <!-- Pagination -->
     <?php if ($totalPages > 1): ?>
     <div id="customerPagination" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px;">
-        <a href="?page=1"class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+        <a href="?page=1<?php echo $paginationQueryString; ?>" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
             <i class="fas fa-angle-double-left"></i>
         </a>
-        <a href="?page=<?php echo max(1, $page - 1); ?>" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+        <a href="?page=<?php echo max(1, $page - 1); ?><?php echo $paginationQueryString; ?>" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
             <i class="fas fa-angle-left"></i> 
         </a>
         
@@ -734,10 +884,10 @@ ob_start();
             (Total: <?php echo $totalCustomers; ?> pelanggan)
         </span>
         
-        <a href="?page=<?php echo min($totalPages, $page + 1); ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+        <a href="?page=<?php echo min($totalPages, $page + 1); ?><?php echo $paginationQueryString; ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
             <i class="fas fa-angle-right"></i>
         </a>
-        <a href="?page=<?php echo $totalPages; ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+        <a href="?page=<?php echo $totalPages; ?><?php echo $paginationQueryString; ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
             <i class="fas fa-angle-double-right"></i>
         </a>
     </div>
@@ -969,6 +1119,11 @@ function restoreInitialCustomers() {
     }
 }
 
+function getFilterElementValue(id) {
+    const element = document.getElementById(id);
+    return element ? element.value.trim() : '';
+}
+
 function renderFetchedCustomers(customers) {
     if (!customerTableBody) {
         return;
@@ -1078,7 +1233,20 @@ function renderFetchedCustomers(customers) {
 async function fetchCustomerSearch(search) {
     const pagination = document.getElementById('customerPagination');
 
-    if (!search || search.length < 2) {
+    const status = document.getElementById('filterStatus') ? document.getElementById('filterStatus').value : '';
+    const pkg = document.getElementById('filterPackage') ? document.getElementById('filterPackage').value : '';
+    const router = document.getElementById('filterRouter') ? document.getElementById('filterRouter').value : '';
+    const tech = document.getElementById('filterTech') ? document.getElementById('filterTech').value : '';
+    const lastPaidFrom = getFilterElementValue('filterLastPaidFrom');
+    const lastPaidTo = getFilterElementValue('filterLastPaidTo');
+    const isolationFrom = getFilterElementValue('filterIsolationFrom');
+    const isolationTo = getFilterElementValue('filterIsolationTo');
+    const registerFrom = getFilterElementValue('filterRegisterFrom');
+    const registerTo = getFilterElementValue('filterRegisterTo');
+    const hasFilters = status || pkg || router || tech || lastPaidFrom || lastPaidTo || isolationFrom || isolationTo || registerFrom || registerTo;
+
+    // If no search and no filters, restore initial server-rendered rows
+    if ((!search || search.length < 2) && !hasFilters) {
         restoreInitialCustomers();
         return;
     }
@@ -1090,15 +1258,28 @@ async function fetchCustomerSearch(search) {
     if (customerTableBody) {
         customerTableBody.innerHTML = `
             <tr>
-                <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                    Mencari data pelanggan...
-                </td>
+                <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat...</td>
             </tr>
         `;
     }
 
     try {
-        const response = await fetch(`../api/customers.php?search=${encodeURIComponent(search)}&per_page=100&page=1`);
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (status) params.append('filter_status', status);
+        if (pkg) params.append('filter_package', pkg);
+        if (router) params.append('filter_router', router);
+        if (tech) params.append('filter_tech', tech);
+        if (lastPaidFrom) params.append('filter_last_paid_from', lastPaidFrom);
+        if (lastPaidTo) params.append('filter_last_paid_to', lastPaidTo);
+        if (isolationFrom) params.append('filter_isolation_from', isolationFrom);
+        if (isolationTo) params.append('filter_isolation_to', isolationTo);
+        if (registerFrom) params.append('filter_register_from', registerFrom);
+        if (registerTo) params.append('filter_register_to', registerTo);
+        params.append('per_page', '100');
+        params.append('page', '1');
+
+        const response = await fetch(`../api/customers.php?${params.toString()}`);
         const data = await response.json();
 
         if (data.success && data.data && Array.isArray(data.data.customers)) {
@@ -1106,9 +1287,7 @@ async function fetchCustomerSearch(search) {
         } else if (customerTableBody) {
             customerTableBody.innerHTML = `
                 <tr>
-                    <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                        ${escapeHtml(data.message || 'Tidak ada data ditemukan')}
-                    </td>
+                    <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">${escapeHtml(data.message || 'Tidak ada data ditemukan')}</td>
                 </tr>
             `;
         }
@@ -1117,13 +1296,55 @@ async function fetchCustomerSearch(search) {
         if (customerTableBody) {
             customerTableBody.innerHTML = `
                 <tr>
-                    <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                        Gagal memuat hasil pencarian
-                    </td>
+                    <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">Terjadi kesalahan saat mencari</td>
                 </tr>
             `;
         }
     }
+}
+
+// Filter button handlers (separate from live-search)
+const applyFilterBtn = document.getElementById('applyFilterBtn');
+const resetFilterBtn = document.getElementById('resetFilterBtn');
+if (applyFilterBtn) {
+    applyFilterBtn.addEventListener('click', function() {
+        const searchVal = (document.getElementById('searchCustomer') || { value: '' }).value.trim();
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', '1');
+        params.set('search', searchVal);
+
+        const filterParamMap = {
+            filterStatus: 'filter_status',
+            filterPackage: 'filter_package',
+            filterRouter: 'filter_router',
+            filterTech: 'filter_tech',
+            filterLastPaidFrom: 'filter_last_paid_from',
+            filterLastPaidTo: 'filter_last_paid_to',
+            filterIsolationFrom: 'filter_isolation_from',
+            filterIsolationTo: 'filter_isolation_to',
+            filterRegisterFrom: 'filter_register_from',
+            filterRegisterTo: 'filter_register_to'
+        };
+
+        Object.keys(filterParamMap).forEach(id => {
+            const element = document.getElementById(id);
+            const value = element ? element.value.trim() : '';
+            const paramName = filterParamMap[id];
+
+            if (value) {
+                params.set(paramName, value);
+            } else {
+                params.delete(paramName);
+            }
+        });
+
+        window.location.search = params.toString();
+    });
+}
+if (resetFilterBtn) {
+    resetFilterBtn.addEventListener('click', function() {
+        window.location.href = window.location.pathname;
+    });
 }
 
 function editCustomerFromRow(button) {
@@ -1371,6 +1592,25 @@ if (searchCustomerInput) {
         }, 350);
     });
 }
+
+['filterStatus','filterPackage','filterRouter','filterTech','filterLastPaidFrom','filterLastPaidTo','filterIsolationFrom','filterIsolationTo','filterRegisterFrom','filterRegisterTo'].forEach(id => {
+    const element = document.getElementById(id);
+    if (!element) {
+        return;
+    }
+    element.addEventListener('change', function() {
+        const searchVal = (document.getElementById('searchCustomer') || { value: '' }).value.trim();
+        if (searchVal.length >= 2 || getFilterElementValue('filterStatus') || getFilterElementValue('filterPackage') || getFilterElementValue('filterRouter') || getFilterElementValue('filterTech') || getFilterElementValue('filterLastPaidFrom') || getFilterElementValue('filterLastPaidTo') || getFilterElementValue('filterIsolationFrom') || getFilterElementValue('filterIsolationTo') || getFilterElementValue('filterRegisterFrom') || getFilterElementValue('filterRegisterTo')) {
+            fetchCustomerSearch(searchVal);
+        }
+    });
+    element.addEventListener('input', function() {
+        const searchVal = (document.getElementById('searchCustomer') || { value: '' }).value.trim();
+        if (searchVal.length >= 2 || getFilterElementValue('filterStatus') || getFilterElementValue('filterPackage') || getFilterElementValue('filterRouter') || getFilterElementValue('filterTech') || getFilterElementValue('filterLastPaidFrom') || getFilterElementValue('filterLastPaidTo') || getFilterElementValue('filterIsolationFrom') || getFilterElementValue('filterIsolationTo') || getFilterElementValue('filterRegisterFrom') || getFilterElementValue('filterRegisterTo')) {
+            fetchCustomerSearch(searchVal);
+        }
+    });
+});
 
 // Edit customer
 function editCustomer(customer) {
