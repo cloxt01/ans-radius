@@ -1629,7 +1629,6 @@ function loadFormCreate(){
                 const key = rawKey.trim().toLowerCase().replace(/\s+/g, ' ');
                 const value = rawValue ? rawValue.trim() : '';
                 
-                // Kunci agar password pertama tidak tertimpa password kedua jika namanya mirip
                 if (!acc[key]) {
                     acc[key] = value;
                 }
@@ -1644,31 +1643,28 @@ function loadFormCreate(){
 
     console.log('Parsed form input:', formInputObject);
     
-    // PEMANGGILAN SEKARANG MENGGUNAKAN KEY HURUF KECIL (LOWERCASE)
-    
-    // Toleransi: "nama yang di daftarkan" atau "nama yg di daftarkan"
+    // 1. Ambil & Toleransi Nama
     const nameValue = formInputObject['nama yang di daftarkan'] || formInputObject['nama yg di daftarkan'] || '';
     document.getElementById('edit_name').value = nameValue;
     
-    // Toleransi: "no hp" atau "no. hp"
+    // 2. Ambil & Toleransi No HP
     const rawPhone = formInputObject['no hp'] || formInputObject['no. hp'] || '';
     document.getElementById('edit_phone').value = formatPhoneNumber(rawPhone);
     
-    // Toleransi: "paket wifi"
-    const paketWifi = formInputObject['paket wifi'] || '';
+    // 3. Ambil Paket & Sinkronisasi dengan PHP (Menggunakan key lowercase 'paket wifi')
     document.getElementById('edit_package_id').value = <?php echo getPackageIdbyProfileName($formInputObject['paket wifi'] ?? '') ?: 1; ?>;
     
-    // Ambil Username
+    // 4. Ambil Username
     document.getElementById('edit_pppoe_username').value = formInputObject['username'] || '';
     
-    // Toleransi: "password" atau "pasword"
-    const passwordValue = formInputObject['password'] || '1234';
-    document.getElementById('edit_pppoe_password').value = passwordValue; 
+    // 5. Password dikunci langsung ke 1234 sesuai request
+    document.getElementById('edit_pppoe_password').value = '1234'; 
     
+    // 6. Router ID & Tanggal Isolasi
     document.getElementById('edit_router_id').value = 4;
     document.getElementById('edit_isolation_date').value = hariIni.slice(-2); 
     
-    // Gabungkan Alamat
+    // 7. Gabungkan Alamat Lengkap
     document.getElementById('edit_address').value = 
         (formInputObject['alamat'] || '') + 
         ' RT/RW ' + (formInputObject['rt/rw'] || '') + 
