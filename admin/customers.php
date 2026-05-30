@@ -1040,7 +1040,7 @@ ob_start();
                     </div>
                 </div>
                 
-                <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);" id="edit-map-picker"></div>
+                <div style="height: 600px; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);" id="edit-map-picker"></div>
             </div>
 
             <!-- ONU Mapping Section -->
@@ -1543,7 +1543,7 @@ function initMap() {
     });
 
     // Add default layer
-    osm.addTo(map);
+    googleSat.addTo(map);
 
     // Layer control
     var baseMaps = {
@@ -1580,7 +1580,7 @@ function initEditMap() {
     });
 
     // Add default layer
-    osm.addTo(editMap);
+    googleSat.addTo(editMap);
 
     // Layer control
     var baseMaps = {
