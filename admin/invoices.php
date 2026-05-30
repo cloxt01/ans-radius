@@ -1159,11 +1159,48 @@ async function fetchInvoiceSearch(search) {
         params.append('per_page', perPage);
         params.append('page', '1');
 
-        const response = await fetch(`../api/invoices.php?${params.toString()}`);
-        const data = await response.json();
+        const url = `../api/invoices.php?${params.toString()}`;
+        console.debug('Fetching invoices:', url);
+
+        // Include cookies/auth (same-origin) so `requireAdminLogin()` allows the request.
+        const response = await fetch(url, { credentials: 'same-origin' });
+
+        // Read as text first to handle cases where server returns HTML (redirect/login page)
+        const text = await response.text();
+        let data = null;
+
+        try {
+            data = JSON.parse(text);
+        } catch (err) {
+            console.warn('Non-JSON response from API (possibly redirect/login or error).', text.substring(0, 100));
+            if (invoiceTableBody) {
+                invoiceTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Respons tidak valid dari server. Cek console (non-JSON) atau login mungkin kadaluarsa.</p>
+                        </td>
+                    </tr>
+                `;
+            }
+            return;
+        }
 
         if (data.success && data.data && Array.isArray(data.data.invoices)) {
-            renderFetchedInvoices(data.data.invoices);
+            if (Array.isArray(data.data.invoices) && data.data.invoices.length === 0 && data.message) {
+                if (invoiceTableBody) {
+                    invoiceTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <i class="fas fa-inbox"></i>
+                                <p>${escapeHtml(data.message)}</p>
+                            </td>
+                        </tr>
+                    `;
+                }
+            } else {
+                renderFetchedInvoices(data.data.invoices);
+            }
         } else if (invoiceTableBody) {
             invoiceTableBody.innerHTML = `
                 <tr>

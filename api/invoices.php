@@ -84,26 +84,55 @@ try {
             $params[] = $filter_paid_to . ' 23:59:59';
         }
         if ($search !== '' && strlen($search) >= 2) {
-            $whereParts[] = '(i.invoice_number LIKE ? OR c.name LIKE ? OR c.pppoe_username LIKE ? OR c.phone LIKE ?)';
+            // Support searching by invoice number, customer name, pppoe username,
+            // phone, numeric amount, and status. Also allow common Indonesian
+            // status keywords (e.g. "lunas", "telat") to match DB status values.
+            $searchLower = mb_strtolower($search);
+            $mappedStatus = null;
+            $statusMap = [
+                'lunas' => 'paid',
+                'paid' => 'paid',
+                'lun' => 'paid',
+                'belum bayar' => 'unpaid',
+                'unpaid' => 'unpaid',
+                'telat' => 'unpaid'
+            ];
+
+            foreach ($statusMap as $k => $v) {
+                if (mb_strpos($searchLower, $k) !== false) {
+                    $mappedStatus = $v;
+                    break;
+                }
+            }
+
+            $whereParts[] = '(i.invoice_number LIKE ? OR c.name LIKE ? OR c.pppoe_username LIKE ? OR c.phone LIKE ? OR CAST(i.amount AS CHAR) LIKE ? OR i.status LIKE ?' . ($mappedStatus ? ' OR i.status = ?' : '') . ')';
             $like = "%{$search}%";
             $params[] = $like;
             $params[] = $like;
             $params[] = $like;
             $params[] = $like;
+            $params[] = $like; // amount
+            $params[] = $like; // status LIKE
+
+            if ($mappedStatus) {
+                $params[] = $mappedStatus;
+            }
         }
 
         $where = 'WHERE ' . implode(' AND ', $whereParts);
 
-        $invoices = fetchAll("\
-            SELECT i.*, c.name as customer_name, c.pppoe_username, c.phone 
+        $selectSql = "SELECT i.*, c.name as customer_name, c.pppoe_username, c.phone 
             FROM invoices i 
             LEFT JOIN customers c ON i.customer_id = c.id 
             {$where}
             ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC 
-            LIMIT {$perPage} OFFSET {$offset}
-        ", $params);
+            LIMIT {$perPage} OFFSET {$offset}";
 
-        $totalResult = fetchOne("SELECT COUNT(*) as total FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id {$where}", $params);
+        $countSql = "SELECT COUNT(*) as total FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id {$where}";;
+
+        $invoices = fetchAll($selectSql, $params);
+
+        $totalResult = fetchOne($countSql, $params);
         $total = $totalResult['total'] ?? 0;
 
         echo json_encode([
