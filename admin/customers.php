@@ -286,7 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get data with pagination
 $page = (int)($_GET['page'] ?? 1);
-$perPage = 10000;
+$perPage = 10;
 $offset = ($page - 1) * $perPage;
 
 $customersTableExists = tableExists('customers');
@@ -318,6 +318,10 @@ if ($customersTableExists) {
     if ($routersTableExists) {
         $joinParts[] = 'LEFT JOIN routers r ON c.router_id = r.id';
     }
+    if (tableExists('invoices')) {
+        $joinParts[] = 'LEFT JOIN (SELECT customer_id, MAX(due_date) AS last_paid FROM invoices WHERE status = "paid" GROUP BY customer_id) inv ON inv.customer_id = c.id';
+        $selectParts[] = 'inv.last_paid as last_paid';
+    }
     
     // LEFT JOIN untuk ONU locations
     $joinParts[] = 'LEFT JOIN onu_locations onu ON onu.serial_number = c.pppoe_username';
@@ -339,7 +343,7 @@ if ($customersTableExists) {
         FROM customers c 
         " . implode("\n        ", $joinParts) . "
         GROUP BY c.id
-        ORDER BY c.created_at DESC
+        ORDER BY c.updated_at DESC, c.id DESC
         LIMIT $perPage OFFSET $offset
     ");
     
@@ -351,6 +355,7 @@ if ($customersTableExists) {
 
 $packages = $packagesTableExists ? fetchAll("SELECT * FROM packages ORDER BY name") : [];
 $routers = $routersTableExists ? getAllRouters() : [];
+$csrfToken = generateCsrfToken();
 
 ob_start();
 ?>
@@ -371,8 +376,8 @@ ob_start();
     $activeCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'active'")['total'] ?? 0;
     $isolatedCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'isolated'")['total'] ?? 0;
     
-    $currentMonth = date('m');
-    $currentYear = date('Y');
+    $currentMonthStart = date('Y-m-01');
+    $currentMonthEnd = date('Y-m-t');
     $unpaidCount = fetchOne("
         SELECT COUNT(*) as total 
         FROM customers c 
@@ -380,11 +385,10 @@ ob_start();
         AND NOT EXISTS (
             SELECT 1 FROM invoices i 
             WHERE i.customer_id = c.id 
-            AND MONTH(i.due_date) = ? 
-            AND YEAR(i.due_date) = ? 
+            AND i.due_date BETWEEN ? AND ? 
             AND i.status = 'paid'
         )
-    ", [$currentMonth, $currentYear])['total'] ?? 0;
+    ", [$currentMonthStart, $currentMonthEnd])['total'] ?? 0;
     ?>
     <div class="stat-card">
         <div class="stat-icon green">
@@ -453,7 +457,7 @@ ob_start();
     
     <form method="POST" style="padding: 20px;" data-no-loading="true">
         <input type="hidden" name="action" value="add">
-        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
         
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 100%;">
             <div class="form-group">
@@ -621,9 +625,8 @@ ob_start();
                     </td>
                     <td>
                         <?php
-                        $lastInvoice = fetchOne("SELECT due_date FROM invoices WHERE customer_id = ? AND status = 'paid' ORDER BY due_date DESC LIMIT 1", [$c['id']]);
-                        if ($lastInvoice && isset($lastInvoice['due_date'])) {
-                            echo date('d M Y', strtotime($lastInvoice['due_date']));
+                        if (!empty($c['last_paid'])) {
+                            echo date('d M Y', strtotime($c['last_paid']));
                         } else {
                             echo '<span style="color: var(--text-muted);">Belum ada pembayaran</span>';
                         }
@@ -679,7 +682,7 @@ ob_start();
                         <form method="POST" data-no-loading="true" onsubmit="return confirm('Reset password portal pelanggan ini menjadi 1234?');">
                             <input type="hidden" name="action" value="reset_portal_password">
                             <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
-                            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                            <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                             <button type="submit" class="btn btn-secondary btn-sm" title="Reset Password Portal">
                                 <i class="fas fa-key"></i>
                             </button>
@@ -687,7 +690,7 @@ ob_start();
                         <form method="POST" data-no-loading="true"  onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Data yang dihapus tidak dapat dikembalikan.');">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
-                            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                            <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                             <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -696,7 +699,7 @@ ob_start();
                             <form method="POST" data-no-loading="true">
                                 <input type="hidden" name="action" value="unisolate">
                                 <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
-                                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                 <button type="submit" class="btn btn-success btn-sm" title="Buka Isolir">
                                     <i class="fas fa-unlock"></i>
                                 </button>
@@ -705,7 +708,7 @@ ob_start();
                             <form method="POST" data-no-loading="true">
                                 <input type="hidden" name="action" value="isolate">
                                 <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
-                                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                 <button type="submit" class="btn btn-error btn-sm" title="Isolir">
                                     <i class="fas fa-lock"></i>
                                 </button>
@@ -720,7 +723,7 @@ ob_start();
     
     <!-- Pagination -->
     <?php if ($totalPages > 1): ?>
-    <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px;">
+    <div id="customerPagination" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px;">
         <a href="?page=1"class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
             <i class="fas fa-angle-double-left"></i>
         </a>
@@ -773,7 +776,7 @@ ob_start();
         <form method="POST" id="editCustomerForm">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="customer_id" id="edit_customer_id">
-            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
             
             <!-- Basic Information Section -->
             <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05);">
@@ -925,6 +928,218 @@ ob_start();
 let map, marker;
 let editMap, editMarker;
 let pppoeUsers = [];
+const CSRF_TOKEN = <?php echo json_encode($csrfToken); ?>;
+const customerTableBody = document.querySelector('#customerTable tbody');
+const initialCustomerTableHtml = customerTableBody ? customerTableBody.innerHTML : '';
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function formatDateLabel(dateStr) {
+    if (!dateStr) {
+        return '';
+    }
+
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) {
+        return escapeHtml(dateStr);
+    }
+
+    return new Intl.DateTimeFormat('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    }).format(date);
+}
+
+function restoreInitialCustomers() {
+    if (!customerTableBody) {
+        return;
+    }
+
+    customerTableBody.innerHTML = initialCustomerTableHtml;
+
+    const pagination = document.getElementById('customerPagination');
+    if (pagination) {
+        pagination.style.display = '';
+    }
+}
+
+function renderFetchedCustomers(customers) {
+    if (!customerTableBody) {
+        return;
+    }
+
+    if (!customers || customers.length === 0) {
+        customerTableBody.innerHTML = `
+            <tr>
+                <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
+                    Tidak ada data pelanggan ditemukan
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    customerTableBody.innerHTML = customers.map(customer => {
+        const customerJson = escapeHtml(JSON.stringify(customer));
+        const pppoeUsername = customer.pppoe_username || '';
+        const statusBadge = customer.status === 'active'
+            ? '<span class="badge badge-success">Aktif</span>'
+            : '<span class="badge badge-warning">Isolir</span>';
+        const radiusBadge = customer.in_radius === true
+            ? '<span class="badge badge-success" style="margin-left: 5px; margin-top: 5px;" title="Username terdaftar di RADIUS"><i class="fas fa-check-circle"></i> OK</span>'
+            : (customer.in_radius === false
+                ? '<span class="badge badge-warning" style="margin-left: 5px;" title="Username TIDAK terdaftar di RADIUS - Timeout tidak akan aktif"><i class="fas fa-exclamation-circle"></i> NOT</span>'
+                : '');
+
+        return `
+            <tr data-customer="${customerJson}">
+                <td data-label="ID">#${escapeHtml(customer.id)}</td>
+                <td data-label="Nama & Kontak">
+                    <strong>${escapeHtml(customer.name)}</strong><br>
+                    <small><i class="fab fa-whatsapp"></i> ${escapeHtml(customer.phone || 'N/A')}</small>
+                </td>
+                <td data-label="Paket & Router">
+                    ${escapeHtml(customer.package_name || 'Tanpa Paket')}<br>
+                    <small style="color: var(--neon-cyan);">
+                        <i class="fas fa-server"></i> ${escapeHtml(customer.router_name || 'Default Router')}
+                    </small>
+                </td>
+                <td>
+                    ${customer.last_paid ? formatDateLabel(customer.last_paid) : '<span style="color: var(--text-muted);">Belum ada pembayaran</span>'}
+                </td>
+                <td data-label="Status">${statusBadge}</td>
+                <td data-label="PPPoE">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <code style="background: rgba(255,255,255,0.08); padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; font-family: 'Courier New', monospace;">${escapeHtml(pppoeUsername)}</code>
+                        <button type="button" onclick='copyToClipboard(${JSON.stringify(pppoeUsername)})' title="Salin ke clipboard" style="background: rgba(25, 29, 26, 0.15); border: 1px solid rgba(202, 206, 202, 0.3); color: var(--accent-green); width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; font-size: 0.9rem;" onmouseover="this.style.background='rgba(76,175,80,0.25)'; this.style.borderColor='rgba(7, 7, 7, 0.5)'; this.style.transform='scale(1.05)';" onmouseout="this.style.background='rgba(76,175,80,0.15)'; this.style.borderColor='rgba(76,175,80,0.3)'; this.style.transform='scale(1);'">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    ${radiusBadge}
+                </td>
+                <td data-label="Tgl Isolir"><span class="badge badge-info">Tgl ${escapeHtml(customer.isolation_date)}</span></td>
+                <td data-label="Register Date">${formatDateLabel(customer.created_at)}</td>
+                <td data-label="IP Address">${escapeHtml(customer.ip_address || 'N/A')}</td>
+                <td data-label="MAC Address">${escapeHtml(customer.mac_address || 'N/A')}</td>
+                <td data-label="Aksi" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <a href="pay_process.php?id=${encodeURIComponent(customer.id)}" class="btn btn-success btn-sm" title="Bayar Tagihan">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </a>
+                    <button class="btn btn-secondary btn-sm" type="button" onclick="editCustomerFromRow(this)" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <form method="POST" data-no-loading="true" onsubmit="return confirm('Reset password portal pelanggan ini menjadi 1234?');">
+                        <input type="hidden" name="action" value="reset_portal_password">
+                        <input type="hidden" name="customer_id" value="${escapeHtml(customer.id)}">
+                        <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
+                        <button type="submit" class="btn btn-secondary btn-sm" title="Reset Password Portal">
+                            <i class="fas fa-key"></i>
+                        </button>
+                    </form>
+                    <form method="POST" data-no-loading="true" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Data yang dihapus tidak dapat dikembalikan.');">
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="customer_id" value="${escapeHtml(customer.id)}">
+                        <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
+                        <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                    ${customer.status === 'isolated' ? `
+                        <form method="POST" data-no-loading="true">
+                            <input type="hidden" name="action" value="unisolate">
+                            <input type="hidden" name="customer_id" value="${escapeHtml(customer.id)}">
+                            <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
+                            <button type="submit" class="btn btn-success btn-sm" title="Buka Isolir">
+                                <i class="fas fa-unlock"></i>
+                            </button>
+                        </form>
+                    ` : `
+                        <form method="POST" data-no-loading="true">
+                            <input type="hidden" name="action" value="isolate">
+                            <input type="hidden" name="customer_id" value="${escapeHtml(customer.id)}">
+                            <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
+                            <button type="submit" class="btn btn-error btn-sm" title="Isolir">
+                                <i class="fas fa-lock"></i>
+                            </button>
+                        </form>
+                    `}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function fetchCustomerSearch(search) {
+    const pagination = document.getElementById('customerPagination');
+
+    if (!search || search.length < 2) {
+        restoreInitialCustomers();
+        return;
+    }
+
+    if (pagination) {
+        pagination.style.display = 'none';
+    }
+
+    if (customerTableBody) {
+        customerTableBody.innerHTML = `
+            <tr>
+                <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                    Mencari data pelanggan...
+                </td>
+            </tr>
+        `;
+    }
+
+    try {
+        const response = await fetch(`../api/customers.php?search=${encodeURIComponent(search)}&per_page=100&page=1`);
+        const data = await response.json();
+
+        if (data.success && data.data && Array.isArray(data.data.customers)) {
+            renderFetchedCustomers(data.data.customers);
+        } else if (customerTableBody) {
+            customerTableBody.innerHTML = `
+                <tr>
+                    <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                        ${escapeHtml(data.message || 'Tidak ada data ditemukan')}
+                    </td>
+                </tr>
+            `;
+        }
+    } catch (error) {
+        console.error('Search customer error:', error);
+        if (customerTableBody) {
+            customerTableBody.innerHTML = `
+                <tr>
+                    <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                        Gagal memuat hasil pencarian
+                    </td>
+                </tr>
+            `;
+        }
+    }
+}
+
+function editCustomerFromRow(button) {
+    const row = button.closest('tr');
+    if (!row || !row.dataset.customer) {
+        return;
+    }
+
+    try {
+        editCustomer(JSON.parse(row.dataset.customer));
+    } catch (error) {
+        console.error('Failed to parse customer row data:', error);
+    }
+}
 
 function openPppoeUserModal() {
     const modal = document.getElementById('pppoeUserModal');
@@ -1147,15 +1362,17 @@ function initEditMap() {
 }
 
 // Search functionality
-document.getElementById('searchCustomer').addEventListener('input', function(e) {
-    const search = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('#customerTable tbody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(search) ? '' : 'none';
+const searchCustomerInput = document.getElementById('searchCustomer');
+if (searchCustomerInput) {
+    let customerSearchTimer = null;
+    searchCustomerInput.addEventListener('input', function(e) {
+        const search = e.target.value.trim();
+        clearTimeout(customerSearchTimer);
+        customerSearchTimer = setTimeout(() => {
+            fetchCustomerSearch(search);
+        }, 350);
     });
-});
+}
 
 // Edit customer
 function editCustomer(customer) {

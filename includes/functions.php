@@ -1833,6 +1833,55 @@ function ensureCustomersAutoIsolateColumn()
     }
 }
 
+function ensureCustomerPerformanceIndexes()
+{
+    static $checked = false;
+    if ($checked) {
+        return true;
+    }
+    if (!tableExists('customers') || !tableExists('invoices')) {
+        return false;
+    }
+
+    try {
+        $pdo = getDB();
+        $indexes = [
+            [
+                'table' => 'customers',
+                'name' => 'idx_customers_status',
+                'sql' => 'ALTER TABLE customers ADD INDEX idx_customers_status (status)'
+            ],
+            [
+                'table' => 'customers',
+                'name' => 'idx_customers_updated_at',
+                'sql' => 'ALTER TABLE customers ADD INDEX idx_customers_updated_at (updated_at)'
+            ],
+            [
+                'table' => 'invoices',
+                'name' => 'idx_invoices_customer_status_due_date',
+                'sql' => 'ALTER TABLE invoices ADD INDEX idx_invoices_customer_status_due_date (customer_id, status, due_date)'
+            ],
+        ];
+
+        foreach ($indexes as $index) {
+            $exists = fetchOne(
+                "SELECT COUNT(*) as total FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?",
+                [DB_NAME, $index['table'], $index['name']]
+            );
+
+            if ((int) ($exists['total'] ?? 0) === 0) {
+                $pdo->exec($index['sql']);
+            }
+        }
+
+        $checked = true;
+        return true;
+    } catch (Exception $e) {
+        logError('Ensure customer performance indexes failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
 function sanitizeBackupFilename($filename)
 {
     $name = basename((string) $filename);
