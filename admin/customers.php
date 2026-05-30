@@ -533,7 +533,7 @@ ob_start();
 
 <div class="alert" style="background: var(--accent-orange); color: #fff; border: 1px solid rgba(0,0,0,0.06); padding: 12px; border-radius: 6px;">
     <i class="fas fa-warning" style="color: #fff; margin-right:5px;"></i>
-    <strong>PENTING !!!</strong> Pastikan untuk membuat invoice setelah menambahkan pelanggan agar tagihan muncul di portal pelanggan dan pelanggan tidak langsung terisolir di hari berikutnya.
+    <strong>PENTING !!!</strong> Pastikan untuk membuat invoice & perpanjang setelah menambahkan pelanggan agar tagihan muncul di portal pelanggan dan pelanggan tidak langsung terisolir di hari berikutnya.
 </div>
 <?php if (empty($randomCustomer)): ?>
     <div class="alert alert-warning" style="margin-top:8px;">
