@@ -11,6 +11,16 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 
+// Use the configured application timezone for cron calculations.
+// This keeps PHP date() and MySQL NOW() aligned with cron_schedules.schedule_time.
+$schedulerTimezone = trim((string) getSetting('timezone', 'Asia/Jakarta'));
+if ($schedulerTimezone === '') {
+    $schedulerTimezone = 'Asia/Jakarta';
+}
+if (function_exists('date_default_timezone_set')) {
+    @date_default_timezone_set($schedulerTimezone);
+}
+
 // CLI Check - Only run if called directly from CLI
 if (php_sapi_name() === 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
     runScheduler();
@@ -22,10 +32,13 @@ if (php_sapi_name() === 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIP
  * Main function to run the scheduler
  */
 function runScheduler() {
+    global $schedulerTimezone;
+
     echo "[" . date('Y-m-d H:i:s') . "] Cron Scheduler started\n";
 
     try {
         $pdo = getDB();
+        applySchedulerDatabaseTimezone($pdo, $schedulerTimezone);
 
         // Get all active schedules
         $schedules = fetchAll("
@@ -146,6 +159,35 @@ function calculateNextRun($schedule)
     }
 
     return date('Y-m-d H:i:s', strtotime($nextRun));
+}
+
+/**
+ * Set the MySQL session timezone so NOW() matches the app timezone.
+ */
+function applySchedulerDatabaseTimezone($pdo, $timezoneName)
+{
+    if (!$pdo || !($pdo instanceof PDO)) {
+        return;
+    }
+
+    $timezoneName = trim((string) $timezoneName);
+    if ($timezoneName === '') {
+        return;
+    }
+
+    try {
+        $timezone = new DateTimeZone($timezoneName);
+        $now = new DateTimeImmutable('now', $timezone);
+        $offsetSeconds = $timezone->getOffset($now);
+        $sign = $offsetSeconds >= 0 ? '+' : '-';
+        $offsetSeconds = abs($offsetSeconds);
+        $hours = floor($offsetSeconds / 3600);
+        $minutes = floor(($offsetSeconds % 3600) / 60);
+        $mysqlTimezone = sprintf('%s%02d:%02d', $sign, $hours, $minutes);
+        $pdo->exec("SET time_zone = " . $pdo->quote($mysqlTimezone));
+    } catch (Exception $e) {
+        // If the timezone cannot be applied, continue with the process timezone.
+    }
 }
 
 /**
