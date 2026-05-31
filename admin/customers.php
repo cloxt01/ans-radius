@@ -72,143 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if ($exists) {
                                 update('onu_locations', $payload, 'serial_number = ?', [$serial]);
                             } else {
-                                $payload['serial_number'] = $serial;
-                                $payload['created_at'] = date('Y-m-d H:i:s');
                                 insert('onu_locations', $payload);
                             }
-                            
-                            // Synchronize PPPoE Username to GenieACS if applicable
-                            if (!empty($serial)) {
-                                genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username', $serial);
-                                if ($pppoePassword !== '') {
-                                     genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password', $pppoePassword);
-                                }
-                            }
                         } catch (Exception $e) {
-                            // Do not block customer creation if ONU sync fails
-                            logError('ONU sync (add customer) failed: ' . $e->getMessage());
+                            // Silent fail, continue without syncing ODP
                         }
                     }
-                    setFlash('success', 'Pelanggan berhasil ditambahkan');
-                    logActivity('ADD_CUSTOMER', "Name: {$data['name']}");
-                    
-                    // Notify Technician if assigned
-                    if (!empty($data['installed_by'])) {
-                        $tech = fetchOne("SELECT phone, name FROM technician_users WHERE id = ?", [$data['installed_by']]);
-                        if ($tech && !empty($tech['phone'])) {
-                            require_once '../includes/whatsapp.php';
-                            $msg = "🔔 *TUGAS INSTALASI BARU*\n\n";
-                            $msg .= "Pelanggan: {$data['name']}\n";
-                            $msg .= "Alamat: " . ($data['address'] ?: '-') . "\n";
-                            $msg .= "Paket: " . fetchOne("SELECT name FROM packages WHERE id = ?", [$data['package_id']])['name'] . "\n";
-                            $msg .= "Maps: https://www.google.com/maps?q={$data['lat']},{$data['lng']}\n\n";
-                            $msg .= "Mohon segera diproses. Terima kasih.";
-                            
-                            sendWhatsAppMessage($tech['phone'], $msg);
-                        }
-                    }
-                } else {
-                    setFlash('error', 'Gagal menambahkan pelanggan');
-                }
-                redirect('customers.php');
-                break;
-                
-            case 'edit':
-                $customerId = (int)$_POST['customer_id'];
-                if(!fetchOne("SELECT id FROM customers WHERE id = ?", [$customerId])) {
-                    setFlash('error', 'Pelanggan tidak ditemukan');
-                    redirect('customers.php');
-                }
-            
-                // Ambil username lama dari DB lokal sebelum di-update
-                $customer_username = getPppoeUsernameByCustomerId($customerId);
-                
-                // Ambil & bersihkan data input baru dari form
-                $new_username = sanitize($_POST['pppoe_username']);
-                $new_password = isset($_POST['pppoe_password']) ? trim((string)$_POST['pppoe_password']) : '';
-            
-                // 1. Sinkronisasi Perubahan Username di RADIUS
-                if($customer_username !== $new_username) {
-                    radiusRenameUser($customer_username, $new_username);
-                }
-                
-                // 2. Sinkronisasi Perubahan Password di RADIUS (Hanya jika password baru DIISI)
-                if ($new_password !== '') {
-                    // Ambil password lama di RADIUS (menggunakan username baru jika baru saja di-rename)
-                    $old_radius_password = trim((string)radiusGetUserPassword($new_username));
-                    
-                    if($old_radius_password !== $new_password) {
-                        radiusUpdateUserPassword($new_username, $new_password);
-                    }
-                }
-            
-                // Buat data untuk update ke DB lokal
-                $data = [
-                    'pppoe_username' => $new_username,
-                    'name' => sanitize($_POST['name']),
-                    'phone' => sanitize($_POST['phone']),
-                    'package_id' => (int)$_POST['package_id'],
-                    'router_id' => (int)($_POST['router_id'] ?? 0),
-                    'isolation_date' => (int)$_POST['isolation_date'],
-                    'address' => sanitize($_POST['address']),
-                    'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
-                    'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
-                    'installed_by' => !empty($_POST['installed_by']) ? (int)$_POST['installed_by'] : null,
-                    'updated_at' => date('Y-m-d H:i:s')
-                ];
-                
-                if ($hasAutoIsolate) {
-                    $data['auto_isolate'] = isset($_POST['auto_isolate']) ? 1 : 0;
-                }
-                
-                if (update('customers', $data, 'id = ?', [$customerId])) {
-                    // Get updated customer data for RADIUS sync
-                    $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
-                    if ($customer && !empty($customer['pppoe_username'])) {
-                        syncRadiusTimeoutForCustomer($customer['pppoe_username'], $customerId);
-                    }
-            
-                    // Sync to onu_locations if requested
-                    $saveOnu = isset($_POST['save_onu']) && $_POST['save_onu'] == '1';
-                    $odpId = isset($_POST['odp_id']) && $_POST['odp_id'] !== '' ? (int) $_POST['odp_id'] : null;
-                    if ($saveOnu) {
-                        try {
-                            if (!$customer) {
-                                $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
-                            }
-                            if ($customer && !empty($customer['pppoe_username'])) {
-                                $serial = $customer['pppoe_username'];
-                                $exists = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$serial]);
-                                $payload = [
-                                    'name' => $data['name'],
-                                    'lat' => $data['lat'],
-                                    'lng' => $data['lng'],
-                                    'odp_id' => $odpId,
-                                    'updated_at' => date('Y-m-d H:i:s')
-                                ];
-                                if ($exists) {
-                                    update('onu_locations', $payload, 'serial_number = ?', [$serial]);
-                                } else {
-                                    $payload['serial_number'] = $serial;
-                                    $payload['created_at'] = date('Y-m-d H:i:s');
-                                    insert('onu_locations', $payload);
-                                }
-            
-                                // Synchronize PPPoE Username to GenieACS
-                                genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username', $serial);
-                                
-                                // JIKA password diganti, kirim juga password barunya ke GenieACS
-                                if ($new_password !== '') {
-                                    genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password', $new_password);
-                                }
-                            }
-                        } catch (Exception $e) {
-                            logError('ONU sync (edit customer) failed: ' . $e->getMessage());
-                        }
-                    }
-                    setFlash('success', 'Pelanggan berhasil diperbarui');
-                    logActivity('UPDATE_CUSTOMER', "ID: {$customerId}");
-                } else {
                     setFlash('error', 'Gagal memperbarui pelanggan');
                 }
                 redirect('customers.php');
@@ -504,6 +373,176 @@ ob_start();
 </div>
 
 <style>
+    /* Tour Styles */
+    .tour-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.75);
+        z-index: 9998;
+    }
+
+    .tour-highlight {
+        position: relative;
+        z-index: 9999;
+        box-shadow: 0 0 0 4px var(--gradient-primary), 0 0 0 8px rgba(139, 92, 246, 0.3);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .tour-tooltip {
+        position: absolute;
+        background: var(--bg-card);
+        border: 1px solid var(--accent-cyan);
+        border-radius: 12px;
+        padding: 16px 20px;
+        max-width: 340px;
+        z-index: 10000;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        animation: tourFadeIn 0.3s ease;
+    }
+
+    @keyframes tourFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .tour-tooltip h4 {
+        margin: 0 0 8px 0;
+        color: var(--accent-cyan);
+        font-size: 1rem;
+    }
+
+    .tour-tooltip p {
+        margin: 0 0 12px 0;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+
+    .tour-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+
+    .tour-next {
+        background: var(--gradient-primary);
+        padding: 6px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .tour-next {
+        background: var(--gradient-primary);
+        color: #ffffff;
+        border: none;
+    }
+
+    .tour-next:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 212, 255, 0.4);
+    }
+
+    .tour-prev {
+        border-radius: 6px;
+        padding: 6px 14px;
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+    .tour-prev:hover {
+        border-color: var(--accent-cyan);
+        color: var(--accent-cyan);
+    }
+
+    .tour-buttons .tour-close {
+        background: transparent;
+        color: var(--text-muted);
+        border: none;
+    }
+
+    .tour-buttons .tour-close:hover {
+        color: var(--text-primary);
+    }
+
+    .tour-tooltip::before {
+        content: '';
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        background: var(--bg-card);
+        border-left: 1px solid var(--accent-cyan);
+        border-top: 1px solid var(--accent-cyan);
+        transform: rotate(45deg);
+    }
+
+    /* placement=bottom → arrow di atas tooltip, geser horizontal */
+    .tour-tooltip[data-placement="bottom"]::before {
+        top: -7px;
+        left: var(--arrow-x, 20px);
+        border-right: none;
+        border-bottom: none;
+    }
+
+    /* placement=top → arrow di bawah tooltip, geser horizontal */
+    .tour-tooltip[data-placement="top"]::before {
+        bottom: -7px;
+        left: var(--arrow-x, 20px);
+        transform: rotate(225deg);
+        border-right: none;
+        border-bottom: none;
+    }
+
+    /* placement=right → arrow di kiri tooltip, geser vertikal */
+    .tour-tooltip[data-placement="right"]::before {
+        left: -7px;
+        top: var(--arrow-y, 20px);
+        transform: rotate(-45deg);
+        border-right: none;
+        border-bottom: none;
+    }
+
+    /* placement=left → arrow di kanan tooltip, geser vertikal */
+    .tour-tooltip[data-placement="left"]::before {
+        right: -7px;
+        top: var(--arrow-y, 20px);
+        transform: rotate(135deg);
+        border-right: none;
+        border-bottom: none;
+    }
+
+    /* Tombol Tour di header */
+    .tour-btn {
+        background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+
+    .tour-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    }
     /* Make stats grid responsive for 4 cards */
     .stats-grid {
         grid-template-columns: repeat(4, 1fr) !important;
@@ -799,9 +838,12 @@ ob_start();
             <a href="export.php" class="btn btn-primary btn-sm">
                 <i class="fas fa-file-excel"></i> Export/Import
             </a>
+            <button type="button" class="tour-btn" onclick="startTour()" style="margin-left: 8px;">
+                <i class="fas fa-question-circle"></i> Panduan
+            </button>
         </div>
     </div>
-    <div class="card-body" style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.04);">
+    <div id="filterContainer" class="card-body" style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.04);">
         <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;">
                 <select id="filterStatus" class="form-control" style="width: 140px;">
@@ -1215,6 +1257,7 @@ ob_start();
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <script>
+
 let map, marker;
 let editMap, editMarker;
 let pppoeUsers = [];
@@ -2092,6 +2135,245 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+class ProductTour {
+    constructor(steps) {
+        this.steps = steps;
+        this.currentStep = 0;
+        this.overlay = null;
+        this.tooltip = null;
+    }
+
+    start() {
+        if (localStorage.getItem('tourCompleted_customers') === 'true') return;
+        this.showStep(0);
+    }
+
+    restart() {
+        localStorage.removeItem('tourCompleted_customers');
+        this.currentStep = 0;
+        this.showStep(0);
+    }
+
+    showStep(index) {
+        if (index >= this.steps.length) { this.finish(); return; }
+
+        this.currentStep = index;
+        const step = this.steps[index];
+        const element = document.querySelector(step.element);
+
+        if (!element) { this.next(); return; }
+
+        this.removeHighlight();
+
+        if (!this.overlay) {
+            this.overlay = document.createElement('div');
+            this.overlay.className = 'tour-overlay';
+            document.body.appendChild(this.overlay);
+        }
+
+        element.classList.add('tour-highlight');
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Tunggu scroll selesai baru posisikan tooltip
+        setTimeout(() => this.createTooltip(element, step), 350);
+    }
+
+    createTooltip(element, step) {
+        if (this.tooltip) this.tooltip.remove();
+
+        const placement = step.placement || 'bottom';
+
+        this.tooltip = document.createElement('div');
+        this.tooltip.className = 'tour-tooltip';
+        this.tooltip.setAttribute('data-placement', placement);
+        this.tooltip.innerHTML = `
+            <h4>${step.title}</h4>
+            <p>${step.description}</p>
+            <div class="tour-buttons">
+                <button class="tour-close" onclick="tour.finish()">Lewati</button>
+                ${this.currentStep > 0 ? '<button class="tour-prev" onclick="tour.prev()">Kembali</button>' : ''}
+                <button class="tour-next" onclick="tour.next()">${this.currentStep === this.steps.length - 1 ? 'Selesai' : 'Selanjutnya'}</button>
+            </div>
+        `;
+
+        // Render dulu tersembunyi agar bisa diukur
+        this.tooltip.style.visibility = 'hidden';
+        this.tooltip.style.position = 'fixed';
+        document.body.appendChild(this.tooltip);
+
+        // Ukur setelah render
+        requestAnimationFrame(() => {
+            const elRect = element.getBoundingClientRect();
+            const ttRect = this.tooltip.getBoundingClientRect();
+            const GAP = 14;
+            const MARGIN = 10;
+            const ARROW_HALF = 6;
+            const MIN_ARROW_OFFSET = 16;
+
+            let top, left;
+
+            switch (placement) {
+                case 'top':
+                    top  = elRect.top - ttRect.height - GAP;
+                    left = elRect.left + elRect.width / 2 - ttRect.width / 2;
+                    break;
+                case 'bottom':
+                    top  = elRect.bottom + GAP;
+                    left = elRect.left + elRect.width / 2 - ttRect.width / 2;
+                    break;
+                case 'left':
+                    top  = elRect.top + elRect.height / 2 - ttRect.height / 2;
+                    left = elRect.left - ttRect.width - GAP;
+                    break;
+                case 'right':
+                    top  = elRect.top + elRect.height / 2 - ttRect.height / 2;
+                    left = elRect.right + GAP;
+                    break;
+                default:
+                    top  = elRect.bottom + GAP;
+                    left = elRect.left + elRect.width / 2 - ttRect.width / 2;
+            }
+
+            // Clamp tooltip agar tidak keluar viewport
+            left = Math.max(MARGIN, Math.min(left, window.innerWidth  - ttRect.width  - MARGIN));
+            top  = Math.max(MARGIN, Math.min(top,  window.innerHeight - ttRect.height - MARGIN));
+
+            this.tooltip.style.left = `${left}px`;
+            this.tooltip.style.top  = `${top}px`;
+
+            // Hitung posisi arrow agar menunjuk ke pusat elemen target
+            const targetCX = elRect.left + elRect.width  / 2;
+            const targetCY = elRect.top  + elRect.height / 2;
+
+            if (placement === 'top' || placement === 'bottom') {
+                let arrowLeft = targetCX - left - ARROW_HALF;
+                arrowLeft = Math.max(MIN_ARROW_OFFSET, Math.min(arrowLeft, ttRect.width - MIN_ARROW_OFFSET));
+                this.tooltip.style.setProperty('--arrow-x', `${arrowLeft}px`);
+                this.tooltip.style.removeProperty('--arrow-y');
+            } else {
+                let arrowTop = targetCY - top - ARROW_HALF;
+                arrowTop = Math.max(MIN_ARROW_OFFSET, Math.min(arrowTop, ttRect.height - MIN_ARROW_OFFSET));
+                this.tooltip.style.setProperty('--arrow-y', `${arrowTop}px`);
+                this.tooltip.style.removeProperty('--arrow-x');
+            }
+
+            this.tooltip.style.visibility = '';
+        });
+    }
+
+    removeHighlight() {
+        document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
+    }
+
+    next() {
+        this.removeHighlight();
+        this.showStep(this.currentStep + 1);
+    }
+
+    prev() {
+        this.removeHighlight();
+        this.showStep(this.currentStep - 1);
+    }
+
+    finish() {
+        if (this.overlay) { this.overlay.remove(); this.overlay = null; }
+        if (this.tooltip) { this.tooltip.remove(); this.tooltip = null; }
+        this.removeHighlight();
+        localStorage.setItem('tourCompleted_customers', 'true');
+    }
+
+    reset() {
+        localStorage.removeItem('tourCompleted_customers');
+        this.currentStep = 0;
+        this.start();
+    }
+}
+
+// Definisi langkah-langkah tour untuk halaman Customers
+const tourSteps = [
+    {
+        element: '.stats-grid',
+        title: '📊 Statistik Dashboard',
+        description: 'Lihat ringkasan data penting: Total Pelanggan, Aktif, Terisolir, dan Belum Lunas bulan ini.',
+        placement: 'bottom'
+    },
+    {
+        element: '.card-header .btn-primary',
+        title: '➕ Tambah Pelanggan',
+        description: 'Klik untuk menambah pelanggan baru. Isi data nama, nomor HP, username PPPoE, paket, dan lokasi.',
+        placement: 'left'
+    },
+    {
+        element: '.card-header .btn-secondary',
+        title: '🔁 Tambah via Rename',
+        description: 'Gunakan username PPPoE cadangan yang sudah ada di MikroTik untuk mendaftarkan pelanggan baru.',
+        placement: 'bottom'
+    },
+    {
+        element: '#searchCustomer',
+        title: '🔎 Pencarian Pelanggan',
+        description: 'Cari berdasarkan nama, nomor HP, atau username PPPoE. Ketik minimal 2 karakter untuk memulai pencarian.',
+        placement: 'left'
+    },
+    {
+        element: '#filterContainer',
+        title: '🔍 Filter Status',
+        description: 'Filter pelanggan berdasarkan kondisi tertentu.',
+        placement: 'bottom'
+    },
+
+    {
+        element: '#applyFilterBtn',
+        title: '✅ Terapkan Filter',
+        description: 'Klik Filter untuk menerapkan semua kriteria yang sudah dipilih. Klik Reset untuk menghapus semua filter.',
+        placement: 'right'
+    },
+    {
+        element: '#customerTable',
+        title: '📋 Tabel Pelanggan',
+        description: 'Semua data pelanggan ditampilkan di sini beserta status, paket, router, dan tombol aksi.',
+        placement: 'top'
+    },
+    {
+        element: '#customerTable tbody tr:first-child .customer-action-group',
+        title: '⚙️ Tombol Aksi',
+        description: 'Setiap baris memiliki: Bayar (catat pembayaran), Edit (ubah data), Reset Password, Hapus, dan Isolir/Buka Isolir.',
+        placement: 'left'
+    },
+    {
+        element: '#perPageSelect',
+        title: '📄 Jumlah Data per Halaman',
+        description: 'Ubah jumlah data yang ditampilkan per halaman: 10, 50, 100, 250, atau 500.',
+        placement: 'bottom'
+    },
+    {
+        element: '#customerPagination',
+        title: '⏮️ Navigasi Halaman',
+        description: 'Gunakan tombol navigasi untuk berpindah antar halaman data pelanggan.',
+        placement: 'top'
+    },
+    {
+        element: '.tour-btn',
+        title: '🎓 Tour Kapan Saja',
+        description: 'Klik tombol ini untuk memulai ulang tour jika ingin melihat panduan lagi.',
+        placement: 'left'
+    }
+    
+];
+// Inisialisasi tour
+const tour = new ProductTour(tourSteps);
+
+// Fungsi untuk memulai tour (bisa dipanggil dari tombol)
+function startTour() {
+    tour.restart();
+}
+
+// Do not auto-start tour to avoid unexpected overlays; start only via button
+document.addEventListener('DOMContentLoaded', function() {
+    // Wire header tour button if present
+    const tourBtn = document.querySelector('.tour-btn') || document.getElementById('startTourBtn');
+    if (tourBtn) tourBtn.addEventListener('click', () => startTour());
+});
 </script>
 
 <?php
