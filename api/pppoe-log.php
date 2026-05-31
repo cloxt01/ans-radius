@@ -12,15 +12,14 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 }
 
 header('Content-Type: application/json');
-
-$debugFile = __DIR__ . '/../logs/pppoe_log_debug.log';
-file_put_contents($debugFile, date('c') . " - pppoe-log start, limit={$limit}\n", FILE_APPEND);
-$startTime = microtime(true);
-
 $limit = (int) ($_GET['limit'] ?? 20);
 if ($limit < 1 || $limit > 100) {
     $limit = 20;
 }
+
+$debugFile = __DIR__ . '/../logs/pppoe_log_debug.log';
+file_put_contents($debugFile, date('c') . " - pppoe-log start, limit={$limit}\n", FILE_APPEND);
+$startTime = microtime(true);
 
 file_put_contents($debugFile, date('c') . " - calling mikrotikGetHotspotLog\n", FILE_APPEND);
 $rawLogs = mikrotikGetHotspotLog(max(20, $limit * 3));
