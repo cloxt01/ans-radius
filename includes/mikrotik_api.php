@@ -2229,11 +2229,27 @@ function mikrotikGetPppoeLog($limit = 20)
     $socket = getMikrotikConnection();
     if (!$socket) return [];
 
+    // Filter by message contains "pppoe" (case-insensitive match in RouterOS)
     mikrotikWrite($socket, '/log/print');
-    mikrotikWrite($socket, '?topics=pppoe');
+    mikrotikWrite($socket, '?topics=ppp');
     mikrotikWrite($socket, '');
 
     $logs = mikrotikReadResponse($socket, 5);
+
+    // Fallback: some RouterOS builds may not support message regex as expected
+    if (empty($logs)) {
+        mikrotikWrite($socket, '/log/print');
+        mikrotikWrite($socket, '');
+        $allLogs = mikrotikReadResponse($socket, 5);
+
+        $logs = [];
+        foreach ($allLogs as $log) {
+            $message = $log['message'] ?? '';
+            if ($message !== '' && stripos($message, 'pppoe') !== false) {
+                $logs[] = $log;
+            }
+        }
+    }
 
     return array_slice(array_reverse($logs), 0, $limit);
 }
