@@ -509,10 +509,86 @@ ob_start();
         grid-template-columns: repeat(4, 1fr) !important;
         gap: 15px;
     }
+
+    .form-section {
+        background: rgba(255, 255, 255, 0.02);
+        padding: 18px;
+        border-radius: 10px;
+        margin-bottom: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .form-section h4 {
+        margin: 0 0 14px 0;
+        color: var(--neon-cyan);
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .form-group-full {
+        grid-column: 1 / -1;
+    }
+
+    .map-container {
+        height: 360px;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .btn-submit {
+        margin-top: 8px;
+        width: 100%;
+        background: linear-gradient(135deg, var(--accent-green), #1f9d55);
+        color: #fff;
+        border: none;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .btn-submit:hover {
+        filter: brightness(1.04);
+    }
+
+    .customer-action-group {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .customer-action-group .btn,
+    .customer-action-group form {
+        flex: 0 0 auto;
+    }
+
+    .customer-action-group .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
+
+    .customer-action-group .btn i {
+        font-size: 0.85rem;
+    }
     
     @media (max-width: 768px) {
         .stats-grid {
             grid-template-columns: repeat(2, 1fr) !important;
+        }
+        .form-grid {
+            grid-template-columns: 1fr;
         }
         .stat-card {
             padding: 15px;
@@ -540,140 +616,171 @@ ob_start();
         <i class="fas fa-exclamation-triangle"></i> Tidak ada username PPPoE cadangan yang memenuhi kriteria (%ans%, status isolir, tanpa invoice). Tombol "Tambah Pelanggan (via Rename)" dinonaktifkan.
     </div>
 <?php endif; ?>
-<!-- Add Customer Form -->
-<div class="card">
-    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-        <h3 class="card-title" style="margin:0; display:flex; align-items:center; gap:8px;"><i class="fas fa-user-plus"></i> Tambah Pelanggan</h3>
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap: wrap;">
         <div>
-        <?php if ($randomCustomer): ?>
-            <button type="button" onclick="editCustomer(<?php echo htmlspecialchars(json_encode($randomCustomer), ENT_QUOTES, 'UTF-8'); ?>)" class="btn btn-primary">
-                <i class="fas fa-save"></i> Tambah Pelanggan (via Rename)
+            <h3 class="card-title" style="margin:0; display:flex; align-items:center; gap:8px;"><i class="fas fa-users"></i> Data Pelanggan</h3>
+            <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 4px;">Kelola pelanggan, tambah data baru, dan rename dari username cadangan.</div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-primary" onclick="openAddCustomerModal()">
+                <i class="fas fa-user-plus"></i> Tambah Pelanggan
             </button>
-        <?php else: ?>
-            <button type="button" class="btn btn-secondary" style="opacity: 0.7; cursor: not-allowed;" title="Tidak ada username cadangan untuk rename" disabled>
-                <i class="fas fa-save"></i> Tambah Pelanggan (via Rename)
-            </button>
-        <?php endif; ?>
+            <?php if ($randomCustomer): ?>
+                <button type="button" class="btn btn-secondary" onclick="openRenameCustomerModal(<?php echo htmlspecialchars(json_encode($randomCustomer), ENT_QUOTES, 'UTF-8'); ?>)">
+                    <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename
+                </button>
+            <?php else: ?>
+                <button type="button" class="btn btn-secondary" style="opacity: 0.7; cursor: not-allowed;" title="Tidak ada username cadangan untuk rename" disabled>
+                    <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename
+                </button>
+            <?php endif; ?>
         </div>
     </div>
-    
-    <form method="POST" style="padding: 20px;" data-no-loading="true">
-        <input type="hidden" name="action" value="add">
-        <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
-        
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 100%;">
-            <div class="form-group">
-                <label class="form-label">Nama Pelanggan</label>
-                <input type="text" name="name" class="form-control" required placeholder="Nama Lengkap">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Nomor HP (WhatsApp)</label>
-                <input type="text" name="phone" class="form-control" required placeholder="08xxxxxxxxxx">
-            </div>
-            
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label">Username PPPoE</label>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" required placeholder="Pilih atau ketik username" style="flex: 1 1 200px; min-width: 0;">
-                    <button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()" style="flex: 0 0 auto; white-space: nowrap;">Pilih dari Daftar</button>
-                </div>
-                <small style="color: var(--text-muted);">Pilih username PPPoE dari user MikroTik untuk menghindari salah input</small>
-            </div>
+</div>
 
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label">Password PPPoE (Opsional)</label>
-                <input type="text" name="pppoe_password" class="form-control" placeholder="Kosongkan jika tidak ingin mengubah password PPPoE">
-                <small style="color: var(--text-muted);">Jika diisi, password ini akan dikirim ke perangkat (GenieACS). Aplikasi tidak bisa membaca password dari MikroTik.</small>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Paket Langganan</label>
-                <select name="package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
-                    <option value="">Pilih Paket</option>
-                    <?php foreach ($packages as $pkg): ?>
-                        <option value="<?php echo $pkg['id']; ?>">
-                            <?php echo htmlspecialchars($pkg['name']); ?> (<?php echo formatCurrency($pkg['price']); ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Router / MikroTik</label>
-                <select name="router_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
-                    <option value="0">Default Router</option>
-                    <?php foreach ($routers as $r): ?>
-                        <option value="<?php echo $r['id']; ?>">
-                            <?php echo htmlspecialchars($r['name']); ?> (<?php echo htmlspecialchars($r['host']); ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Teknisi Instalasi (Opsional)</label>
-                <select name="installed_by" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
-                    <option value="">-- Pilih Teknisi --</option>
-                    <?php foreach ($technicians as $tech): ?>
-                        <option value="<?php echo $tech['id']; ?>"><?php echo htmlspecialchars($tech['name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Tanggal Isolir (1-28)</label>
-                <input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" name="auto_isolate" value="1" checked>
-                    <span>Isolir Otomatis</span>
-                </label>
-                <small style="color: var(--text-muted);">Jika dimatikan, pelanggan ini akan diabaikan oleh isolir otomatis saat tagihan belum dibayar.</small>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Alamat</label>
-                <textarea name="address" class="form-control" rows="2" placeholder="Alamat rumah"></textarea>
-            </div>
+<!-- Add Customer Modal -->
+<div id="addCustomerModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;">
+    <div class="card" style="width: 920px; max-width: 94%; margin: 2rem; max-height: 92vh; overflow-y: auto; padding: 0;">
+        <div style="padding: 20px 25px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: var(--bg-card); z-index: 10;">
+            <h3 style="margin: 0; color: var(--neon-cyan); font-size: 1.2rem;">
+                <i class="fas fa-user-plus"></i> Tambah Pelanggan
+            </h3>
+            <button type="button" onclick="closeAddCustomerModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">&times;</button>
         </div>
-        
-        <div class="form-group">
-            <label class="form-label">Lokasi (Latitude, Longitude)</label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <input type="text" name="lat" class="form-control" placeholder="Latitude" readonly>
-                <input type="text" name="lng" class="form-control" placeholder="Longitude" readonly>
-            </div>
-            <small style="color: var(--text-muted);">Klik pada peta untuk set lokasi</small>
-        </div>
-        
-        <div style="height: 400px; margin-top: 15px; border-radius: 8px; overflow: hidden;" id="map-picker"></div>
+        <div style="padding: 25px;">
+        <form method="POST" id="addCustomerForm" data-no-loading="true">
+            <input type="hidden" name="action" value="add">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
 
-        <div class="form-group" style="margin-top: 15px; background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-            <label class="form-label" style="display: block; margin-bottom: 10px;">
-                Mapping ONU
-            </label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <label style="display: flex; align-items: center; gap: 8px;">
-                    <input type="checkbox" name="save_onu" value="1" checked>
-                    <span>Sekaligus simpan titik ke ONU Locations</span>
-                </label>
-                <div>
-                    <label class="form-label">ODP (Opsional)</label>
-                    <select name="odp_id" id="add_odp_select" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
-                        <option value="">-- Pilih ODP --</option>
-                    </select>
-                    <small style="color: var(--text-muted);">Jika belum ada, tambah ODP di menu GenieACS Peta</small>
+            <div class="form-section">
+                <h4><i class="fas fa-user"></i> Informasi Dasar</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Nama Pelanggan</label>
+                        <input type="text" name="name" class="form-control" required placeholder="Nama Lengkap">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Nomor HP (WhatsApp)</label>
+                        <input type="text" name="phone" class="form-control" required placeholder="08xxxxxxxxxx">
+                    </div>
+
+                    <div class="form-group-full">
+                        <label class="form-label">Username PPPoE</label>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" required placeholder="Pilih atau ketik username" style="flex: 1 1 200px; min-width: 0;">
+                            <button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()" style="flex: 0 0 auto; white-space: nowrap;">Pilih dari Daftar</button>
+                        </div>
+                        <small style="color: var(--text-muted);">Pilih username PPPoE dari user MikroTik untuk menghindari salah input</small>
+                    </div>
+
+                    <div class="form-group-full">
+                        <label class="form-label">Password PPPoE (Opsional)</label>
+                        <input type="text" name="pppoe_password" class="form-control" placeholder="Kosongkan jika tidak ingin mengubah password PPPoE">
+                        <small style="color: var(--text-muted);">Jika diisi, password ini akan dikirim ke perangkat (GenieACS). Aplikasi tidak bisa membaca password dari MikroTik.</small>
+                    </div>
                 </div>
             </div>
+
+            <div class="form-section">
+                <h4><i class="fas fa-cogs"></i> Konfigurasi Layanan</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Paket Langganan</label>
+                        <select name="package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                            <option value="">Pilih Paket</option>
+                            <?php foreach ($packages as $pkg): ?>
+                                <option value="<?php echo $pkg['id']; ?>">
+                                    <?php echo htmlspecialchars($pkg['name']); ?> (<?php echo formatCurrency($pkg['price']); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Router / MikroTik</label>
+                        <select name="router_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                            <option value="0">Default Router</option>
+                            <?php foreach ($routers as $r): ?>
+                                <option value="<?php echo $r['id']; ?>">
+                                    <?php echo htmlspecialchars($r['name']); ?> (<?php echo htmlspecialchars($r['host']); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Teknisi Instalasi (Opsional)</label>
+                        <select name="installed_by" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
+                            <option value="">-- Pilih Teknisi --</option>
+                            <?php foreach ($technicians as $tech): ?>
+                                <option value="<?php echo $tech['id']; ?>"><?php echo htmlspecialchars($tech['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Isolir (1-28)</label>
+                        <input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required>
+                    </div>
+
+                    <div class="form-group-full">
+                        <label class="form-label" style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" name="auto_isolate" value="1" checked>
+                            <span>Isolir Otomatis</span>
+                        </label>
+                        <small style="color: var(--text-muted);">Jika dimatikan, pelanggan ini akan diabaikan oleh isolir otomatis saat tagihan belum dibayar.</small>
+                    </div>
+
+                    <div class="form-group-full">
+                        <label class="form-label">Alamat</label>
+                        <textarea name="address" class="form-control" rows="2" placeholder="Alamat rumah"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h4><i class="fas fa-map-marker-alt"></i> Lokasi</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Latitude</label>
+                        <input type="text" name="lat" id="add_lat" class="form-control" readonly placeholder="Klik pada peta">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Longitude</label>
+                        <input type="text" name="lng" id="add_lng" class="form-control" readonly placeholder="Klik pada peta">
+                    </div>
+                </div>
+                <div id="addMap" class="map-container"></div>
+                <small style="color: var(--text-muted); display: block; margin-top: 8px;">Klik pada peta untuk menentukan lokasi</small>
+            </div>
+
+            <div class="form-section">
+                <h4><i class="fas fa-link"></i> Mapping ONU</h4>
+                <div class="form-grid">
+                    <div class="form-group-full">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="save_onu" value="1" checked>
+                            <span>Sekaligus simpan titik ke ONU Locations</span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ODP (Opsional)</label>
+                        <select name="odp_id" id="add_odp_select" class="form-control">
+                            <option value="">-- Pilih ODP --</option>
+                        </select>
+                        <small style="color: var(--text-muted);">Jika belum ada, tambah ODP di menu GenieACS Peta</small>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-save"></i> Simpan Pelanggan
+            </button>
+        </form>
         </div>
-        
-        <button type="submit" class="btn btn-primary" style="margin-top: 20px;">
-            <i class="fas fa-save"></i> Simpan Pelanggan
-        </button>
-    </form>
+    </div>
 </div>
 
 <!-- Customers Table -->
@@ -848,19 +955,20 @@ ob_start();
                     <td data-label="MAC Address">
                         <?php echo htmlspecialchars($c['mac_address'] ?? 'N/A'); ?>
                     </td>
-                    <td data-label="Aksi" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <td data-label="Aksi">
+                        <div class="customer-action-group">
                         <a href="pay_process.php?id=<?php echo $c['id']; ?>" class="btn btn-success btn-sm" title="Bayar Tagihan">
-                            <i class="fas fa-money-bill-wave"></i>
+                            <i class="fas fa-money-bill-wave"></i> Bayar
                         </a>
                         <button class="btn btn-secondary btn-sm" onclick="editCustomer(<?php echo htmlspecialchars(json_encode($c)); ?>)" title="Edit">
-                            <i class="fas fa-edit"></i>
+                            <i class="fas fa-edit"></i> Edit
                         </button>
                         <form method="POST" data-no-loading="true" onsubmit="return confirm('Reset password portal pelanggan ini menjadi 1234?');">
                             <input type="hidden" name="action" value="reset_portal_password">
                             <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                             <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                             <button type="submit" class="btn btn-secondary btn-sm" title="Reset Password Portal">
-                                <i class="fas fa-key"></i>
+                                <i class="fas fa-key"></i> Reset Password
                             </button>
                         </form>
                         <form method="POST" data-no-loading="true"  onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Data yang dihapus tidak dapat dikembalikan.');">
@@ -868,7 +976,7 @@ ob_start();
                             <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                             <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                             <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
-                                <i class="fas fa-trash"></i>
+                                <i class="fas fa-trash"></i> Hapus
                             </button>
                         </form>
                         <?php if ($c['status'] === 'isolated'): ?>
@@ -877,7 +985,7 @@ ob_start();
                                 <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                                 <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                 <button type="submit" class="btn btn-success btn-sm" title="Buka Isolir">
-                                    <i class="fas fa-unlock"></i>
+                                    <i class="fas fa-unlock"></i> Buka Isolir
                                 </button>
                             </form>
                         <?php else: ?>
@@ -886,10 +994,11 @@ ob_start();
                                 <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                                 <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                 <button type="submit" class="btn btn-error btn-sm" title="Isolir">
-                                    <i class="fas fa-lock"></i>
+                                    <i class="fas fa-lock"></i> Isolir
                                 </button>
                             </form>
                         <?php endif; ?>
+                        </div>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -1215,19 +1324,20 @@ function renderFetchedCustomers(customers) {
                 <td data-label="Register Date">${formatDateLabel(customer.created_at)}</td>
                 <td data-label="IP Address">${escapeHtml(customer.ip_address || 'N/A')}</td>
                 <td data-label="MAC Address">${escapeHtml(customer.mac_address || 'N/A')}</td>
-                <td data-label="Aksi" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                <td data-label="Aksi">
+                    <div class="customer-action-group">
                     <a href="pay_process.php?id=${encodeURIComponent(customer.id)}" class="btn btn-success btn-sm" title="Bayar Tagihan">
-                        <i class="fas fa-money-bill-wave"></i>
+                        <i class="fas fa-money-bill-wave"></i> Bayar
                     </a>
                     <button class="btn btn-secondary btn-sm" type="button" onclick="editCustomerFromRow(this)" title="Edit">
-                        <i class="fas fa-edit"></i>
+                        <i class="fas fa-edit"></i> Edit
                     </button>
                     <form method="POST" data-no-loading="true" onsubmit="return confirm('Reset password portal pelanggan ini menjadi 1234?');">
                         <input type="hidden" name="action" value="reset_portal_password">
                         <input type="hidden" name="customer_id" value="${escapeHtml(customer.id)}">
                         <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
                         <button type="submit" class="btn btn-secondary btn-sm" title="Reset Password Portal">
-                            <i class="fas fa-key"></i>
+                            <i class="fas fa-key"></i> Reset Password
                         </button>
                     </form>
                     <form method="POST" data-no-loading="true" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Data yang dihapus tidak dapat dikembalikan.');">
@@ -1235,7 +1345,7 @@ function renderFetchedCustomers(customers) {
                         <input type="hidden" name="customer_id" value="${escapeHtml(customer.id)}">
                         <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
                         <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
-                            <i class="fas fa-trash"></i>
+                            <i class="fas fa-trash"></i> Hapus
                         </button>
                     </form>
                     ${customer.status === 'isolated' ? `
@@ -1244,7 +1354,7 @@ function renderFetchedCustomers(customers) {
                             <input type="hidden" name="customer_id" value="${escapeHtml(customer.id)}">
                             <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
                             <button type="submit" class="btn btn-success btn-sm" title="Buka Isolir">
-                                <i class="fas fa-unlock"></i>
+                                <i class="fas fa-unlock"></i> Buka Isolir
                             </button>
                         </form>
                     ` : `
@@ -1253,10 +1363,11 @@ function renderFetchedCustomers(customers) {
                             <input type="hidden" name="customer_id" value="${escapeHtml(customer.id)}">
                             <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
                             <button type="submit" class="btn btn-error btn-sm" title="Isolir">
-                                <i class="fas fa-lock"></i>
+                                <i class="fas fa-lock"></i> Isolir
                             </button>
                         </form>
                     `}
+                    </div>
                 </td>
             </tr>
         `;
@@ -1407,6 +1518,50 @@ function editCustomerFromRow(button) {
     }
 }
 
+function openAddCustomerModal() {
+    const modal = document.getElementById('addCustomerModal');
+    if (!modal) {
+        return;
+    }
+
+    modal.style.display = 'flex';
+
+    const form = document.getElementById('addCustomerForm');
+    if (form) {
+        form.reset();
+    }
+
+    const latInput = document.getElementById('add_lat');
+    const lngInput = document.getElementById('add_lng');
+    if (latInput) {
+        latInput.value = '';
+    }
+    if (lngInput) {
+        lngInput.value = '';
+    }
+
+    if (!map) {
+        initMap();
+    } else {
+        setTimeout(() => {
+            if (map) {
+                map.invalidateSize();
+            }
+        }, 150);
+    }
+}
+
+function closeAddCustomerModal() {
+    const modal = document.getElementById('addCustomerModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function openRenameCustomerModal(customer) {
+    editCustomer(customer);
+}
+
 function openPppoeUserModal() {
     const modal = document.getElementById('pppoeUserModal');
     if (!modal) {
@@ -1552,11 +1707,24 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    const addModal = document.getElementById('addCustomerModal');
+    if (addModal) {
+        addModal.addEventListener('click', function(e) {
+            if (e.target === addModal) {
+                closeAddCustomerModal();
+            }
+        });
+    }
 });
 
 function initMap() {
+    if (map) {
+        return;
+    }
+
     // Add map
-    map = L.map('map-picker').setView([-6.200000, 106.816666], 13);
+    map = L.map('addMap').setView([-6.200000, 106.816666], 13);
     
     // Base layers
     var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1585,8 +1753,14 @@ function initMap() {
         
         marker = L.marker(e.latlng).addTo(map);
         
-        document.querySelector('input[name="lat"]').value = e.latlng.lat.toFixed(6);
-        document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
+        const latInput = document.getElementById('add_lat');
+        const lngInput = document.getElementById('add_lng');
+        if (latInput) {
+            latInput.value = e.latlng.lat.toFixed(6);
+        }
+        if (lngInput) {
+            lngInput.value = e.latlng.lng.toFixed(6);
+        }
     });
 }
 function formatPhoneNumber(phoneStr) {
