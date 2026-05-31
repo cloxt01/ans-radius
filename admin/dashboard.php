@@ -268,9 +268,9 @@ ob_start();
 
     <!-- Hotspot Log -->
     <div class="card" style="margin-bottom: 0;">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-align-justify"></i> Hotspot Log</h3>
-        </div>
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-align-justify"></i> PPPoE Log</h3>
+            </div>
         <div style="max-height: 290px; overflow-y: auto;" id="hotspotLogContainer">
             <table class="data-table" style="font-size: 0.85rem;">
                 <thead>
@@ -647,7 +647,7 @@ ob_start();
 
     // ==================== HOTSPOT LOG ====================
     function loadHotspotLog() {
-        fetch('../api/hotspot-log.php?limit=20')
+        fetch('../api/pppoe-log.php?limit=20')
             .then(r => r.json())
             .then(logs => {
                 const tbody = document.getElementById('hotspotLogBody');
