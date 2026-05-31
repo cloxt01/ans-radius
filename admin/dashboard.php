@@ -646,7 +646,7 @@ ob_start();
     }
 
     // ==================== HOTSPOT LOG ====================
-    function loadHotspotLog() {
+    function loadPppoeLog() {
         fetch('../api/pppoe-log.php?limit=20')
             .then(r => r.json())
             .then(logs => {
