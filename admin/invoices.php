@@ -280,7 +280,8 @@ function renderInvoiceStatusBadges(array $invoice)
         return '<span class="badge badge-muted">Batal</span>';
     }
 
-    $isOverdue = !empty($invoice['due_date']) && strtotime($invoice['due_date']) < time();
+    $dueDate = !empty($invoice['due_date']) ? substr((string) $invoice['due_date'], 0, 10) : '';
+    $isOverdue = $dueDate !== '' && $dueDate < date('Y-m-d');
 
     return '<span class="badge badge-warning"><i class="fas fa-hourglass-half"></i> Belum Bayar</span>'
         . ($isOverdue
@@ -1002,7 +1003,9 @@ function buildInvoiceStatusBadges(invoice) {
         return '<span class="badge badge-muted">Batal</span>';
     }
 
-    const isOverdue = invoice.due_date && new Date(invoice.due_date).getTime() < Date.now();
+    const dueDate = invoice.due_date ? String(invoice.due_date).slice(0, 10) : '';
+    const today = new Date().toISOString().slice(0, 10);
+    const isOverdue = dueDate !== '' && dueDate < today;
 
     return `<span class="badge badge-warning"><i class="fas fa-hourglass-half"></i> Belum Bayar</span>${isOverdue ? '<span class="badge badge-danger">Telat</span>' : ''}`;
 }
