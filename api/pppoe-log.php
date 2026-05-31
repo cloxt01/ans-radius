@@ -13,12 +13,18 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 
 header('Content-Type: application/json');
 
+$debugFile = __DIR__ . '/../logs/pppoe_log_debug.log';
+file_put_contents($debugFile, date('c') . " - pppoe-log start, limit={$limit}\n", FILE_APPEND);
+$startTime = microtime(true);
+
 $limit = (int) ($_GET['limit'] ?? 20);
 if ($limit < 1 || $limit > 100) {
     $limit = 20;
 }
 
+file_put_contents($debugFile, date('c') . " - calling mikrotikGetHotspotLog\n", FILE_APPEND);
 $rawLogs = mikrotikGetHotspotLog(max(20, $limit * 3));
+file_put_contents($debugFile, date('c') . " - mikrotikGetHotspotLog returned " . (is_array($rawLogs) ? count($rawLogs) : 0) . " entries\n", FILE_APPEND);
 
 // Filter messages that contain 'pppoe' (case-insensitive)
 $logs = [];
@@ -31,6 +37,9 @@ foreach ($rawLogs as $l) {
 
 // Ensure we only return requested limit
 $logs = array_slice($logs, 0, $limit);
+
+$elapsed = microtime(true) - $startTime;
+file_put_contents($debugFile, date('c') . " - filtered " . count($logs) . " pppoe entries, elapsed=" . round($elapsed, 3) . "s\n", FILE_APPEND);
 
 // Parse log messages for display
 $result = [];
