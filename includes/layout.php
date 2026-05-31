@@ -159,6 +159,7 @@ if (isset($_GET['switch_router'])) {
             padding: 20px 16px;
             border-bottom: 1px solid var(--border-color);
             display: flex;
+            justify-content: center;
             align-items: center;
             gap: 12px;
         }
@@ -166,13 +167,21 @@ if (isset($_GET['switch_router'])) {
         .sidebar-header a {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 10px;
+            width: 100%;
         }
 
         .sidebar-brand-logo {
-            width: 32px;
-            height: 32px;
+            width: 64px;
+            height: 64px;
             display: block;
+            filter: brightness(0) invert(1);
+            transition: filter var(--transition-fast);
+        }
+
+        .sidebar-header a:hover .sidebar-brand-logo {
+            filter: none;
         }
 
         .sidebar-brand-text {
@@ -760,7 +769,6 @@ if (isset($_GET['switch_router'])) {
             <div class="sidebar-header">
                 <a href="<?php echo APP_URL; ?>">
                     <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" class="sidebar-brand-logo" alt="Icon">
-                    <span class="sidebar-brand-text"><?php echo htmlspecialchars($appName); ?></span>
                 </a>
             </div>
 

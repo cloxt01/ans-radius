@@ -1771,6 +1771,7 @@ function getRandomCustomer()
               AND NOT EXISTS (
                   SELECT 1 FROM invoices inv WHERE inv.customer_id = customers.id
               )
+              AND address = 'Area Kasemen'
             ORDER BY RAND()
             LIMIT 1";
 
