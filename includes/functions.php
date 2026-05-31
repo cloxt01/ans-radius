@@ -222,18 +222,16 @@ function getCustomerDueDate($customer, $baseDate = null)
     $baseTimestamp = $baseDate ? strtotime($baseDate) : time();
     $year = date('Y', $baseTimestamp);
     $month = date('m', $baseTimestamp);
+    
     $day = isset($customer['isolation_date']) ? (int) $customer['isolation_date'] : 20;
-    if ($day < 1) {
-        $day = 1;
+    
+    $lastDayInMonth = (int) date('t', strtotime($year . '-' . $month . '-01'));
+    
+    if ($day > $lastDayInMonth || $day < 1) {
+        $day = $lastDayInMonth; 
     }
-    if ($day > 28) {
-        $day = 28;
-    }
-    $lastDay = (int) date('t', strtotime($year . '-' . $month . '-01'));
-    if ($day > $lastDay) {
-        $day = $lastDay;
-    }
-    return date('Y-m-d', strtotime($year . '-' . $month . '-' . str_pad($day, 2, '0', STR_PAD_LEFT)));
+    
+    return sprintf('%04d-%02d-%02d', $year, $month, $day);
 }
 
 function logError($message)

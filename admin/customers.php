@@ -721,8 +721,8 @@ ob_start();
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Tanggal Isolir (1-28)</label>
-                        <input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required>
+                        <label class="form-label">Tanggal Isolir (1-31)</label>
+                        <input type="number" name="isolation_date" class="form-control" value="20" min="1" max="31" required>
                     </div>
 
                     <div class="form-group-full">
