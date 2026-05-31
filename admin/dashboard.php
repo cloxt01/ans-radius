@@ -89,6 +89,7 @@ $overdueInvoices = fetchOne("
     AND due_date < CURDATE()
 ")['total'] ?? 0;
 
+
 $dueSoonInvoices = fetchOne("
     SELECT COUNT(*) as total 
     FROM invoices 
@@ -266,12 +267,12 @@ ob_start();
         </div>
     </div>
 
-    <!-- Hotspot Log -->
+    <!-- Pppoe Log -->
     <div class="card" style="margin-bottom: 0;">
             <div class="card-header">
                 <h3 class="card-title"><i class="fas fa-align-justify"></i> PPPoE Log</h3>
             </div>
-        <div style="max-height: 290px; overflow-y: auto;" id="hotspotLogContainer">
+        <div style="max-height: 290px; overflow-y: auto;" id="pppoeLogContainer">
             <table class="data-table" style="font-size: 0.85rem;">
                 <thead>
                     <tr>
@@ -280,7 +281,7 @@ ob_start();
                         <th>Message</th>
                     </tr>
                 </thead>
-                <tbody id="hotspotLogBody">
+                <tbody id="pppoeLogBody">
                     <tr>
                         <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">
                             <i class="fas fa-spinner fa-spin"></i> Loading...
@@ -645,16 +646,16 @@ ob_start();
         fetchTraffic();
     }
 
-    // ==================== HOTSPOT LOG ====================
+    // ==================== PPPoE LOG ====================
     function loadPppoeLog() {
         fetch('../api/pppoe-log.php?limit=20')
             .then(r => r.json())
             .then(logs => {
-                const tbody = document.getElementById('hotspotLogBody');
+                const tbody = document.getElementById('pppoeLogBody');
                 if (!tbody) return;
 
                 if (!logs || logs.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:20px;"><i class="fas fa-info-circle"></i> Tidak ada log hotspot</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:20px;"><i class="fas fa-info-circle"></i> Tidak ada log PPPoE</td></tr>';
                     return;
                 }
 
@@ -669,8 +670,8 @@ ob_start();
                 tbody.innerHTML = html;
             })
             .catch(err => {
-                console.error('Hotspot log error:', err);
-                const tbody = document.getElementById('hotspotLogBody');
+                console.error('PPPoE log error:', err);
+                const tbody = document.getElementById('pppoeLogBody');
                 if (tbody) {
                     tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);"><i class="fas fa-exclamation-triangle"></i> Failed to load</td></tr>';
                 }
@@ -690,8 +691,8 @@ ob_start();
         fetchTraffic();
         setInterval(fetchTraffic, 3000);
 
-        loadHotspotLog();
-        setInterval(loadHotspotLog, 10000);
+        loadPppoeLog();
+        setInterval(loadPppoeLog, 10000);
     });
 </script>
 

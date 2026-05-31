@@ -13,7 +13,19 @@ if ($limit < 1 || $limit > 100) {
     $limit = 20;
 }
 
-$logs = mikrotikGetPppoeLog($limit);
+$rawLogs = mikrotikGetHotspotLog(max(20, $limit * 3));
+
+// Filter messages that contain 'pppoe' (case-insensitive)
+$logs = [];
+foreach ($rawLogs as $l) {
+    $msg = $l['message'] ?? '';
+    if ($msg !== '' && stripos($msg, 'pppoe') !== false) {
+        $logs[] = $l;
+    }
+}
+
+// Ensure we only return requested limit
+$logs = array_slice($logs, 0, $limit);
 
 // Parse log messages for display
 $result = [];
