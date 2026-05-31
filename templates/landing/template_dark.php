@@ -131,7 +131,7 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $appName; ?> - GitHub Style ISP</title>
+    <title><?php echo $appName; ?> - Billing System</title>
 
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#0d1117">
