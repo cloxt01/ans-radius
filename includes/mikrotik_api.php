@@ -2167,7 +2167,47 @@ function mikrotikMonitorTraffic($interfaceName)
         'rx' => (int) ($data['rx-bits-per-second'] ?? 0),
     ];
 }
+function mikrotikReadResponse($socket, $timeoutSec = 5)
+{
+    $response = [];
+    $currentRecord = [];
+    $startTime = time();
 
+    while (time() - $startTime < $timeoutSec) {
+        $words = mikrotikReadSentence($socket);
+        if (empty($words)) {
+            // Jika socket kosong/timeout dari network, langsung break
+            break; 
+        }
+
+        foreach ($words as $word) {
+            if ($word === '!done') {
+                if (!empty($currentRecord)) {
+                    $response[] = $currentRecord;
+                }
+                return $response;
+            }
+
+            if ($word === '!re') {
+                if (!empty($currentRecord)) {
+                    $response[] = $currentRecord;
+                }
+                $currentRecord = [];
+            } elseif (strpos($word, '=') === 0) {
+                $word = substr($word, 1);
+                $parts = explode('=', $word, 2);
+                if (count($parts) === 2) {
+                    $currentRecord[$parts[0]] = $parts[1];
+                }
+            }
+        }
+    }
+    
+    if (!empty($currentRecord)) {
+        $response[] = $currentRecord;
+    }
+    return $response;
+}
 function mikrotikGetHotspotLog($limit = 20)
 {
     $socket = getMikrotikConnection();
