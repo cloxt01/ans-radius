@@ -13,7 +13,7 @@ if ($limit < 1 || $limit > 100) {
     $limit = 20;
 }
 
-$logs = mikrotikGetHotspotLog($limit);
+$logs = mikrotikGetPppoeLog($limit);
 
 // Parse log messages for display
 $result = [];
