@@ -93,7 +93,7 @@ $totalCustomers = $stats['totalCustomers'] ?? 0;
 // Get traffic stats from Mikrotik
 $trafficStats = [];
 if ($interfaces) {
-    $firstInterface = $interfaces[3]['name'] ?? 'ether1';
+    $firstInterface = $interfaces[0]['name'] ?? 'ether1';
     $trafficData = mikrotikMonitorTraffic($firstInterface);
     $trafficStats = [
         'tx' => $trafficData['tx'] ?? 0,
@@ -549,6 +549,42 @@ ob_start();
         <p style="color: var(--text-secondary); font-size: 0.85rem;">Selamat datang, pantau performa jaringan dan bisnis ISP Anda</p>
     </div>
 
+        <!-- Router Info Row -->
+    <div class="router-info-grid">
+        <div class="router-card">
+            <div class="router-icon" style="background: rgba(59, 130, 246, 0.1);"><i class="fas fa-microchip" style="color: var(--accent-blue);"></i></div>
+            <div class="router-info">
+                <div class="router-label">ROUTERBOARD</div>
+                <div class="router-value"><?php echo htmlspecialchars($routerResource['board-name']); ?></div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">v<?php echo htmlspecialchars($routerResource['version']); ?></div>
+            </div>
+        </div>
+        <div class="router-card">
+            <div class="router-icon" style="background: rgba(245, 158, 11, 0.1);"><i class="fas fa-chart-line" style="color: var(--accent-orange);"></i></div>
+            <div class="router-info">
+                <div class="router-label">CPU USAGE</div>
+                <div class="router-value"><?php echo $routerResource['cpu-load']; ?>%</div>
+                <div class="progress"><div class="progress-bar" style="width: <?php echo $routerResource['cpu-load']; ?>%; background: <?php echo $routerResource['cpu-load'] > 80 ? '#ef4444' : '#f59e0b'; ?>;"></div></div>
+            </div>
+        </div>
+        <div class="router-card">
+            <div class="router-icon" style="background: rgba(16, 185, 129, 0.1);"><i class="fas fa-memory" style="color: var(--accent-green);"></i></div>
+            <div class="router-info">
+                <div class="router-label">FREE RAM</div>
+                <div class="router-value"><?php echo formatBytes($routerResource['free-memory']); ?></div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">Uptime: <?php echo htmlspecialchars($routerResource['uptime']); ?></div>
+            </div>
+        </div>
+        <div class="router-card">
+            <div class="router-icon" style="background: rgba(6, 182, 212, 0.1);"><i class="fas fa-plug" style="color: var(--accent-cyan);"></i></div>
+            <div class="router-info">
+                <div class="router-label">MIKROTIK API</div>
+                <div class="router-value"><i class="fas fa-circle" style="color: #10b981; font-size: 0.6rem;"></i> Connected</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);"><?php echo htmlspecialchars(getSettingValue('MIKROTIK_HOST')); ?></div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Stats Grid -->
     <div class="stats-grid">
         <div class="stat-card">
@@ -581,6 +617,7 @@ ob_start();
         </div>
     </div>
 
+
     <!-- Alert Banner -->
     <?php if ($overdueInvoices > 0 || $dueSoonInvoices > 0): ?>
     <div class="alert-banner">
@@ -606,10 +643,30 @@ ob_start();
                 <i class="fas fa-chart-line"></i>
                 <span>Traffic Monitor</span>
             </div>
+            <?php
+                // Prefer SFP1-INTERNET if present, otherwise fall back to first available interface
+                $defaultInterface = 'SFP1-INTERNET';
+                $selectedName = '';
+                if (!empty($interfaces) && is_array($interfaces)) {
+                    foreach ($interfaces as $if) {
+                        $inameCheck = trim((string) ($if['name'] ?? ''));
+                        if (strcasecmp($inameCheck, $defaultInterface) === 0) {
+                            $selectedName = $if['name'];
+                            break;
+                        }
+                    }
+                    if ($selectedName === '') {
+                        $selectedName = $interfaces[0]['name'] ?? '';
+                    }
+                }
+            ?>
             <select id="interfaceSelector" class="interface-selector">
-                <?php foreach ($interfaces as $iface): ?>
-                    <option value="<?php echo htmlspecialchars($iface['name'] ?? ''); ?>">
-                        <?php echo htmlspecialchars($iface['name'] ?? ''); ?>
+                <?php foreach ($interfaces as $iface):
+                    $iname = $iface['name'] ?? '';
+                    $sel = ($iname !== '' && $iname === $selectedName) ? ' selected' : '';
+                ?>
+                    <option value="<?php echo htmlspecialchars($iname); ?>"<?php echo $sel; ?>>
+                        <?php echo htmlspecialchars($iname); ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -656,42 +713,25 @@ ob_start();
             <canvas id="trafficChart" style="width: 100%; height: 100%;"></canvas>
         </div>
     </div>
-
-    <!-- Router Info Row -->
-    <div class="router-info-grid">
-        <div class="router-card">
-            <div class="router-icon" style="background: rgba(59, 130, 246, 0.1);"><i class="fas fa-microchip" style="color: var(--accent-blue);"></i></div>
-            <div class="router-info">
-                <div class="router-label">ROUTERBOARD</div>
-                <div class="router-value"><?php echo htmlspecialchars($routerResource['board-name']); ?></div>
-                <div style="font-size: 0.7rem; color: var(--text-muted);">v<?php echo htmlspecialchars($routerResource['version']); ?></div>
-            </div>
+    <!-- PPPoE Log Card -->
+    <div class="card" style="margin-bottom:28px;">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-list"></i> PPPoE Log</h3>
+            <div style="margin-left: auto; color: var(--text-muted); font-size: 0.85rem;">Showing last <span id="pppoeLimit">20</span> entries</div>
         </div>
-        <div class="router-card">
-            <div class="router-icon" style="background: rgba(245, 158, 11, 0.1);"><i class="fas fa-chart-line" style="color: var(--accent-orange);"></i></div>
-            <div class="router-info">
-                <div class="router-label">CPU USAGE</div>
-                <div class="router-value"><?php echo $routerResource['cpu-load']; ?>%</div>
-                <div class="progress"><div class="progress-bar" style="width: <?php echo $routerResource['cpu-load']; ?>%; background: <?php echo $routerResource['cpu-load'] > 80 ? '#ef4444' : '#f59e0b'; ?>;"></div></div>
-            </div>
-        </div>
-        <div class="router-card">
-            <div class="router-icon" style="background: rgba(16, 185, 129, 0.1);"><i class="fas fa-memory" style="color: var(--accent-green);"></i></div>
-            <div class="router-info">
-                <div class="router-label">FREE RAM</div>
-                <div class="router-value"><?php echo formatBytes($routerResource['free-memory']); ?></div>
-                <div style="font-size: 0.7rem; color: var(--text-muted);">Uptime: <?php echo htmlspecialchars($routerResource['uptime']); ?></div>
-            </div>
-        </div>
-        <div class="router-card">
-            <div class="router-icon" style="background: rgba(6, 182, 212, 0.1);"><i class="fas fa-plug" style="color: var(--accent-cyan);"></i></div>
-            <div class="router-info">
-                <div class="router-label">MIKROTIK API</div>
-                <div class="router-value"><i class="fas fa-circle" style="color: #10b981; font-size: 0.6rem;"></i> Connected</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted);"><?php echo htmlspecialchars(getSettingValue('MIKROTIK_HOST')); ?></div>
+        <div class="card-body" style="padding: 12px 16px;">
+            <div style="max-height: 255px; overflow-y: auto;">
+                <table class="data-table" id="pppoeLogTable" style="table-layout: fixed; width: 100%;">
+                    <thead><tr><th style="width: 160px;">Time</th><th>Message</th></tr></thead>
+                    <tbody>
+                        <tr><td colspan="2" class="text-muted" style="text-align:center; padding: 40px;">Loading PPPoE logs…</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
+
+
 
     <!-- Quick Actions -->
     <div class="card" style="margin-bottom: 28px;">
@@ -930,6 +970,49 @@ ob_start();
             selector.addEventListener('change', function() { changeInterface(this.value); });
         }
     });
+
+    // PPPoE Log fetching
+    const PPPoE_LIMIT = 20;
+    function renderPppoeLogs(logs) {
+        const tbody = document.querySelector('#pppoeLogTable tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (!logs || logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2" class="text-muted" style="text-align:center; padding: 24px;">No PPPoE log entries</td></tr>';
+            return;
+        }
+        logs.forEach(l => {
+            const tr = document.createElement('tr');
+            const tdTime = document.createElement('td');
+            tdTime.style.verticalAlign = 'top';
+            tdTime.style.whiteSpace = 'nowrap';
+            tdTime.textContent = l.time || '';
+            const tdMsg = document.createElement('td');
+            tdMsg.style.whiteSpace = 'normal';
+            tdMsg.style.overflowWrap = 'anywhere';
+            tdMsg.textContent = l.message || '';
+            tr.appendChild(tdTime);
+            tr.appendChild(tdMsg);
+            tbody.appendChild(tr);
+        });
+    }
+
+    function fetchPppoeLogs() {
+        fetch('../api/pppoe-log.php?limit=' + PPPoE_LIMIT)
+            .then(r => r.json())
+            .then(data => {
+                renderPppoeLogs(data);
+                const el = document.getElementById('pppoeLimit'); if (el) el.textContent = PPPoE_LIMIT;
+            }).catch(e => {
+                console.error('PPPoE log fetch error', e);
+                const tbody = document.querySelector('#pppoeLogTable tbody');
+                if (tbody) tbody.innerHTML = '<tr><td colspan="2" class="text-muted" style="text-align:center; padding: 24px;">Error loading PPPoE logs</td></tr>';
+            });
+    }
+
+    // Start PPPoE log polling
+    fetchPppoeLogs();
+    setInterval(fetchPppoeLogs, 5000);
 </script>
 
 <?php
