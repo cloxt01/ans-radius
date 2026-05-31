@@ -25,7 +25,7 @@ if (function_exists('date_default_timezone_set')) {
 if (php_sapi_name() === 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
     runScheduler();
 } else if (php_sapi_name() !== 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
-    die("This script can only be run from CLI or authorized web runner")ove;
+    die("This script can only be run from CLI or authorized web runner");
 }
 
 /**
@@ -213,7 +213,6 @@ function runAutoIsolir($pdo)
             AND i2.due_date < CURDATE()
         )
     ");
-
 
     echo "Found " . count($overdueInvoices) . " overdue invoices\n";
 
