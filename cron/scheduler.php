@@ -19,7 +19,7 @@ if ($schedulerTimezone === '') {
 }
 if (function_exists('date_default_timezone_set')) {
     @date_default_timezone_set($schedulerTimezone);
-}
+} 
 
 // CLI Check - Only run if called directly from CLI
 if (php_sapi_name() === 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
