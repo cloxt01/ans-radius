@@ -21,21 +21,9 @@ $debugFile = __DIR__ . '/../logs/pppoe_log_debug.log';
 file_put_contents($debugFile, date('c') . " - pppoe-log start, limit={$limit}\n", FILE_APPEND);
 $startTime = microtime(true);
 
-file_put_contents($debugFile, date('c') . " - calling mikrotikGetHotspotLog\n", FILE_APPEND);
-$rawLogs = mikrotikGetHotspotLog(max(20, $limit * 3));
-file_put_contents($debugFile, date('c') . " - mikrotikGetHotspotLog returned " . (is_array($rawLogs) ? count($rawLogs) : 0) . " entries\n", FILE_APPEND);
-
-// Filter messages that contain 'pppoe' (case-insensitive)
-$logs = [];
-foreach ($rawLogs as $l) {
-    $msg = $l['message'] ?? '';
-    if ($msg !== '' && stripos($msg, 'pppoe') !== false) {
-        $logs[] = $l;
-    }
-}
-
-// Ensure we only return requested limit
-$logs = array_slice($logs, 0, $limit);
+file_put_contents($debugFile, date('c') . " - calling mikrotikGetPppoeLog\n", FILE_APPEND);
+$logs = mikrotikGetPppoeLog($limit);
+file_put_contents($debugFile, date('c') . " - mikrotikGetPppoeLog returned " . (is_array($logs) ? count($logs) : 0) . " entries\n", FILE_APPEND);
 
 $elapsed = microtime(true) - $startTime;
 file_put_contents($debugFile, date('c') . " - filtered " . count($logs) . " pppoe entries, elapsed=" . round($elapsed, 3) . "s\n", FILE_APPEND);
