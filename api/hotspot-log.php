@@ -10,19 +10,13 @@ requireAdminLogin();
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
 }
-header('Content-Type: application/json');
-
-// Debug log
-$debugFile = __DIR__ . '/../logs/hotspot_log_debug.log';
-file_put_contents($debugFile, date('c') . " - hotspot-log start, limit={$limit}\n", FILE_APPEND);
-$startTime = microtime(true);
-
-header('Content-Type: application/json');
-
 $limit = (int) ($_GET['limit'] ?? 20);
 if ($limit < 1 || $limit > 100) {
     $limit = 20;
 }
+$debugFile = __DIR__ . '/../logs/hotspot_log_debug.log';
+file_put_contents($debugFile, date('c') . " - hotspot-log start, limit={$limit}\n", FILE_APPEND);
+$startTime = microtime(true);
 
 file_put_contents($debugFile, date('c') . " - calling mikrotikGetHotspotLog\n", FILE_APPEND);
 $logs = mikrotikGetHotspotLog($limit);

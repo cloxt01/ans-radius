@@ -2168,110 +2168,35 @@ function mikrotikMonitorTraffic($interfaceName)
     ];
 }
 
-// Get Hotspot Log entries from MikroTik
 function mikrotikGetHotspotLog($limit = 20)
 {
     $socket = getMikrotikConnection();
-    if (!$socket)
-        return [];
+    if (!$socket) return [];
 
+    // Menggunakan pemisahan query beruntun untuk logika "OR" pada topik log
     mikrotikWrite($socket, '/log/print');
-    mikrotikWrite($socket, '?topics=hotspot,info,debug');
+    mikrotikWrite($socket, '?topics=hotspot');
     mikrotikWrite($socket, '');
 
-    $allWords = [];
-    $done = false;
-    $timeout = time() + 10;
+    $logs = mikrotikReadResponse($socket, 5);
 
-    while (!$done && time() < $timeout) {
-        $words = mikrotikReadSentence($socket);
-        if (empty($words))
-            break;
-        foreach ($words as $word) {
-            $allWords[] = $word;
-            if ($word === '!done') {
-                $done = true;
-                break;
-            }
-        }
-    }
-
-    $logs = [];
-    $current = [];
-    foreach ($allWords as $word) {
-        if ($word === '!re') {
-            if (!empty($current)) {
-                $logs[] = $current;
-            }
-            $current = [];
-        } elseif (strpos($word, '=') === 0) {
-            $word = substr($word, 1);
-            $parts = explode('=', $word, 2);
-            if (count($parts) === 2) {
-                $current[$parts[0]] = $parts[1];
-            }
-        }
-    }
-    if (!empty($current)) {
-        $logs[] = $current;
-    }
-
-    // Return last N entries in reverse order (newest first)
-    $logs = array_reverse($logs);
-    return array_slice($logs, 0, $limit);
+    // Balik urutan agar data terbaru berada di atas, lalu potong sesuai limit
+    return array_slice(array_reverse($logs), 0, $limit);
 }
+
 function mikrotikGetPppoeLog($limit = 20)
 {
     $socket = getMikrotikConnection();
-    if (!$socket)
-        return [];
+    if (!$socket) return [];
 
     mikrotikWrite($socket, '/log/print');
     mikrotikWrite($socket, '?topics=pppoe');
     mikrotikWrite($socket, '');
 
-    $allWords = [];
-    $done = false;
-    $timeout = time() + 10;
+    $logs = mikrotikReadResponse($socket, 5);
 
-    while (!$done && time() < $timeout) {
-        $words = mikrotikReadSentence($socket);
-        if (empty($words))
-            break;
-        foreach ($words as $word) {
-            $allWords[] = $word;
-            if ($word === '!done') {
-                $done = true;
-                break;
-            }
-        }
-    }
-
-    $logs = [];
-    $current = [];
-    foreach ($allWords as $word) {
-        if ($word === '!re') {
-            if (!empty($current)) {
-                $logs[] = $current;
-            }
-            $current = [];
-        } elseif (strpos($word, '=') === 0) {
-            $word = substr($word, 1);
-            $parts = explode('=', $word, 2);
-            if (count($parts) === 2) {
-                $current[$parts[0]] = $parts[1];
-            }
-        }
-    }
-    if (!empty($current)) {
-        $logs[] = $current;
-    }
-
-    // Return last N entries in reverse order (newest first)
-    $logs = array_reverse($logs);
-    return array_slice($logs, 0, $limit);
+    return array_slice(array_reverse($logs), 0, $limit);
 }
-
 // Get MikroTik Address Pools
 function mikrotikGetAddressPools()
 {
