@@ -6,6 +6,11 @@
 require_once '../includes/auth.php';
 requireAdminLogin();
 
+// Release session lock early so long-running MikroTik calls don't block other requests
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 header('Content-Type: application/json');
 
 $limit = (int) ($_GET['limit'] ?? 20);
