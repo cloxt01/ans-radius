@@ -2017,8 +2017,8 @@ function loadFormCreate(){
     // 5. Password dikunci langsung ke 1234 sesuai request
     document.getElementById('edit_pppoe_password').value = '1234'; 
     
-    // 6. Router ID & Tanggal Isolasi (TANPA LEADING ZERO)
-    document.getElementById('edit_router_id').value = 4;
+    // // 6. Router ID & Tanggal Isolasi (TANPA LEADING ZERO)
+    // document.getElementById('edit_router_id').value = 4;
     
     // --- PERBAIKAN: Gunakan dayOfMonth dari waktu lokal + 7 jam ---
     const isolationDayFromForm = formInputObject['tanggal isolir'] || formInputObject['tgl isolir'] || '';

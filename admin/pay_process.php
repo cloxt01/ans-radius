@@ -95,6 +95,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $pdo->commit();
+
+        // Update isolation date to next month
+        updateIsolationDateToNextMonth($id);
         
         // Send Notification (Optional)
         if (function_exists('sendWhatsApp') && !empty($customer['phone'])) {
