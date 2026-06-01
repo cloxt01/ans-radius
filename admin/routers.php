@@ -33,6 +33,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($action === 'add') {
+            $routerCount = fetchOne("SELECT COUNT(*) as total FROM routers")['total'] ?? 0;
+            
+            if ($routerCount === 0) {
+                $data['is_active'] = 1;
+            }
+            
             insert('routers', $data);
             setFlash('success', 'Router berhasil ditambahkan.');
         } else {

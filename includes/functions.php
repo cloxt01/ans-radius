@@ -929,7 +929,7 @@ function getActiveRouter()
     if (!tableExists('routers')) {
         return null;
     }
-    return fetchOne("SELECT * FROM routers WHERE active = 1 ORDER BY name ASC LIMIT 1");
+    return fetchOne("SELECT * FROM routers WHERE is_active = 1 ORDER BY name ASC");
 }
 function getAllRouters()
 {
