@@ -924,6 +924,13 @@ function getClientOvpnByUsername($username)
     }
     return null;
 }
+function getActiveRouter()
+{
+    if (!tableExists('routers')) {
+        return null;
+    }
+    return fetchOne("SELECT * FROM routers WHERE active = 1 ORDER BY name ASC LIMIT 1");
+}
 function getAllRouters()
 {
     if (!tableExists('routers')) {
@@ -2007,6 +2014,15 @@ function ensurePublicVoucherTables()
     }
 }
 
+function getInvoicesStatsThisMonth(){ 
+    $sql = "SELECT status, COUNT(*) as count 
+            FROM invoices 
+            WHERE MONTH(due_date) = MONTH(CURDATE()) 
+              AND YEAR(due_date) = YEAR(CURDATE()) 
+            GROUP BY status";
+            
+    return fetchAll($sql);
+}
 function ensureInvoiceNotificationTables()
 {
     static $checked = false;
