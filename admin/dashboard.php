@@ -957,47 +957,7 @@ ob_start();
             </div>
         </div>
 
-        <!-- LEFT: Top Klien -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">Top Klien</div>
-            </div>
-            <div class="card-body">
-                <?php 
-                $topClients = [
-                    ['name' => 'PT Maju', 'value' => 42000000],
-                    ['name' => 'CV Sejah.', 'value' => 32000000],
-                    ['name' => 'PT Karya', 'value' => 25000000],
-                    ['name' => 'Toko Mas', 'value' => 18000000],
-                ];
-                $maxClient = max(array_column($topClients, 'value'));
-                foreach ($topClients as $client): 
-                    $percent = $maxClient > 0 ? ($client['value'] / $maxClient * 100) : 0;
-                ?>
-                <div class="bar-row">
-                    <div class="bar-label" style="width:70px;"><?php echo $client['name']; ?></div>
-                    <div class="bar-track">
-                        <div class="bar-fill" style="width: <?php echo $percent; ?>%; background: #5DCAA5;"></div>
-                    </div>
-                    <div class="bar-value">Rp <?php echo number_format($client['value'], 0, ',', '.'); ?></div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
 
-        <!-- RIGHT: Waktu Pembayaran Rata-rata -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">Waktu Pembayaran Rata-rata</div>
-            </div>
-            <div class="card-body" style="text-align:center; padding:32px 20px;">
-                <div style="font-size:48px; font-weight:600; color:var(--text-primary); font-family:var(--font-serif);">8.4</div>
-                <div style="font-size:14px; color:var(--text-secondary); margin-top:6px;">hari rata-rata pelunasan</div>
-                <div style="margin-top:12px; font-size:13px; color:var(--accent-green);">
-                    <i class="fas fa-arrow-down"></i> Turun 2 hari dari bulan lalu
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- TABLES ROW -->
@@ -1076,6 +1036,7 @@ ob_start();
         const i = Math.floor(Math.log(b) / Math.log(1024));
         return parseFloat((b / Math.pow(1024, i)).toFixed(2)) + ' ' + u[i];
     }
+    
     function formatBits(b) {
         if (b === 0) return '0 bps';
         const u = ['bps','Kbps','Mbps','Gbps'];
@@ -1083,232 +1044,256 @@ ob_start();
         return parseFloat((b / Math.pow(1024, i)).toFixed(1)) + ' ' + u[i];
     }
 
-    // ── Revenue Bar Chart ──────────────────────────────────────
-    const rBarCtx = document.getElementById('revenueBarChart').getContext('2d');
-    new Chart(rBarCtx, {
-        type: 'bar',
-        data: {
-            labels: <?php echo json_encode(array_column($monthlyData, 'month')); ?>,
-            datasets: [{
-                label: 'Pendapatan',
-                data: <?php echo json_encode(array_column($monthlyData, 'revenue')); ?>,
-                backgroundColor: '#1D9E75',
-                borderRadius: 6,
-                barPercentage: 0.6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(ctx) {
-                            return 'Rp ' + ctx.parsed.y.toLocaleString('id-ID');
+    // ── Initialize all charts ─────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        // ── Revenue Bar Chart ──────────────────────────────────
+        const rBarCtx = document.getElementById('revenueBarChart');
+        if (rBarCtx) {
+            new Chart(rBarCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: <?php echo json_encode(array_column($monthlyData, 'month')); ?>,
+                    datasets: [{
+                        label: 'Pendapatan',
+                        data: <?php echo json_encode(array_column($monthlyData, 'revenue')); ?>,
+                        backgroundColor: '#1D9E75',
+                        borderRadius: 6,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    return 'Rp ' + ctx.parsed.y.toLocaleString('id-ID');
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return 'Rp ' + value.toLocaleString('id-ID');
+                                },
+                                color: '#a0a0b0'
+                            },
+                            grid: {
+                                color: 'rgba(255,255,255,0.06)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#a0a0b0'
+                            },
+                            grid: { display: false }
                         }
                     }
                 }
-            },
-            scales: {
-                y: {
-                    ticks: {
-                        callback: function(value) {
-                            return 'Rp ' + value.toLocaleString('id-ID');
-                        },
-                        color: '#a0a0b0'
-                    },
-                    grid: {
-                        color: 'rgba(255,255,255,0.06)'
-                    }
-                },
-                x: {
-                    ticks: {
-                        color: '#a0a0b0'
-                    },
-                    grid: { display: false }
-                }
-            }
-        }
-    });
-
-    // ── Customer Chart ───────────────────────────────────────
-    const cCtx = document.getElementById('customerChart').getContext('2d');
-    new Chart(cCtx, {
-        type: 'bar',
-        data: {
-            labels: <?php echo json_encode(array_column($monthlyData, 'month')); ?>,
-            datasets: [{
-                label: 'Pelanggan Baru',
-                data: <?php echo json_encode(array_column($monthlyData, 'count')); ?>,
-                backgroundColor: '#8b5cf6',
-                borderRadius: 6,
-                barPercentage: 0.6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    ticks: { stepSize: 1, color: '#a0a0b0' },
-                    grid: { color: 'rgba(255,255,255,0.06)' }
-                },
-                x: {
-                    ticks: { color: '#a0a0b0' },
-                    grid: { display: false }
-                }
-            }
-        }
-    });
-
-    // ── Traffic Chart ────────────────────────────────────────
-    let trafficChart;
-    const MAX_POINTS = 20;
-    let currentInterface = document.getElementById('interfaceSelector')?.value || 'ether1';
-
-    function initTraffic() {
-        const ctx = document.getElementById('trafficChart').getContext('2d');
-        trafficChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [
-                    { 
-                        label: 'Upload (Tx)', 
-                        data: [], 
-                        borderColor: '#10b981', 
-                        backgroundColor: 'rgba(16,185,129,0.05)', 
-                        borderWidth: 2, 
-                        fill: true, 
-                        tension: 0.3, 
-                        pointRadius: 0 
-                    },
-                    { 
-                        label: 'Download (Rx)', 
-                        data: [], 
-                        borderColor: '#f59e0b', 
-                        backgroundColor: 'rgba(245,158,11,0.05)', 
-                        borderWidth: 2, 
-                        fill: true, 
-                        tension: 0.3, 
-                        pointRadius: 0 
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    tooltip: {
-                        callbacks: { label: ctx => `${ctx.dataset.label}: ${formatBits(ctx.parsed.y)}` }
-                    },
-                    legend: {
-                        labels: { color: '#a0a0b0', usePointStyle: true, font: { size: 11 } }
-                    }
-                },
-                scales: {
-                    y: {
-                        ticks: { callback: v => formatBits(v), color: '#a0a0b0' },
-                        grid: { color: 'rgba(255,255,255,0.06)' }
-                    },
-                    x: {
-                        ticks: { color: '#a0a0b0', maxRotation: 45 },
-                        grid: { display: false }
-                    }
-                }
-            }
-        });
-    }
-
-    function fetchTraffic() {
-        fetch('../api/traffic.php?interface=' + encodeURIComponent(currentInterface))
-            .then(r => r.json())
-            .then(d => {
-                if (!d || d.length < 2) return;
-                const label = new Date().toLocaleTimeString('id-ID');
-                const tx = parseInt(d[0].data) || 0, rx = parseInt(d[1].data) || 0;
-                const totalTx = parseInt(d[0].total) || 0, totalRx = parseInt(d[1].total) || 0;
-                
-                document.getElementById('txSpeed').textContent = formatBits(tx);
-                document.getElementById('rxSpeed').textContent = formatBits(rx);
-                document.getElementById('totalTx').textContent = formatBytes(totalTx);
-                document.getElementById('totalRx').textContent = formatBytes(totalRx);
-                
-                trafficChart.data.labels.push(label);
-                trafficChart.data.datasets[0].data.push(tx);
-                trafficChart.data.datasets[1].data.push(rx);
-                
-                if (trafficChart.data.labels.length > MAX_POINTS) {
-                    trafficChart.data.labels.shift();
-                    trafficChart.data.datasets[0].data.shift();
-                    trafficChart.data.datasets[1].data.shift();
-                }
-                trafficChart.update('none');
-            }).catch(e => console.error('Traffic error:', e));
-    }
-
-    const PPPoE_LIMIT = 20;
-    function renderPppoeLogs(logs) {
-        const tbody = document.querySelector('#pppoeLogTable tbody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        if (!logs || logs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 24px; color: var(--text-muted);">No PPPoE log entries</td></tr>';
-            return;
-        }
-        logs.forEach(l => {
-            const tr = document.createElement('tr');
-            const tdTime = document.createElement('td');
-            tdTime.style.verticalAlign = 'top';
-            tdTime.style.whiteSpace = 'nowrap';
-            tdTime.textContent = l.time || '';
-            const tdMsg = document.createElement('td');
-            tdMsg.style.whiteSpace = 'normal';
-            tdMsg.style.overflowWrap = 'anywhere';
-            tdMsg.textContent = l.message || '';
-            tr.appendChild(tdTime);
-            tr.appendChild(tdMsg);
-            tbody.appendChild(tr);
-        });
-    }
-
-    function fetchPppoeLogs() {
-        fetch('../api/pppoe-log.php?limit=' + PPPoE_LIMIT)
-            .then(r => r.json())
-            .then(data => {
-                renderPppoeLogs(data);
-                const el = document.getElementById('pppoeLimit'); 
-                if (el) el.textContent = PPPoE_LIMIT;
-            }).catch(e => {
-                console.error('PPPoE log fetch error', e);
-                const tbody = document.querySelector('#pppoeLogTable tbody');
-                if (tbody) tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 24px; color: var(--text-muted);">Error loading PPPoE logs</td></tr>';
             });
-    }
+        }
 
-    // Start PPPoE log polling
-    fetchPppoeLogs();
-    setInterval(fetchPppoeLogs, 5000);
+        // ── Customer Chart ─────────────────────────────────────
+        const cCtx = document.getElementById('customerChart');
+        if (cCtx) {
+            new Chart(cCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: <?php echo json_encode(array_column($monthlyData, 'month')); ?>,
+                    datasets: [{
+                        label: 'Pelanggan Baru',
+                        data: <?php echo json_encode(array_column($monthlyData, 'count')); ?>,
+                        backgroundColor: '#8b5cf6',
+                        borderRadius: 6,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            ticks: { stepSize: 1, color: '#a0a0b0' },
+                            grid: { color: 'rgba(255,255,255,0.06)' }
+                        },
+                        x: {
+                            ticks: { color: '#a0a0b0' },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
 
-    // ── Init ──────────────────────────────────────────────────
-    document.addEventListener('DOMContentLoaded', function() {
+        // ── Traffic Monitor ────────────────────────────────────
+        let trafficChart;
+        const MAX_POINTS = 20;
+        let currentInterface = document.getElementById('interfaceSelector')?.value || 'ether1';
+
+        function initTraffic() {
+            const ctx = document.getElementById('trafficChart');
+            if (!ctx) {
+                console.warn('Element #trafficChart tidak ditemukan');
+                return;
+            }
+            trafficChart = new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { 
+                            label: 'Upload (Tx)', 
+                            data: [], 
+                            borderColor: '#10b981', 
+                            backgroundColor: 'rgba(16, 185, 129, 0.05)', 
+                            borderWidth: 2, 
+                            fill: true, 
+                            tension: 0.3, 
+                            pointRadius: 0 
+                        },
+                        { 
+                            label: 'Download (Rx)', 
+                            data: [], 
+                            borderColor: '#f59e0b', 
+                            backgroundColor: 'rgba(245, 158, 11, 0.05)', 
+                            borderWidth: 2, 
+                            fill: true, 
+                            tension: 0.3, 
+                            pointRadius: 0 
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    return ctx.dataset.label + ': ' + formatBits(ctx.parsed.y);
+                                }
+                            }
+                        },
+                        legend: {
+                            labels: { color: '#a0a0b0', usePointStyle: true }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { callback: function(v) { return formatBits(v); }, color: '#a0a0b0' },
+                            grid: { color: 'rgba(255,255,255,0.06)' }
+                        },
+                        x: {
+                            ticks: { color: '#a0a0b0', maxRotation: 45 },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function fetchTraffic() {
+            fetch('../api/traffic.php?interface=' + encodeURIComponent(currentInterface))
+                .then(r => r.json())
+                .then(d => {
+                    if (!d || d.length < 2) return;
+                    
+                    const now = new Date();
+                    const label = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    const tx = parseInt(d[0].data) || 0;
+                    const rx = parseInt(d[1].data) || 0;
+                    const totalTx = parseInt(d[0].total) || 0;
+                    const totalRx = parseInt(d[1].total) || 0;
+                    
+                    // Update stats display
+                    document.getElementById('txSpeed').innerText = formatBits(tx);
+                    document.getElementById('rxSpeed').innerText = formatBits(rx);
+                    document.getElementById('totalTx').innerText = formatBytes(totalTx);
+                    document.getElementById('totalRx').innerText = formatBytes(totalRx);
+                    
+                    trafficChart.data.labels.push(label);
+                    trafficChart.data.datasets[0].data.push(tx);
+                    trafficChart.data.datasets[1].data.push(rx);
+                    
+                    if (trafficChart.data.labels.length > MAX_POINTS) {
+                        trafficChart.data.labels.shift();
+                        trafficChart.data.datasets[0].data.shift();
+                        trafficChart.data.datasets[1].data.shift();
+                    }
+                    trafficChart.update('none');
+                }).catch(e => console.error('Traffic error:', e));
+        }
+
+        function changeInterface(iface) {
+            currentInterface = iface;
+            trafficChart.data.labels = [];
+            trafficChart.data.datasets[0].data = [];
+            trafficChart.data.datasets[1].data = [];
+            trafficChart.update('none');
+            fetchTraffic();
+        }
+
+        // ── PPPoE Log ──────────────────────────────────────────
+        const PPPoE_LIMIT = 20;
+        function renderPppoeLogs(logs) {
+            const tbody = document.querySelector('#pppoeLogTable tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="text-muted" style="text-align:center; padding: 24px;">No PPPoE log entries</td></tr>';
+                return;
+            }
+            logs.forEach(l => {
+                const tr = document.createElement('tr');
+                const tdTime = document.createElement('td');
+                tdTime.style.verticalAlign = 'top';
+                tdTime.style.whiteSpace = 'nowrap';
+                tdTime.textContent = l.time || '';
+                const tdMsg = document.createElement('td');
+                tdMsg.style.whiteSpace = 'normal';
+                tdMsg.style.overflowWrap = 'anywhere';
+                tdMsg.textContent = l.message || '';
+                tr.appendChild(tdTime);
+                tr.appendChild(tdMsg);
+                tbody.appendChild(tr);
+            });
+        }
+
+        function fetchPppoeLogs() {
+            fetch('../api/pppoe-log.php?limit=' + PPPoE_LIMIT)
+                .then(r => r.json())
+                .then(data => {
+                    renderPppoeLogs(data);
+                    const el = document.getElementById('pppoeLimit');
+                    if (el) el.textContent = PPPoE_LIMIT;
+                }).catch(e => {
+                    console.error('PPPoE log fetch error', e);
+                    const tbody = document.querySelector('#pppoeLogTable tbody');
+                    if (tbody) tbody.innerHTML = '<tr><td colspan="2" class="text-muted" style="text-align:center; padding: 24px;">Error loading PPPoE logs</td></tr>';
+                });
+        }
+
+        // ── Start everything ──────────────────────────────────
         initTraffic();
         fetchTraffic();
         setInterval(fetchTraffic, 3000);
         
-        document.getElementById('interfaceSelector')?.addEventListener('change', function() {
-            currentInterface = this.value;
-            trafficChart.data.labels = [];
-            trafficChart.data.datasets.forEach(ds => ds.data = []);
-            trafficChart.update('none');
-            fetchTraffic();
-        });
+        const selector = document.getElementById('interfaceSelector');
+        if (selector) {
+            selector.addEventListener('change', function() { changeInterface(this.value); });
+        }
+        
+        fetchPppoeLogs();
+        setInterval(fetchPppoeLogs, 5000);
     });
 </script>
-
 <?php
 $content = ob_get_clean();
 require_once '../includes/layout.php';
