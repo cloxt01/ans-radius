@@ -281,7 +281,7 @@ function renderInvoiceStatusBadges(array $invoice)
     }
 
     $dueDate = !empty($invoice['due_date']) ? substr((string) $invoice['due_date'], 0, 10) : '';
-    $isOverdue = $dueDate !== '' && $dueDate < date('Y-m-d');
+    $isOverdue = $dueDate !== '' && $dueDate <= date('Y-m-d');
 
     return '<span class="badge badge-warning"><i class="fas fa-hourglass-half"></i> Belum Bayar</span>'
         . ($isOverdue
@@ -539,7 +539,7 @@ ob_start();
                 <tr>
                     <th>No. Invoice</th>
                     <th>Pelanggan</th>
-                    <th>Periode</th>
+                    <th>Tgl dibuat</th>
                     <th>Jumlah</th>
                     <th>Status</th>
                     <th>Jatuh Tempo</th>

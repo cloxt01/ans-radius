@@ -416,7 +416,7 @@ if ($customersTableExists) {
         " . implode("\n        ", $joinParts) . "
         $whereSql
         GROUP BY c.id
-        ORDER BY COALESCE(c.updated_at, c.created_at) DESC, c.id DESC
+        ORDER BY COALESCE(c.updated_at) DESC, c.id DESC
         LIMIT $perPage OFFSET $offset
     ", $whereParams);
     
