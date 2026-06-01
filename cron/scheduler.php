@@ -248,6 +248,8 @@ function runAutoInvoice($pdo)
     }
 
     $currentMonth = date('Y-m');
+    $firstDayOfMonth = $currentMonth . '-01';
+    $lastDayOfMonth = date('Y-m-t', strtotime($firstDayOfMonth));
     $generatedCount = 0;
 
     // Get all active customers
@@ -256,19 +258,20 @@ function runAutoInvoice($pdo)
     echo "Found " . count($customers) . " active customers\n";
 
     foreach ($customers as $customer) {
-        // Check if invoice already exists for this month
+        // Cek apakah sudah ada invoice untuk bulan ini berdasarkan due_date
         $existingInvoice = fetchOne("
             SELECT id FROM invoices 
             WHERE customer_id = ? 
-            AND DATE_FORMAT(created_at, '%Y-%m') = ?",
-            [$customer['id'], $currentMonth]
+            AND due_date BETWEEN ? AND ?
+            AND status != 'cancelled'",
+            [$customer['id'], $firstDayOfMonth, $lastDayOfMonth]
         );
 
         if (!$existingInvoice) {
             $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
 
             if ($package) {
-                $dueDate = getCustomerDueDate($customer, $currentMonth . '-01');
+                $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
                 $invoiceData = [
                     'invoice_number' => generateInvoiceNumber(),
                     'customer_id' => $customer['id'],
@@ -282,6 +285,8 @@ function runAutoInvoice($pdo)
                 $generatedCount++;
                 echo "  ✓ Generated invoice for: {$customer['name']}\n";
             }
+        } else {
+            echo "  ✗ Invoice already exists for: {$customer['name']}\n";
         }
     }
 
