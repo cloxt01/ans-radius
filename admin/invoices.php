@@ -20,20 +20,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $customers = fetchAll("SELECT * FROM customers WHERE status = 'active'");
                 $generatedCount = 0;
                 $currentMonth = date('Y-m');
+                $firstDayOfMonth = $currentMonth . '-01';
+                $lastDayOfMonth = date('Y-m-t', strtotime($firstDayOfMonth));
                 
                 foreach ($customers as $customer) {
+                    // Cek berdasarkan due_date dalam rentang bulan ini
                     $existingInvoice = fetchOne("
                         SELECT id FROM invoices 
                         WHERE customer_id = ? 
-                        AND DATE_FORMAT(created_at, '%Y-%m') = ?",
-                        [$customer['id'], $currentMonth]
+                        AND due_date BETWEEN ? AND ?
+                        AND status != 'cancelled'",
+                        [$customer['id'], $firstDayOfMonth, $lastDayOfMonth]
                     );
                     
                     if (!$existingInvoice) {
                         $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
                         
                         if ($package) {
-                            $dueDate = getCustomerDueDate($customer, $currentMonth . '-01');
+                            $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
                             $invoiceData = [
                                 'invoice_number' => generateInvoiceNumber(),
                                 'customer_id' => $customer['id'],
