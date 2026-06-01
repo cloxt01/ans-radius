@@ -1,7 +1,7 @@
 ﻿<?php
 /**
- * Layout Template - Elegant Dark Minimalis Theme
- * Base layout for all pages
+ * Layout Template - Anthropic Style
+ * Base layout for all pages dengan gaya Anthropic
  */
 
 require_once __DIR__ . '/config.php';
@@ -42,122 +42,266 @@ if (isset($_GET['switch_router'])) {
     <title><?php echo htmlspecialchars($pageTitle); ?> - <?php echo htmlspecialchars($appName); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($pageDescription); ?>">
 
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <!-- Anthropic Fonts -->
+    <link rel="preconnect" href="https://assets.claude.ai">
+    <style>
+        /* ── Anthropic Fonts ─────────────────────────────────────────── */
+        @font-face {
+            font-family: "Anthropic Sans";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-Regular-Static.otf") format("opentype");
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Sans";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-RegularItalic-Static.otf") format("opentype");
+            font-weight: 400;
+            font-style: italic;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Sans";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-Medium-Static.otf") format("opentype");
+            font-weight: 500;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Sans";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-MediumItalic-Static.otf") format("opentype");
+            font-weight: 500;
+            font-style: italic;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Sans";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-Semibold-Static.otf") format("opentype");
+            font-weight: 600;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Sans";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-SemiboldItalic-Static.otf") format("opentype");
+            font-weight: 600;
+            font-style: italic;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Sans";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-Bold-Static.otf") format("opentype");
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Sans";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-BoldItalic-Static.otf") format("opentype");
+            font-weight: 700;
+            font-style: italic;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Serif";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSerif-Text-Regular-Static.otf") format("opentype");
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Serif";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSerif-Text-RegularItalic-Static.otf") format("opentype");
+            font-weight: 400;
+            font-style: italic;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Serif";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSerif-Text-Medium-Static.otf") format("opentype");
+            font-weight: 500;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Serif";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSerif-Text-MediumItalic-Static.otf") format("opentype");
+            font-weight: 500;
+            font-style: italic;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Serif";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSerif-Text-Semibold-Static.otf") format("opentype");
+            font-weight: 600;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Serif";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSerif-Text-SemiboldItalic-Static.otf") format("opentype");
+            font-weight: 600;
+            font-style: italic;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Serif";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSerif-Text-Bold-Static.otf") format("opentype");
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Anthropic Serif";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSerif-Text-BoldItalic-Static.otf") format("opentype");
+            font-weight: 700;
+            font-style: italic;
+            font-display: swap;
+        }
+    </style>
 
-    <!-- Font Awesome -->
-    <link rel="apple-touch-icon" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
+    <!-- Tabler Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.42.0/dist/tabler-icons.min.css">
+
+    <!-- Font Awesome (fallback) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- DataTables CSS -->
+    <!-- Simple DataTables -->
     <link href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.css" rel="stylesheet" type="text/css">
 
     <style>
+        /* ── Anthropic Theme Variables ──────────────────────────────────── */
         :root {
-            /* GitHub Dark Theme */
-            --bg-canvas: #0d1117;
-            --bg-primary: #0d1117;
-            --bg-secondary: #161b22;
-            --bg-tertiary: #21262d;
-            --bg-card: #161b22;
-            --bg-sidebar: rgba(13, 17, 23, 0.95);
-            --bg-inset: #010409;
+            /* Color scheme */
+            --color-scheme: dark;
             
-            --text-primary: #c9d1d9;
-            --text-secondary: #8b949e;
-            --text-muted: #6e7681;
-            --text-link: #58a6ff;
+            /* Backgrounds */
+            --color-background-primary: #0f0f14;
+            --color-background-secondary: #14141c;
+            --color-background-tertiary: #1a1a24;
+            --color-background-card: rgba(26, 26, 36, 0.88);
+            --color-background-hover: rgba(255, 255, 255, 0.04);
+            --color-background-inverse: #e8e8f0;
             
-            --border-color: #30363d;
-            --border-light: #21262d;
+            /* Text */
+            --color-text-primary: #e8e8f0;
+            --color-text-secondary: #a0a0b0;
+            --color-text-tertiary: #6c6c7a;
+            --color-text-inverse: #0f0f14;
             
-            --accent-blue: #58a6ff;
-            --accent-green: #3fb950;
-            --accent-red: #f85149;
-            --accent-orange: #d29922;
-            --accent-purple: #bc8cff;
-            --accent-pink: #db61a2;
+            /* Borders */
+            --color-border-primary: rgba(255, 255, 255, 0.12);
+            --color-border-secondary: rgba(255, 255, 255, 0.08);
+            --color-border-tertiary: rgba(255, 255, 255, 0.04);
             
-            --gradient-primary: linear-gradient(135deg, #58a6ff 0%, #1f6feb 100%);
-            --gradient-success: linear-gradient(135deg, #3fb950 0%, #2ea043 100%);
-            --gradient-warning: linear-gradient(135deg, #d29922 0%, #9e6a03 100%);
-            --gradient-error: linear-gradient(135deg, #f85149 0%, #c41c00 100%);
+            /* Accents - Anthropic palette */
+            --color-accent-blue: #58a6ff;
+            --color-accent-cyan: #06b6d4;
+            --color-accent-green: #10b981;
+            --color-accent-orange: #f59e0b;
+            --color-accent-red: #ef4444;
+            --color-accent-purple: #8b5cf6;
+            --color-accent-pink: #ec4899;
+            --color-accent-teal: #1D9E75;
             
-            --shadow-sm: 0 1px 0 rgba(0,0,0,0.2);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
-            --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+            /* Status colors */
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+            --color-info: #58a6ff;
             
+            /* Fonts */
+            --font-sans: "Anthropic Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --font-serif: "Anthropic Serif", Georgia, "Times New Roman", serif;
+            --font-mono: ui-monospace, monospace;
+            
+            /* Radius */
             --radius-sm: 6px;
             --radius-md: 8px;
             --radius-lg: 12px;
+            --radius-xl: 16px;
+            --radius-full: 9999px;
             
-            --sidebar-width: 260px;
+            /* Shadows */
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
             
+            /* Transitions */
             --transition-fast: 0.1s ease;
             --transition-base: 0.2s ease;
+            --transition-slow: 0.3s ease;
+            
+            /* Layout */
+            --sidebar-width: 260px;
         }
 
+        /* ── Reset ────────────────────────────────────────────────────────── */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        /* ── Scrollbar ────────────────────────────────────────────────────── */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--color-background-primary);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--color-border-secondary);
+            border-radius: var(--radius-full);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--color-text-tertiary);
+        }
+
+        /* ── Body ──────────────────────────────────────────────────────────── */
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--bg-canvas);
-            color: var(--text-primary);
+            font-family: var(--font-sans);
+            background: var(--color-background-primary);
+            color: var(--color-text-primary);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
             min-height: 100vh;
             line-height: 1.5;
             font-size: 14px;
         }
 
-        /* Custom Scrollbar - GitHub Style */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--bg-primary);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
-
+        /* ── Links ─────────────────────────────────────────────────────────── */
         a {
-            color: var(--text-link);
+            color: var(--color-accent-blue);
             text-decoration: none;
             transition: color var(--transition-fast);
         }
-
         a:hover {
-            text-decoration: underline;
+            text-decoration: none;
+            color: var(--color-text-primary);
         }
 
-        /* Sidebar - GitHub Style */
+        /* ── Sidebar ───────────────────────────────────────────────────────── */
         .sidebar {
             position: fixed;
             left: 0;
             top: 0;
             width: var(--sidebar-width);
             height: 100vh;
-            background: var(--bg-sidebar);
-            border-right: 1px solid var(--border-color);
+            background: var(--color-background-secondary);
+            border-right: 0.5px solid var(--color-border-secondary);
             z-index: 1000;
             transition: transform var(--transition-base);
             display: flex;
             flex-direction: column;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
 
         .sidebar-header {
             padding: 20px 16px;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 0.5px solid var(--color-border-secondary);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -173,8 +317,8 @@ if (isset($_GET['switch_router'])) {
         }
 
         .sidebar-brand-logo {
-            width: 64px;
-            height: 64px;
+            width: 48px;
+            height: 48px;
             display: block;
             filter: brightness(0) invert(1);
             transition: filter var(--transition-fast);
@@ -185,13 +329,15 @@ if (isset($_GET['switch_router'])) {
         }
 
         .sidebar-brand-text {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-primary);
+            font-family: var(--font-serif);
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--color-text-primary);
+            letter-spacing: -0.02em;
         }
 
         .sidebar-nav {
-            padding: 16px 8px;
+            padding: 16px 12px;
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
@@ -202,10 +348,10 @@ if (isset($_GET['switch_router'])) {
         }
 
         .nav-section-title {
-            padding: 8px 12px;
-            font-size: 12px;
+            padding: 4px 12px 8px;
+            font-size: 11px;
             font-weight: 600;
-            color: var(--text-muted);
+            color: var(--color-text-tertiary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -213,25 +359,25 @@ if (isset($_GET['switch_router'])) {
         .menu-item {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             padding: 8px 12px;
             margin: 2px 0;
             border-radius: var(--radius-sm);
-            color: var(--text-secondary);
+            color: var(--color-text-secondary);
             transition: all var(--transition-fast);
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
         }
 
         .menu-item:hover {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
+            background: var(--color-background-hover);
+            color: var(--color-text-primary);
         }
 
         .menu-item.active {
-            background: var(--bg-tertiary);
-            color: var(--text-link);
+            background: rgba(88, 166, 255, 0.08);
+            color: var(--color-accent-blue);
         }
 
         .menu-item i {
@@ -240,13 +386,28 @@ if (isset($_GET['switch_router'])) {
             text-align: center;
         }
 
-        /* Main Content */
+        .menu-item .submenu-arrow {
+            margin-left: auto;
+            font-size: 10px;
+            transition: transform var(--transition-fast);
+        }
+
+        .submenu {
+            padding-left: 32px;
+            display: none;
+        }
+
+        .submenu.open {
+            display: block;
+        }
+
+        /* ── Main Content ──────────────────────────────────────────────────── */
         .main-content {
             margin-left: var(--sidebar-width);
             min-height: 100vh;
         }
 
-        /* Header - GitHub Style */
+        /* ── Header ────────────────────────────────────────────────────────── */
         .header {
             position: sticky;
             top: 0;
@@ -254,15 +415,19 @@ if (isset($_GET['switch_router'])) {
             justify-content: space-between;
             align-items: center;
             padding: 16px 24px;
-            background: var(--bg-primary);
-            border-bottom: 1px solid var(--border-color);
+            background: rgba(15, 15, 20, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 0.5px solid var(--color-border-secondary);
             z-index: 100;
         }
 
         .header-title h1 {
+            font-family: var(--font-serif);
             font-size: 20px;
-            font-weight: 600;
-            letter-spacing: -0.3px;
+            font-weight: 500;
+            letter-spacing: -0.03em;
+            color: var(--color-text-primary);
         }
 
         .header-actions {
@@ -271,17 +436,27 @@ if (isset($_GET['switch_router'])) {
             align-items: center;
         }
 
-        /* Cards - GitHub Style */
+        /* ── Page Content ──────────────────────────────────────────────────── */
+        .page-content {
+            padding: 24px;
+        }
+
+        /* ── Cards ──────────────────────────────────────────────────────────── */
         .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
+            background: var(--color-background-card);
+            border: 0.5px solid var(--color-border-secondary);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             margin-bottom: 16px;
-            transition: border-color var(--transition-fast);
+            transition: all var(--transition-base);
+            overflow: hidden;
         }
 
         .card:hover {
-            border-color: var(--text-muted);
+            border-color: rgba(88, 166, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }
 
         .card-header {
@@ -289,70 +464,82 @@ if (isset($_GET['switch_router'])) {
             justify-content: space-between;
             align-items: center;
             padding: 16px 20px;
-            border-bottom: 1px solid var(--border-light);
+            border-bottom: 0.5px solid var(--color-border-secondary);
         }
 
         .card-title {
             font-size: 14px;
             font-weight: 600;
-            color: var(--text-primary);
+            color: var(--color-text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title i {
+            color: var(--color-accent-blue);
         }
 
         .card-body {
             padding: 20px;
         }
 
-        /* Stats Grid */
+        /* ── Stats Grid ────────────────────────────────────────────────────── */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
 
         .stat-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
+            background: var(--color-background-card);
+            border: 0.5px solid var(--color-border-secondary);
+            border-radius: var(--radius-lg);
             padding: 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            transition: border-color var(--transition-fast);
+            transition: all var(--transition-base);
         }
 
         .stat-card:hover {
-            border-color: var(--text-muted);
+            border-color: rgba(88, 166, 255, 0.2);
+            transform: translateY(-2px);
         }
 
         .stat-info h3 {
+            font-family: var(--font-serif);
             font-size: 28px;
             font-weight: 600;
-            margin-bottom: 4px;
+            letter-spacing: -0.03em;
+            color: var(--color-text-primary);
+            margin-bottom: 2px;
         }
 
         .stat-info p {
-            color: var(--text-secondary);
+            color: var(--color-text-secondary);
             font-size: 12px;
+            font-weight: 500;
         }
 
         .stat-icon {
-            width: 48px;
-            height: 48px;
+            width: 44px;
+            height: 44px;
             border-radius: var(--radius-md);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 20px;
         }
 
-        .stat-icon.blue { color: var(--accent-blue); background: rgba(88, 166, 255, 0.1); }
-        .stat-icon.green { color: var(--accent-green); background: rgba(63, 185, 80, 0.1); }
-        .stat-icon.red { color: var(--accent-red); background: rgba(248, 81, 73, 0.1); }
-        .stat-icon.orange { color: var(--accent-orange); background: rgba(210, 153, 34, 0.1); }
-        .stat-icon.purple { color: var(--accent-purple); background: rgba(188, 140, 255, 0.1); }
+        .stat-icon.blue { color: var(--color-accent-blue); background: rgba(88, 166, 255, 0.1); }
+        .stat-icon.green { color: var(--color-accent-green); background: rgba(16, 185, 129, 0.1); }
+        .stat-icon.red { color: var(--color-accent-red); background: rgba(239, 68, 68, 0.1); }
+        .stat-icon.orange { color: var(--color-accent-orange); background: rgba(245, 158, 11, 0.1); }
+        .stat-icon.purple { color: var(--color-accent-purple); background: rgba(139, 92, 246, 0.1); }
 
-        /* Buttons - GitHub Style */
+        /* ── Buttons ────────────────────────────────────────────────────────── */
         .btn {
             padding: 6px 16px;
             border-radius: var(--radius-sm);
@@ -363,159 +550,178 @@ if (isset($_GET['switch_router'])) {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            border: 1px solid;
+            border: 0.5px solid var(--color-border-secondary);
             background: transparent;
+            color: var(--color-text-primary);
+            font-family: var(--font-sans);
+        }
+
+        .btn:hover {
+            background: var(--color-background-hover);
+            border-color: var(--color-border-primary);
         }
 
         .btn-primary {
-            background: var(--gradient-primary);
-            border-color: rgba(88, 166, 255, 0.3);
-            color: #fff;
+            background: var(--color-accent-blue);
+            border-color: var(--color-accent-blue);
+            color: var(--color-text-inverse);
         }
 
         .btn-primary:hover {
-            background: #1f6feb;
-            border-color: var(--accent-blue);
-        }
-
-        .btn-secondary {
-            border-color: var(--border-color);
-            color: var(--text-primary);
-        }
-
-        .btn-secondary:hover {
-            background: var(--bg-tertiary);
-            border-color: var(--text-muted);
+            background: #4a8fe0;
+            border-color: #4a8fe0;
         }
 
         .btn-success {
-            background: var(--gradient-success);
-            border-color: rgba(63, 185, 80, 0.3);
-            color: #fff;
-        }
-
-        .btn-error {
-            background: var(--gradient-error);
-            border-color: rgba(248, 81, 73, 0.3);
-            color: #fff;
+            background: var(--color-accent-green);
+            border-color: var(--color-accent-green);
+            color: var(--color-text-inverse);
         }
 
         .btn-danger {
-            background: var(--gradient-warning);
-            border-color: rgba(210, 153, 34, 0.3);
-            color: #fff;
+            background: var(--color-accent-red);
+            border-color: var(--color-accent-red);
+            color: var(--color-text-inverse);
         }
 
         .btn-sm {
             padding: 4px 12px;
-            font-size: 12px;
+            font-size: 11px;
         }
 
-        /* Forms - GitHub Style */
+        .btn-ghost {
+            border-color: transparent;
+        }
+
+        .btn-ghost:hover {
+            background: var(--color-background-hover);
+            border-color: var(--color-border-secondary);
+        }
+
+        /* ── Forms ──────────────────────────────────────────────────────────── */
         .form-group {
             margin-bottom: 16px;
         }
 
         .form-label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             font-size: 12px;
             font-weight: 500;
-            color: var(--text-secondary);
+            color: var(--color-text-secondary);
         }
 
         .form-control {
             width: 100%;
             padding: 8px 12px;
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
+            background: var(--color-background-primary);
+            border: 0.5px solid var(--color-border-secondary);
             border-radius: var(--radius-sm);
-            color: var(--text-primary);
+            color: var(--color-text-primary);
             font-size: 14px;
+            font-family: var(--font-sans);
             transition: all var(--transition-fast);
         }
 
         .form-control:focus {
             outline: none;
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+            border-color: var(--color-accent-blue);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
         }
 
         select.form-control {
-            background: var(--bg-primary);
             cursor: pointer;
+            background: var(--color-background-primary);
         }
 
-        /* Tables - GitHub Style */
+        textarea.form-control {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        /* ── Tables ─────────────────────────────────────────────────────────── */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
         .data-table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 13px;
         }
 
         .data-table thead tr {
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 0.5px solid var(--color-border-secondary);
         }
 
         .data-table th {
             padding: 12px 16px;
             text-align: left;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
-            color: var(--text-secondary);
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: rgba(255, 255, 255, 0.02);
         }
 
         .data-table td {
             padding: 12px 16px;
-            border-bottom: 1px solid var(--border-light);
-            font-size: 14px;
+            border-bottom: 0.5px solid var(--color-border-tertiary);
+            color: var(--color-text-primary);
         }
 
-        .data-table tbody tr:hover {
-            background: var(--bg-tertiary);
+        .data-table tbody tr:hover td {
+            background: rgba(88, 166, 255, 0.03);
         }
 
-        /* Badges - GitHub Style */
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* ── Badges ─────────────────────────────────────────────────────────── */
         .badge {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: var(--radius-full);
+            font-size: 11px;
             font-weight: 500;
+            border: 0.5px solid transparent;
         }
 
         .badge-success {
-            background: rgba(63, 185, 80, 0.15);
-            color: var(--accent-green);
-            border: 1px solid rgba(63, 185, 80, 0.3);
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--color-accent-green);
+            border-color: rgba(16, 185, 129, 0.2);
         }
 
         .badge-warning {
-            background: rgba(210, 153, 34, 0.15);
-            color: var(--accent-orange);
-            border: 1px solid rgba(210, 153, 34, 0.3);
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--color-accent-orange);
+            border-color: rgba(245, 158, 11, 0.2);
         }
 
         .badge-danger {
-            background: rgba(248, 81, 73, 0.15);
-            color: var(--accent-red);
-            border: 1px solid rgba(248, 81, 73, 0.3);
+            background: rgba(239, 68, 68, 0.12);
+            color: var(--color-accent-red);
+            border-color: rgba(239, 68, 68, 0.2);
         }
 
         .badge-info {
-            background: rgba(88, 166, 255, 0.15);
-            color: var(--accent-blue);
-            border: 1px solid rgba(88, 166, 255, 0.3);
+            background: rgba(88, 166, 255, 0.12);
+            color: var(--color-accent-blue);
+            border-color: rgba(88, 166, 255, 0.2);
         }
 
         .badge-muted {
-            background: var(--bg-tertiary);
-            color: var(--text-muted);
-            border: 1px solid var(--border-color);
+            background: var(--color-background-tertiary);
+            color: var(--color-text-tertiary);
+            border-color: var(--color-border-secondary);
         }
 
-        /* Alerts - GitHub Style */
+        /* ── Alerts ─────────────────────────────────────────────────────────── */
         .alert {
             padding: 12px 16px;
             border-radius: var(--radius-md);
@@ -523,28 +729,35 @@ if (isset($_GET['switch_router'])) {
             display: flex;
             align-items: center;
             gap: 10px;
-            font-size: 14px;
+            font-size: 13px;
+            border: 0.5px solid transparent;
         }
 
         .alert-success {
-            background: rgba(63, 185, 80, 0.1);
-            border: 1px solid rgba(63, 185, 80, 0.3);
-            color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.08);
+            border-color: rgba(16, 185, 129, 0.2);
+            color: var(--color-accent-green);
         }
 
-        .alert-error, .alert-danger {
-            background: rgba(248, 81, 73, 0.1);
-            border: 1px solid rgba(248, 81, 73, 0.3);
-            color: var(--accent-red);
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.2);
+            color: var(--color-accent-red);
         }
 
         .alert-info {
-            background: rgba(88, 166, 255, 0.1);
-            border: 1px solid rgba(88, 166, 255, 0.3);
-            color: var(--accent-blue);
+            background: rgba(88, 166, 255, 0.08);
+            border-color: rgba(88, 166, 255, 0.2);
+            color: var(--color-accent-blue);
         }
 
-        /* Modal - GitHub Style */
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.08);
+            border-color: rgba(245, 158, 11, 0.2);
+            color: var(--color-accent-orange);
+        }
+
+        /* ── Modal ──────────────────────────────────────────────────────────── */
         .modal {
             display: none;
             position: fixed;
@@ -553,6 +766,8 @@ if (isset($_GET['switch_router'])) {
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 2000;
             justify-content: center;
             align-items: center;
@@ -560,13 +775,15 @@ if (isset($_GET['switch_router'])) {
         }
 
         .modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
+            background: var(--color-background-card);
+            border: 0.5px solid var(--color-border-secondary);
+            border-radius: var(--radius-xl);
             width: 100%;
             max-width: 500px;
             max-height: 90vh;
             overflow-y: auto;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
 
         .modal-header {
@@ -574,23 +791,27 @@ if (isset($_GET['switch_router'])) {
             justify-content: space-between;
             align-items: center;
             padding: 16px 20px;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 0.5px solid var(--color-border-secondary);
         }
 
         .modal-header h3 {
             font-size: 16px;
             font-weight: 600;
+            color: var(--color-text-primary);
         }
 
         .modal-header .close {
-            font-size: 24px;
+            font-size: 20px;
             cursor: pointer;
-            color: var(--text-muted);
+            color: var(--color-text-tertiary);
             transition: color var(--transition-fast);
+            background: none;
+            border: none;
+            line-height: 1;
         }
 
         .modal-header .close:hover {
-            color: var(--text-primary);
+            color: var(--color-text-primary);
         }
 
         .modal-body {
@@ -599,30 +820,32 @@ if (isset($_GET['switch_router'])) {
 
         .modal-footer {
             padding: 16px 20px;
-            border-top: 1px solid var(--border-color);
+            border-top: 0.5px solid var(--color-border-secondary);
             display: flex;
             justify-content: flex-end;
             gap: 8px;
         }
 
-        /* Loading Overlay */
-        .global-loading-overlay {
+        /* ── Loading Overlay ────────────────────────────────────────────────── */
+        .loading-overlay {
             position: fixed;
             inset: 0;
             display: none;
             align-items: center;
             justify-content: center;
-            background: rgba(13, 17, 23, 0.9);
+            background: rgba(15, 15, 20, 0.9);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 99999;
         }
 
-        .global-loading-overlay.active {
+        .loading-overlay.active {
             display: flex;
         }
 
-        .global-loading-box {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
+        .loading-box {
+            background: var(--color-background-card);
+            border: 0.5px solid var(--color-border-secondary);
             border-radius: var(--radius-md);
             padding: 16px 24px;
             display: flex;
@@ -630,12 +853,12 @@ if (isset($_GET['switch_router'])) {
             gap: 12px;
         }
 
-        .global-loading-spinner {
+        .loading-spinner {
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            border: 2px solid var(--border-color);
-            border-top-color: var(--accent-blue);
+            border: 2px solid var(--color-border-secondary);
+            border-top-color: var(--color-accent-blue);
             animation: spin 0.8s linear infinite;
         }
 
@@ -643,28 +866,33 @@ if (isset($_GET['switch_router'])) {
             to { transform: rotate(360deg); }
         }
 
-        /* Responsive */
+        /* ── Code / Pill ────────────────────────────────────────────────────── */
+        .code-pill {
+            font-family: var(--font-mono);
+            background: rgba(88, 166, 255, 0.08);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--color-accent-blue);
+        }
+
+        /* ── Responsive ─────────────────────────────────────────────────────── */
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
             }
-            
             .sidebar.active {
                 transform: translateX(0);
             }
-            
             .main-content {
                 margin-left: 0;
             }
-            
             .stats-grid {
                 grid-template-columns: 1fr;
             }
-            
             .header-title h1 {
                 font-size: 18px;
             }
-            
             .menu-toggle {
                 display: block !important;
             }
@@ -674,25 +902,28 @@ if (isset($_GET['switch_router'])) {
                 bottom: 0;
                 left: 0;
                 width: 100%;
-                background: var(--bg-secondary);
-                border-top: 1px solid var(--border-color);
+                background: var(--color-background-secondary);
+                border-top: 0.5px solid var(--color-border-secondary);
                 display: flex;
                 justify-content: space-around;
                 padding: 8px 0;
                 z-index: 1000;
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
             }
             
             .nav-item {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                gap: 4px;
-                font-size: 11px;
-                color: var(--text-secondary);
+                gap: 2px;
+                font-size: 10px;
+                color: var(--color-text-secondary);
+                text-decoration: none;
             }
             
             .nav-item.active {
-                color: var(--accent-blue);
+                color: var(--color-accent-blue);
             }
             
             .nav-item i {
@@ -719,24 +950,99 @@ if (isset($_GET['switch_router'])) {
             }
         }
 
-        /* Utility Classes */
+        /* ── Utilities ──────────────────────────────────────────────────────── */
         .container {
-            max-width: 1280px;
+            max-width: 1440px;
             margin: 0 auto;
             padding: 0 16px;
         }
 
-        .page-content {
-            padding: 24px;
+        .text-muted {
+            color: var(--color-text-tertiary);
+        }
+
+        .text-success {
+            color: var(--color-accent-green);
+        }
+
+        .text-danger {
+            color: var(--color-accent-red);
+        }
+
+        .text-warning {
+            color: var(--color-accent-orange);
+        }
+
+        .text-info {
+            color: var(--color-accent-blue);
+        }
+
+        .fw-500 { font-weight: 500; }
+        .fw-600 { font-weight: 600; }
+
+        /* ── Router Switcher ────────────────────────────────────────────────── */
+        .router-select {
+            background: var(--color-background-primary);
+            border: 0.5px solid var(--color-border-secondary);
+            border-radius: var(--radius-sm);
+            padding: 4px 10px;
+            color: var(--color-text-primary);
+            font-size: 12px;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .router-select:hover {
+            border-color: var(--color-accent-blue);
+        }
+
+        .router-select:focus {
+            outline: none;
+            border-color: var(--color-accent-blue);
+        }
+
+        /* ── Quick Actions ──────────────────────────────────────────────────── */
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+        }
+        
+        .quick-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 0.5px solid var(--color-border-secondary);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            text-align: center;
+            color: var(--color-text-primary);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all var(--transition-base);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: var(--font-sans);
+        }
+        
+        .quick-btn i {
+            color: var(--color-accent-blue);
+            font-size: 14px;
+            transition: color var(--transition-base);
+        }
+        
+        .quick-btn:hover {
+            background: rgba(88, 166, 255, 0.08);
+            border-color: rgba(88, 166, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .quick-btn:hover i {
+            color: var(--color-text-primary);
         }
     </style>
-    <script>
-        // Apply theme
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'light') {
-            document.documentElement.setAttribute('data-theme', 'light');
-        }
-    </script>
 </head>
 
 <body>
@@ -744,19 +1050,19 @@ if (isset($_GET['switch_router'])) {
         <!-- Mobile Bottom Navigation -->
         <div class="bottom-nav">
             <a href="<?php echo APP_URL; ?>/admin/dashboard.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : ''; ?>">
-                <i class="fas fa-home"></i>
+                <i class="ti ti-home"></i>
                 <span>Home</span>
             </a>
             <a href="<?php echo APP_URL; ?>/admin/customers.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) === 'customers.php' ? 'active' : ''; ?>">
-                <i class="fas fa-users"></i>
+                <i class="ti ti-users"></i>
                 <span>Pelanggan</span>
             </a>
             <a href="<?php echo APP_URL; ?>/admin/pay.php" class="nav-item <?php echo (basename($_SERVER['PHP_SELF']) === 'pay.php' || basename($_SERVER['PHP_SELF']) === 'pay_process.php') ? 'active' : ''; ?>">
-                <i class="fas fa-credit-card"></i>
+                <i class="ti ti-credit-card"></i>
                 <span>Bayar</span>
             </a>
             <a href="<?php echo APP_URL; ?>/admin/menu.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) === 'menu.php' ? 'active' : ''; ?>">
-                <i class="fas fa-bars"></i>
+                <i class="ti ti-menu-2"></i>
                 <span>Menu</span>
             </a>
         </div>
@@ -769,6 +1075,7 @@ if (isset($_GET['switch_router'])) {
             <div class="sidebar-header">
                 <a href="<?php echo APP_URL; ?>">
                     <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" class="sidebar-brand-logo" alt="Icon">
+                    <span class="sidebar-brand-text"><?php echo htmlspecialchars($appName); ?></span>
                 </a>
             </div>
 
@@ -776,19 +1083,19 @@ if (isset($_GET['switch_router'])) {
                 <div class="nav-section">
                     <div class="nav-section-title">Overview</div>
                     <a href="<?php echo APP_URL; ?>/admin/dashboard.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-chart-line"></i>
+                        <i class="ti ti-chart-line"></i>
                         <span>Dashboard</span>
                     </a>
                     <a href="<?php echo APP_URL; ?>/admin/customers.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'customers.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-users"></i>
+                        <i class="ti ti-users"></i>
                         <span>Pelanggan</span>
                     </a>
                     <a href="<?php echo APP_URL; ?>/admin/packages.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'packages.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-box"></i>
+                        <i class="ti ti-box"></i>
                         <span>Paket Layanan</span>
                     </a>
                     <a href="<?php echo APP_URL; ?>/admin/invoices.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'invoices.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-file-invoice"></i>
+                        <i class="ti ti-file-invoice"></i>
                         <span>Invoice</span>
                     </a>
                 </div>
@@ -796,21 +1103,21 @@ if (isset($_GET['switch_router'])) {
                 <div class="nav-section">
                     <div class="nav-section-title">Network</div>
                     <div class="menu-item" onclick="toggleSubmenu(this)">
-                        <i class="fas fa-network-wired"></i>
+                        <i class="ti ti-network"></i>
                         <span>PPPoE</span>
-                        <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 10px;"></i>
+                        <span class="submenu-arrow ti ti-chevron-down"></span>
                     </div>
-                    <div class="submenu" style="display: none; padding-left: 32px;">
+                    <div class="submenu">
                         <a href="<?php echo APP_URL; ?>/admin/mikrotik.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'mikrotik.php' ? 'active' : ''; ?>">
-                            <i class="fas fa-user"></i>
+                            <i class="ti ti-user"></i>
                             <span>PPPoE User</span>
                         </a>
                         <a href="<?php echo APP_URL; ?>/admin/pppoe-active.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-active.php' ? 'active' : ''; ?>">
-                            <i class="fas fa-plug"></i>
+                            <i class="ti ti-plug"></i>
                             <span>Active Sessions</span>
                         </a>
                         <a href="<?php echo APP_URL; ?>/admin/pppoe-profile.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php' ? 'active' : ''; ?>">
-                            <i class="fas fa-tachometer-alt"></i>
+                            <i class="ti ti-speedometer"></i>
                             <span>Profiles</span>
                         </a>
                     </div>
@@ -819,15 +1126,15 @@ if (isset($_GET['switch_router'])) {
                 <div class="nav-section">
                     <div class="nav-section-title">Management</div>
                     <a href="<?php echo APP_URL; ?>/admin/genieacs.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'genieacs.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-satellite-dish"></i>
+                        <i class="ti ti-satellite"></i>
                         <span>GenieACS</span>
                     </a>
                     <a href="<?php echo APP_URL; ?>/admin/trouble.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'trouble.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-exclamation-triangle"></i>
+                        <i class="ti ti-alert-triangle"></i>
                         <span>Gangguan</span>
                     </a>
                     <a href="<?php echo APP_URL; ?>/admin/technicians.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'technicians.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-tools"></i>
+                        <i class="ti ti-tools"></i>
                         <span>Teknisi</span>
                     </a>
                 </div>
@@ -835,22 +1142,22 @@ if (isset($_GET['switch_router'])) {
                 <div class="nav-section">
                     <div class="nav-section-title">System</div>
                     <a href="<?php echo APP_URL; ?>/admin/settings.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'settings.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-cog"></i>
+                        <i class="ti ti-settings"></i>
                         <span>Settings</span>
                     </a>
                     <a href="<?php echo APP_URL; ?>/admin/update.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'update.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-sync-alt"></i>
+                        <i class="ti ti-refresh"></i>
                         <span>Update</span>
                     </a>
                     <a href="<?php echo APP_URL; ?>/admin/routers.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'routers.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-server"></i>
+                        <i class="ti ti-server"></i>
                         <span>Manajemen Router</span>
                     </a>
                 </div>
 
-                <div style="margin-top: auto; border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 8px;">
+                <div style="margin-top: auto; border-top: 0.5px solid var(--color-border-secondary); margin-top: 16px; padding-top: 8px;">
                     <a href="<?php echo APP_URL; ?>/admin/logout.php" class="menu-item">
-                        <i class="fas fa-sign-out-alt"></i>
+                        <i class="ti ti-logout"></i>
                         <span>Logout</span>
                     </a>
                 </div>
@@ -863,16 +1170,15 @@ if (isset($_GET['switch_router'])) {
         <?php if (isAdminLoggedIn()): ?>
             <div class="header">
                 <div class="header-title">
-                    <button class="menu-toggle" onclick="toggleSidebar()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-right: 12px;">
-                        <i class="fas fa-bars"></i>
+                    <button class="menu-toggle" onclick="toggleSidebar()" style="background: none; border: none; color: var(--color-text-secondary); cursor: pointer; margin-right: 12px; font-size: 20px; padding: 4px;">
+                        <i class="ti ti-menu-2"></i>
                     </button>
                     <h1><?php echo htmlspecialchars($pageTitle); ?></h1>
                 </div>
                 <div class="header-actions">
                     <div class="router-switcher">
                         <?php if (count($allRouters) > 1): ?>
-                            <select onchange="window.location.href='?switch_router=' + this.value" 
-                                style="background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 10px; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer;">
+                            <select onchange="window.location.href='?switch_router=' + this.value" class="router-select">
                                 <?php foreach ($allRouters as $r): ?>
                                     <option value="<?php echo $r['id']; ?>" <?php echo $currentRouter['id'] == $r['id'] ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($r['name']); ?>
@@ -883,13 +1189,13 @@ if (isset($_GET['switch_router'])) {
                     </div>
                     
                     <span class="badge badge-muted">
-                        <i class="fas fa-user-circle"></i>
+                        <i class="ti ti-user-circle"></i>
                         <?php echo htmlspecialchars(getCurrentAdmin()['username']); ?>
                     </span>
                     
                     <?php if (count($allRouters) > 0): ?>
                         <span class="badge badge-info">
-                            <i class="fas fa-server"></i> <?php echo htmlspecialchars($currentRouter['name'] ?? 'Default'); ?>
+                            <i class="ti ti-server"></i> <?php echo htmlspecialchars($currentRouter['name'] ?? 'Default'); ?>
                         </span>
                     <?php endif; ?>
                 </div>
@@ -900,22 +1206,29 @@ if (isset($_GET['switch_router'])) {
             <!-- Flash Messages -->
             <?php if (hasFlash('success')): ?>
                 <div class="alert alert-success">
-                    <i class="fas fa-check-circle"></i>
+                    <i class="ti ti-circle-check"></i>
                     <?php echo htmlspecialchars(getFlash('success')); ?>
                 </div>
             <?php endif; ?>
 
             <?php if (hasFlash('error')): ?>
-                <div class="alert alert-error">
-                    <i class="fas fa-exclamation-circle"></i>
+                <div class="alert alert-danger">
+                    <i class="ti ti-alert-circle"></i>
                     <?php echo htmlspecialchars(getFlash('error')); ?>
                 </div>
             <?php endif; ?>
 
             <?php if (hasFlash('info')): ?>
                 <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i>
+                    <i class="ti ti-info-circle"></i>
                     <?php echo htmlspecialchars(getFlash('info')); ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (hasFlash('warning')): ?>
+                <div class="alert alert-warning">
+                    <i class="ti ti-alert-triangle"></i>
+                    <?php echo htmlspecialchars(getFlash('warning')); ?>
                 </div>
             <?php endif; ?>
 
@@ -925,9 +1238,9 @@ if (isset($_GET['switch_router'])) {
     </div>
 
     <!-- Global Loading -->
-    <div id="globalFormLoading" class="global-loading-overlay">
-        <div class="global-loading-box">
-            <div class="global-loading-spinner"></div>
+    <div id="globalFormLoading" class="loading-overlay">
+        <div class="loading-box">
+            <div class="loading-spinner"></div>
             <span>Memproses...</span>
         </div>
     </div>
@@ -944,13 +1257,12 @@ if (isset($_GET['switch_router'])) {
 
         function toggleSubmenu(el) {
             const submenu = el.nextElementSibling;
-            const icon = el.querySelector('.fa-chevron-down');
-            if (submenu.style.display === 'none') {
-                submenu.style.display = 'block';
-                icon.style.transform = 'rotate(180deg)';
-            } else {
-                submenu.style.display = 'none';
-                icon.style.transform = 'rotate(0deg)';
+            const arrow = el.querySelector('.submenu-arrow');
+            if (submenu) {
+                submenu.classList.toggle('open');
+                if (arrow) {
+                    arrow.style.transform = submenu.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0deg)';
+                }
             }
         }
 
@@ -965,13 +1277,25 @@ if (isset($_GET['switch_router'])) {
 
         // Initialize submenus
         document.querySelectorAll('.submenu').forEach(sub => {
-            sub.style.display = 'none';
+            sub.classList.remove('open');
         });
 
         // Close sidebar on overlay click
         document.getElementById('sidebarOverlay')?.addEventListener('click', function() {
             document.getElementById('mainSidebar')?.classList.remove('active');
             this.classList.remove('active');
+        });
+
+        // Auto-open submenu if active child
+        document.querySelectorAll('.submenu').forEach(sub => {
+            if (sub.querySelector('.menu-item.active')) {
+                sub.classList.add('open');
+                const parent = sub.previousElementSibling;
+                const arrow = parent?.querySelector('.submenu-arrow');
+                if (arrow) {
+                    arrow.style.transform = 'rotate(180deg)';
+                }
+            }
         });
     </script>
 </body>
