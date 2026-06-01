@@ -794,13 +794,13 @@ ob_start();
 
     <!-- ACTION BUTTONS -->
     <div class="actions-row">
+        <a href="customers.php" class="action-btn"><i class="fas fa-file-users"></i> Pelanggan</a>
+        <a href="packages.php" class="action-btn"><i class="fas fa-box"></i> Paket</a>
         <a href="invoices.php" class="action-btn"><i class="fas fa-file-invoice"></i> Invoice</a>
-        <a href="customers.php?action=add" class="action-btn"><i class="fas fa-plus"></i> Buat Tagihan</a>
-        <a href="payments.php" class="action-btn"><i class="fas fa-credit-card"></i> Pembayaran</a>
-        <a href="alerts.php" class="action-btn"><i class="fas fa-bell"></i> Pengingat</a>
-        <a href="analytics.php" class="action-btn"><i class="fas fa-chart-bar"></i> Analitik</a>
+        <a href="mikrotik.php" class="action-btn"><i class="fas fa-network-wired"></i> PPPoE</a>
+        <a href="genieacs.php" class="action-btn"><i class="fas fa-satellite-dish"></i> GenieACS</a>
+        <a href="settings.php" class="action-btn"><i class="fas fa-cog"></i> Settings</a>
     </div>
-
     <!-- ALERT BANNER -->
     <?php if ($overdueInvoices > 0 || $dueSoonInvoices > 0): ?>
     <div class="alert-banner">
