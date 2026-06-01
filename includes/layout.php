@@ -1075,7 +1075,6 @@ if (isset($_GET['switch_router'])) {
             <div class="sidebar-header">
                 <a href="<?php echo APP_URL; ?>">
                     <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" class="sidebar-brand-logo" alt="Icon">
-                    <span class="sidebar-brand-text"><?php echo htmlspecialchars($appName); ?></span>
                 </a>
             </div>
 
