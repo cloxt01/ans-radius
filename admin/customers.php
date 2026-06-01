@@ -1984,10 +1984,19 @@ function loadFormCreate(){
             return acc;
         }, {});
 
-    const tgl = new Date(Date.now() + 7 * 3600000);
-    const hariIni = tgl.getDate() > 28 
-        ? `${tgl.getFullYear()}-${String(tgl.getMonth() + 1).padStart(2, '0')}-28` 
-        : tgl.toISOString().slice(0, 10);
+    // --- PERBAIKAN: Gunakan waktu lokal untuk penambahan 7 jam ---
+    const now = new Date(); // Waktu lokal sekarang
+    
+    // Tambah 7 jam
+    
+    // Ambil tanggal dari waktu lokal yang sudah ditambah 7 jam
+    const dayOfMonth = now.getDate();
+
+
+    
+    console.log('Waktu sekarang (WIB):', new Date().toLocaleString('id-ID'));
+    console.log('Waktu + 7 jam (WIB):', now.toLocaleString('id-ID'));
+    console.log('Tanggal isolasi:', dayOfMonth);
 
     console.log('Parsed form input:', formInputObject);
     
@@ -2008,9 +2017,14 @@ function loadFormCreate(){
     // 5. Password dikunci langsung ke 1234 sesuai request
     document.getElementById('edit_pppoe_password').value = '1234'; 
     
-    // 6. Router ID & Tanggal Isolasi
+    // 6. Router ID & Tanggal Isolasi (TANPA LEADING ZERO)
     document.getElementById('edit_router_id').value = 4;
-    document.getElementById('edit_isolation_date').value = hariIni.slice(-2); 
+    
+    // --- PERBAIKAN: Gunakan dayOfMonth dari waktu lokal + 7 jam ---
+    const isolationDayFromForm = formInputObject['tanggal isolir'] || formInputObject['tgl isolir'] || '';
+    const isolationDay = isolationDayFromForm ? parseInt(isolationDayFromForm, 10) || dayOfMonth : dayOfMonth;
+    
+    document.getElementById('edit_isolation_date').value = isolationDay; 
     
     // 7. Gabungkan Alamat Lengkap
     document.getElementById('edit_address').value = 
