@@ -74,6 +74,7 @@ $overdueInvoices = fetchOne("
     FROM invoices 
     WHERE status = 'unpaid' 
     AND due_date < CURDATE()
+    AND MONTH(due_date) = MONTH(CURDATE())
 ")['total'] ?? 0;
 
 $dueSoonInvoices = fetchOne("
