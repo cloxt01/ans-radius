@@ -216,7 +216,38 @@ function getWhatsAppFooter()
     }
     return "\n\n" . implode("\n", $lines);
 }
-
+function updateIsolationDateToNextMonth($customerId)
+{
+    // Ambil isolation_date saat ini
+    $customer = fetchOne("SELECT isolation_date FROM customers WHERE id = ?", [$customerId]);
+    if (!$customer) {
+        return false;
+    }
+    
+    $currentIsolationDate = (int) $customer['isolation_date'];
+    
+    // Ambil tanggal hari ini
+    $today = new DateTime();
+    $currentDay = (int) $today->format('d');
+    
+    // Tentukan tanggal dasar untuk bulan berikutnya
+    // Jika isolation_date saat ini < tanggal hari ini, gunakan tanggal hari ini
+    // Jika tidak, gunakan isolation_date
+    $baseDay = ($currentIsolationDate < $currentDay) ? $currentDay : $currentIsolationDate;
+    
+    // Buat tanggal di bulan berikutnya
+    $nextMonth = new DateTime();
+    $nextMonth->modify('+1 month');
+    
+    // Set tanggal ke baseDay
+    $nextMonth->setDate($nextMonth->format('Y'), $nextMonth->format('m'), $baseDay);
+    
+    // Ambil tanggal hasil (1-31)
+    $newIsolationDate = (int) $nextMonth->format('d');
+    
+    // Update ke database
+    return update('customers', ['isolation_date' => $newIsolationDate], 'id = ?', [$customerId]);
+}
 function getCustomerDueDate($customer, $baseDate = null)
 {
     $baseTimestamp = $baseDate ? strtotime($baseDate) : time();
@@ -931,6 +962,7 @@ function getActiveRouter()
     }
     return fetchOne("SELECT * FROM routers WHERE is_active = 1 ORDER BY name ASC");
 }
+
 function getAllRouters()
 {
     if (!tableExists('routers')) {
