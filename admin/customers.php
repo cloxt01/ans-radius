@@ -680,6 +680,35 @@ ob_start();
         gap: 15px;
     }
 
+        .actions-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+    .action-btn {
+        background: var(--bg-secondary);
+        border: 0.5px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 10px 18px;
+        color: var(--text-primary);
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        font-family: var(--font-sans);
+    }
+    .action-btn:hover {
+        background: var(--bg-card);
+        border-color: var(--accent-blue);
+        transform: translateY(-1px);
+    }
+    .action-btn i { color: var(--text-secondary); }
+
+
     .form-section {
         background: rgba(255, 255, 255, 0.02);
         padding: 18px;
@@ -777,7 +806,7 @@ ob_start();
     }
 </style>
 
-<div class="alert" style="background: var(--accent-orange); color: #fff; border: 1px solid rgba(0,0,0,0.06); padding: 12px; border-radius: 6px;">
+<div class="alert" style="background: var(--color-accent-orange); color: #fff; border: 1px solid rgba(0,0,0,0.06); padding: 12px; border-radius: 6px;">
     <i class="fas fa-warning" style="color: #fff; margin-right:5px;"></i>
     <strong>PENTING !!!</strong> Pastikan untuk membuat invoice & perpanjang setelah menambahkan pelanggan agar tagihan muncul di portal pelanggan dan pelanggan tidak langsung terisolir di hari berikutnya.
 </div>
@@ -786,27 +815,23 @@ ob_start();
         <i class="fas fa-exclamation-triangle"></i> Tidak ada username PPPoE cadangan yang memenuhi kriteria (%ans%, status isolir, tanpa invoice). Tombol "Tambah Pelanggan (via Rename)" dinonaktifkan.
     </div>
 <?php endif; ?>
-<div class="card" style="margin-bottom: 24px;">
-    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap: wrap;">
-        <div>
-            <h3 class="card-title" style="margin:0; display:flex; align-items:center; gap:8px;"><i class="fas fa-users"></i> Data Pelanggan</h3>
-            <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 4px;">Kelola pelanggan, tambah data baru, dan rename dari username cadangan.</div>
-        </div>
-        <div style="display:flex; gap:10px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-primary" onclick="openAddCustomerModal()">
-                <i class="fas fa-user-plus"></i> Tambah Pelanggan
-            </button>
-            <?php if ($randomCustomer): ?>
-                <button type="button" class="btn btn-secondary" onclick="openRenameCustomerModal(<?php echo htmlspecialchars(json_encode($randomCustomer), ENT_QUOTES, 'UTF-8'); ?>)">
-                    <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename
-                </button>
-            <?php else: ?>
-                <button type="button" class="btn btn-secondary" style="opacity: 0.7; cursor: not-allowed;" title="Tidak ada username cadangan untuk rename" disabled>
-                    <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename
-                </button>
-            <?php endif; ?>
-        </div>
-    </div>
+
+<div class="actions-row">
+    <button type="button" class="action-btn" onclick="openAddCustomerModal()">
+        <i class="fas fa-user-plus"></i> Tambah Pelanggan
+    </button>
+    <?php if ($randomCustomer): ?>
+        <button type="button" class="action-btn" onclick="openRenameCustomerModal(<?php echo htmlspecialchars(json_encode($randomCustomer), ENT_QUOTES, 'UTF-8'); ?>)">
+            <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename
+        </button>
+    <?php else: ?>
+        <button type="button" class="action-btn" style="opacity: 0.7; cursor: not-allowed;" title="Tidak ada username cadangan untuk rename" disabled>
+            <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename
+        </button>
+    <?php endif; ?>
+    <a href="export.php" class="action-btn">
+        <i class="fas fa-file-excel"></i> Export/Import
+    </a>
 </div>
 
 <!-- Add Customer Modal -->
@@ -966,9 +991,6 @@ ob_start();
                 <option value="500" <?php echo $perPage === 500 ? 'selected' : ''; ?>>500 / page</option>
             </select>
             <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan..." style="width: 220px;" value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>">
-            <a href="export.php" class="btn btn-primary btn-sm">
-                <i class="fas fa-file-excel"></i> Export/Import
-            </a>
             <button type="button" class="tour-btn" onclick="startTour()" style="margin-left: 8px;">
                 <i class="fas fa-question-circle"></i> Panduan
             </button>
@@ -1119,7 +1141,7 @@ ob_start();
                     <td data-label="Tgl Isolir">
                         <?php 
                         if (!empty($c['isolation_date']) && $c['isolation_date'] != '0000-00-00') {
-                            $isPast = (strtotime($c['isolation_date']) < strtotime(date('Y-m-d')));
+                            $isPast = (strtotime($c['isolation_date']) <= strtotime(date('Y-m-d')));
                             $badgeClass = $isPast ? 'badge-danger' : 'badge-info';
                             echo '<span class="badge ' . $badgeClass . '">' . date('d M Y', strtotime($c['isolation_date'])) . '</span>';
                         } else {
@@ -1502,7 +1524,7 @@ function renderFetchedCustomers(customers) {
                     </div>
                     ${radiusBadge}
                 </td>
-                <td data-label="Tgl Isolir"><span class="badge badge-info">Tgl ${escapeHtml(customer.isolation_date)}</span></td>
+                <td data-label="Tgl Isolir"><span class="badge badge-info">${escapeHtml(customer.isolation_date)}</span></td>
                 <td data-label="Register Date">${formatDateLabel(customer.created_at)}</td>
                 <td data-label="IP Address">${escapeHtml(customer.ip_address || 'N/A')}</td>
                 <td data-label="MAC Address">${escapeHtml(customer.mac_address || 'N/A')}</td>
