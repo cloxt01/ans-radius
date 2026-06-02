@@ -182,6 +182,8 @@ if (isset($_GET['switch_router'])) {
             --color-background-card: rgba(26, 26, 36, 0.88);
             --color-background-hover: rgba(255, 255, 255, 0.04);
             --color-background-inverse: #e8e8f0;
+
+            --gradient-primary: linear-gradient(135deg, var(--color-accent-cyan), var(--color-accent-blue));
             
             /* Text */
             --color-text-primary: #e8e8f0;

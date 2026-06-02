@@ -1030,7 +1030,7 @@ function buildInvoiceStatusBadges(invoice) {
 
     const dueDate = invoice.due_date ? String(invoice.due_date).slice(0, 10) : '';
     const today = new Date().toISOString().slice(0, 10);
-    const isOverdue = dueDate !== '' && dueDate < today;
+    const isOverdue = dueDate !== '' && dueDate <= today;
 
     return `<span class="badge badge-warning"><i class="fas fa-hourglass-half"></i> Belum Bayar</span>${isOverdue ? '<span class="badge badge-danger">Telat</span>' : ''}`;
 }
