@@ -57,31 +57,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logActivity('GENERATE_INVOICES', "Generated {$generatedCount} invoices for " . date('F Y'));
                 redirect('invoices.php');
                 break;
-                
+
             case 'pay':
                 $invoiceId = (int)$_POST['invoice_id'];
                 $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
                 
                 if ($invoice) {
-                    update('invoices', [
-                        'status' => 'paid',
-                        'paid_at' => date('Y-m-d H:i:s'),
-                        'payment_method' => sanitize($_POST['payment_method'] ?? 'Manual'),
-                        'updated_at' => date('Y-m-d H:i:s')
-                    ], 'id = ?', [$invoiceId]);
-                    
-                    if (isCustomerIsolated($invoice['customer_id'])) {
-                        unisolateCustomer($invoice['customer_id']);
+                    $pdo = getDB();
+                    try {
+                        $pdo->beginTransaction();
+                        
+                        // Update invoice to paid
+                        update('invoices', [
+                            'status' => 'paid',
+                            'paid_at' => date('Y-m-d H:i:s'),
+                            'payment_method' => sanitize($_POST['payment_method'] ?? 'Manual'),
+                            'updated_at' => date('Y-m-d H:i:s')
+                        ], 'id = ?', [$invoiceId]);
+                        
+                        // Update isolation date based on latest payment
+                        updateCustomerIsolationDateFromPaidInvoices($invoice['customer_id']);
+                        
+                        // Unisolate if needed
+                        if (isCustomerIsolated($invoice['customer_id'])) {
+                            unisolateCustomer($invoice['customer_id']);
+                        }
+                        
+                        $pdo->commit();
+                        
+                        setFlash('success', 'Invoice berhasil dibayar');
+                        logActivity('PAY_INVOICE', "Invoice: {$invoice['invoice_number']}");
+                    } catch (Exception $e) {
+                        $pdo->rollBack();
+                        setFlash('error', 'Gagal memproses pembayaran: ' . $e->getMessage());
                     }
-                    
-                    setFlash('success', 'Invoice berhasil dibayar');
-                    logActivity('PAY_INVOICE', "Invoice: {$invoice['invoice_number']}");
                 } else {
                     setFlash('error', 'Invoice tidak ditemukan');
                 }
                 redirect('invoices.php');
                 break;
-                
             case 'unisolate_only':
                 $invoiceId = (int)$_POST['invoice_id'];
                 $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
@@ -133,7 +147,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 redirect('invoices.php');
                 break;
-                
             case 'edit':
                 $invoiceId = (int)$_POST['invoice_id'];
                 $amount = (float)$_POST['amount'];
@@ -150,24 +163,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'updated_at' => date('Y-m-d H:i:s')
                     ];
                     
-                    if ($status === 'paid' && $invoice['status'] !== 'paid') {
+                    $wasUnpaid = $invoice['status'] !== 'paid';
+                    $isNowPaid = $status === 'paid';
+                    
+                    if ($isNowPaid && $wasUnpaid) {
                         $updateData['paid_at'] = date('Y-m-d H:i:s');
                         $updateData['payment_method'] = 'Manual';
+                        
+                        update('invoices', $updateData, 'id = ?', [$invoiceId]);
+                        
+                        // Update isolation date
+                        updateCustomerIsolationDateFromPaidInvoices($invoice['customer_id']);
                         
                         if (isCustomerIsolated($invoice['customer_id'])) {
                             unisolateCustomer($invoice['customer_id']);
                         }
+                    } else {
+                        update('invoices', $updateData, 'id = ?', [$invoiceId]);
                     }
                     
-                    update('invoices', $updateData, 'id = ?', [$invoiceId]);
                     setFlash('success', 'Invoice berhasil diperbarui');
                     logActivity('EDIT_INVOICE', "Invoice: {$invoice['invoice_number']}");
                 } else {
                     setFlash('error', 'Invoice tidak ditemukan');
                 }
                 redirect('invoices.php');
-                break;
-                
+                break;    
             case 'delete':
                 $invoiceId = (int)$_POST['invoice_id'];
                 $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);

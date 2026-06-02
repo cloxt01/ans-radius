@@ -216,37 +216,187 @@ function getWhatsAppFooter()
     }
     return "\n\n" . implode("\n", $lines);
 }
-function updateIsolationDateToNextMonth($customerId)
-{
-    // Ambil isolation_date saat ini
+/**
+ * Get latest payment date from invoices for a customer
+ * @param int $customerId Customer ID
+ * @return string|null Latest payment date (Y-m-d) or null
+ */
+function getLatestPaymentDate($customerId) {
+    $invoice = fetchOne("SELECT paid_at FROM invoices 
+        WHERE customer_id = ? AND status = 'paid' 
+        AND paid_at IS NOT NULL AND paid_at != '0000-00-00 00:00:00'
+        ORDER BY paid_at DESC LIMIT 1", 
+        [$customerId]);
+    
+    if ($invoice && $invoice['paid_at']) {
+        return date('Y-m-d', strtotime($invoice['paid_at']));
+    }
+    return null;
+}
+
+/**
+ * Calculate next isolation date based on latest payment
+ * @param int $customerId Customer ID
+ * @return string Next isolation date (Y-m-d)
+ */
+function calculateNextIsolationDate($customerId) {
+    $latestPaymentDate = getLatestPaymentDate($customerId);
+    
+    if (!$latestPaymentDate) {
+        // Default: 20th of next month
+        return date('Y-m-d', strtotime('+1 month', strtotime(date('Y-m-20'))));
+    }
+    
+    // Add 1 month to latest payment date
+    $paymentDay = (int) date('j', strtotime($latestPaymentDate));
+    $nextMonth = date('Y-m-d', strtotime($latestPaymentDate . ' +1 month'));
+    $nextMonthDay = (int) date('j', strtotime($nextMonth));
+    
+    // If day changed (e.g., Jan 31 -> Feb 28), adjust to last day of month
+    if ($paymentDay != $nextMonthDay) {
+        $nextMonth = date('Y-m-t', strtotime($nextMonth));
+    }
+    
+    return $nextMonth;
+}
+
+/**
+ * Update customer isolation date based on their latest payment
+ * @param int $customerId Customer ID
+ * @return bool Success or failure
+ */
+function updateIsolationDateFromLatestPayment($customerId) {
+    $newIsolationDate = calculateNextIsolationDate($customerId);
+    return update('customers', ['isolation_date' => $newIsolationDate], 'id = ?', [$customerId]);
+}
+
+/**
+ * Update isolation date after bulk payment (multiple months)
+ * @param int $customerId Customer ID
+ * @param array $selectedMonths Array of month numbers (1-12) that were paid
+ * @param int $selectedYear Year of the paid months
+ * @param string $paymentDate Current payment date (Y-m-d) - optional, defaults to today
+ * @return bool Success or failure
+ */
+function updateIsolationDateAfterBulkPayment($customerId, $selectedMonths, $selectedYear, $paymentDate = null) {
+    if (!$paymentDate) {
+        $paymentDate = date('Y-m-d');
+    }
+    
+    // Get the LAST month paid
+    $maxMonth = max($selectedMonths);
+    $maxYear = $selectedYear;
+    
+    // Get payment day
+    $paymentDay = (int) date('d', strtotime($paymentDate));
+    
+    // Adjust if day exceeds the last month's days
+    $lastDayOfLastMonth = (int) date('t', strtotime("$maxYear-$maxMonth-01"));
+    if ($paymentDay > $lastDayOfLastMonth) {
+        $paymentDay = $lastDayOfLastMonth;
+    }
+    
+    // Create date for last paid month
+    $lastPaidFullDate = date('Y-m-d', strtotime("$maxYear-$maxMonth-$paymentDay"));
+    
+    // Add 1 month to get next isolation date
+    $newIsolationDate = date('Y-m-d', strtotime($lastPaidFullDate . ' +1 month'));
+    
+    // Adjust if day changed (e.g., Jan 31 -> Feb 28)
+    $newDay = (int) date('d', strtotime($newIsolationDate));
+    if ($paymentDay != $newDay) {
+        $newIsolationDate = date('Y-m-t', strtotime($newIsolationDate));
+    }
+    
+    return update('customers', ['isolation_date' => $newIsolationDate], 'id = ?', [$customerId]);
+}
+
+/**
+ * Get customer's isolation date as formatted string
+ * @param int $customerId Customer ID
+ * @param string $format Date format (default: 'd F Y')
+ * @return string Formatted isolation date or '-'
+ */
+function getFormattedIsolationDate($customerId, $format = 'd F Y') {
     $customer = fetchOne("SELECT isolation_date FROM customers WHERE id = ?", [$customerId]);
-    if (!$customer) {
+    if (!$customer || !$customer['isolation_date'] || $customer['isolation_date'] == '0000-00-00') {
+        return '-';
+    }
+    return date($format, strtotime($customer['isolation_date']));
+}
+
+/**
+ * Check if customer is due for isolation based on isolation_date
+ * @param int $customerId Customer ID
+ * @return bool True if should be isolated
+ */
+function isCustomerDueForIsolation($customerId) {
+    $customer = fetchOne("SELECT isolation_date, status FROM customers WHERE id = ?", [$customerId]);
+    if (!$customer || $customer['status'] !== 'active') {
         return false;
     }
     
-    $currentIsolationDate = (int) $customer['isolation_date'];
+    $isolationDate = $customer['isolation_date'];
+    if (!$isolationDate || $isolationDate == '0000-00-00') {
+        return false;
+    }
     
-    // Ambil tanggal hari ini
-    $today = new DateTime();
-    $currentDay = (int) $today->format('d');
+    $today = date('Y-m-d');
+    return $isolationDate <= $today;
+}
+/**
+ * Update isolation date based on paid invoices
+ * @param int $customerId Customer ID
+ * @return bool Success or failure
+ */
+function updateCustomerIsolationDateFromPaidInvoices($customerId) {
+    // Get latest paid invoice (by paid_at, not due_date)
+    $latestPaid = fetchOne("
+        SELECT paid_at, due_date 
+        FROM invoices 
+        WHERE customer_id = ? AND status = 'paid' 
+        AND paid_at IS NOT NULL 
+        ORDER BY paid_at DESC LIMIT 1
+    ", [$customerId]);
     
-    // Tentukan tanggal dasar untuk bulan berikutnya
-    // Jika isolation_date saat ini < tanggal hari ini, gunakan tanggal hari ini
-    // Jika tidak, gunakan isolation_date
-    $baseDay = ($currentIsolationDate < $currentDay) ? $currentDay : $currentIsolationDate;
+    if (!$latestPaid || !$latestPaid['paid_at']) {
+        return false;
+    }
     
-    // Buat tanggal di bulan berikutnya
-    $nextMonth = new DateTime();
-    $nextMonth->modify('+1 month');
+    $paymentDate = $latestPaid['paid_at'];
+    $paymentDay = (int) date('d', strtotime($paymentDate));
     
-    // Set tanggal ke baseDay
-    $nextMonth->setDate($nextMonth->format('Y'), $nextMonth->format('m'), $baseDay);
+    // Get the due date month/year to determine paid period
+    $dueDate = $latestPaid['due_date'];
+    $dueYear = (int) date('Y', strtotime($dueDate));
+    $dueMonth = (int) date('m', strtotime($dueDate));
     
-    // Ambil tanggal hasil (1-31)
-    $newIsolationDate = (int) $nextMonth->format('d');
+    // Calculate next isolation date: last paid month + 1 month
+    $lastDayOfDueMonth = (int) date('t', strtotime("$dueYear-$dueMonth-01"));
+    if ($paymentDay > $lastDayOfDueMonth) {
+        $paymentDay = $lastDayOfDueMonth;
+    }
     
-    // Update ke database
-    return update('customers', ['isolation_date' => $newIsolationDate], 'id = ?', [$customerId]);
+    $lastPaidFullDate = date('Y-m-d', strtotime("$dueYear-$dueMonth-$paymentDay"));
+    $newIsolationDate = date('Y-m-d', strtotime($lastPaidFullDate . ' +1 month'));
+    
+    // Adjust if day changed (Jan 31 -> Feb 28)
+    $newDay = (int) date('d', strtotime($newIsolationDate));
+    if ($paymentDay != $newDay) {
+        $newIsolationDate = date('Y-m-t', strtotime($newIsolationDate));
+    }
+    
+    // Update customer
+    $result = update('customers', [
+        'isolation_date' => $newIsolationDate,
+        'updated_at' => date('Y-m-d H:i:s')
+    ], 'id = ?', [$customerId]);
+    
+    if ($result) {
+        logActivity('UPDATE_ISOLATION_DATE', "Customer ID: $customerId, New isolation date: $newIsolationDate");
+    }
+    
+    return $result;
 }
 function getCustomerDueDate($customer, $baseDate = null)
 {
@@ -1964,6 +2114,8 @@ function createDatabaseBackup($retentionDays = 7)
     );
     exec($command, $output, $returnCode);
     if ($returnCode !== 0 || !file_exists($backupFile)) {
+        logError('Database backup failed: ' . implode("\n", $output));
+        logError('Backup command: ' . $command);
         return ['success' => false, 'message' => 'Gagal membuat backup database'];
     }
     $deletedFiles = applyBackupRetention($retentionDays);
@@ -2000,6 +2152,8 @@ function restoreDatabaseBackup($filename)
     );
     exec($command, $output, $returnCode);
     if ($returnCode !== 0) {
+        logError('Database restore failed: ' . implode("\n", $output));
+        logError('Restore command: ' . $command);
         return ['success' => false, 'message' => 'Restore backup gagal dijalankan'];
     }
     return ['success' => true, 'message' => 'Restore backup berhasil', 'file_name' => $safeName];
