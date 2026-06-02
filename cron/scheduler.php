@@ -187,46 +187,59 @@ function applySchedulerDatabaseTimezone($pdo, $timezoneName)
     }
 }
 
+
 /**
- * Run auto-isolir task
+ * Run auto-isolir based on customers.isolation_date
+ * (bukan berdasarkan due_date invoice)
  */
 function runAutoIsolir($pdo)
 {
-    echo "Running auto-isolir...\n";
+    echo "Running auto-isolir based on isolation_date...\n";
 
-    // Get customers with unpaid invoices that are overdue
+    // Pastikan kolom isolation_date ada
     $hasAutoIsolate = ensureCustomersAutoIsolateColumn();
-    $autoIsolateClause = $hasAutoIsolate ? "AND c.auto_isolate = 1" : "";
-    $overdueInvoices = fetchAll("
-        SELECT c.id, c.name, c.phone, c.pppoe_username, c.package_id, i.invoice_number, i.amount, i.due_date
-        FROM customers c
-        INNER JOIN invoices i ON c.id = i.customer_id
-        WHERE i.status = 'unpaid'
-        AND i.due_date < CURDATE()
-        AND c.status = 'active'
+    $autoIsolateClause = $hasAutoIsolate ? "AND auto_isolate = 1" : "";
+
+    // Cari pelanggan yang isolation_date-nya sudah lewat/hari ini
+    $customersToIsolate = fetchAll("
+        SELECT id, name, phone, pppoe_username, isolation_date
+        FROM customers
+        WHERE status = 'active'
+        AND isolation_date IS NOT NULL
+        AND isolation_date != '0000-00-00'
+        AND isolation_date <= CURDATE()
         {$autoIsolateClause}
-        AND i.due_date = (
-            SELECT MIN(i2.due_date)
-            FROM invoices i2
-            WHERE i2.customer_id = c.id
-            AND i2.status = 'unpaid'
-            AND i2.due_date < CURDATE()
-        )
     ");
 
-    echo "Found " . count($overdueInvoices) . " overdue invoices\n";
+    echo "Found " . count($customersToIsolate) . " customers due for isolation\n";
 
-    foreach ($overdueInvoices as $invoice) {
-        echo "Isolating customer: {$invoice['name']} (Invoice: {$invoice['invoice_number']})\n";
+    foreach ($customersToIsolate as $customer) {
+        echo "Isolating customer: {$customer['name']} (isolation_date: {$customer['isolation_date']})\n";
 
-        // Isolate customer (hindari double WA dari isolateCustomer)
-        if (isolateCustomer($invoice['id'], ['send_whatsapp' => false])) {
+        // Cek apakah memang ada invoice unpaid (validasi tambahan)
+        $hasUnpaidInvoice = fetchOne("
+            SELECT id FROM invoices 
+            WHERE customer_id = ? AND status = 'unpaid' 
+            LIMIT 1
+        ", [$customer['id']]);
+
+        if (!$hasUnpaidInvoice) {
+            echo "  ⚠ Customer has no unpaid invoice, skipping...\n";
+            continue;
+        }
+
+        // Isolir customer
+        if (isolateCustomer($customer['id'], ['send_whatsapp' => false])) {
             echo "  ✓ Customer isolated\n";
 
             // Send WhatsApp notification
-            $message = "Halo {$invoice['name']},\n\nPembayaran internet Anda sudah melewati tanggal jatuh tempo.\n\nTagihan: " . formatCurrency($invoice['amount']) . "\nInvoice: {$invoice['invoice_number']}\n\nMohon segera lakukan pembayaran untuk mengaktifkan kembali koneksi internet Anda.\n\nTerima kasih.";
+            $message = "Halo {$customer['name']},\n\n";
+            $message .= "Koneksi internet Anda telah diisolir karena belum melakukan pembayaran tagihan.\n\n";
+            $message .= "Tanggal isolasi: " . date('d/m/Y', strtotime($customer['isolation_date'])) . "\n\n";
+            $message .= "Mohon segera lakukan pembayaran untuk mengaktifkan kembali koneksi internet Anda.\n\n";
+            $message .= "Terima kasih.";
             $message .= getWhatsAppFooter();
-            sendWhatsApp($invoice['phone'], $message);
+            sendWhatsApp($customer['phone'], $message);
 
         } else {
             echo "  ✗ Failed to isolate customer\n";

@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'pppoe_username' => sanitize($_POST['pppoe_username']),
                     'package_id' => (int)$_POST['package_id'],
                     'router_id' => (int)($_POST['router_id'] ?? 0),
-                    'isolation_date' => (int)$_POST['isolation_date'],
+                    'isolation_date' => !empty($_POST['isolation_date']) ? $_POST['isolation_date'] : date('Y-m-d', strtotime('+1 month', strtotime(date('Y-m-20')))),
                     'address' => sanitize($_POST['address']),
                     'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
                     'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
@@ -149,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'phone' => sanitize($_POST['phone']),
                     'package_id' => (int)$_POST['package_id'],
                     'router_id' => (int)($_POST['router_id'] ?? 0),
-                    'isolation_date' => (int)$_POST['isolation_date'],
+                    'isolation_date' => !empty($_POST['isolation_date']) ? $_POST['isolation_date'] : date('Y-m-d', strtotime('+1 month')),
                     'address' => sanitize($_POST['address']),
                     'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
                     'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
@@ -306,8 +306,8 @@ if ($customersTableExists) {
     // New range filters
     $filter_last_paid_from = trim((string)($_GET['filter_last_paid_from'] ?? ''));
     $filter_last_paid_to = trim((string)($_GET['filter_last_paid_to'] ?? ''));
-    $filter_isolation_from = isset($_GET['filter_isolation_from']) && $_GET['filter_isolation_from'] !== '' ? (int)$_GET['filter_isolation_from'] : null;
-    $filter_isolation_to = isset($_GET['filter_isolation_to']) && $_GET['filter_isolation_to'] !== '' ? (int)$_GET['filter_isolation_to'] : null;
+    $filter_isolation_from = trim((string)($_GET['filter_isolation_from'] ?? ''));
+    $filter_isolation_to = trim((string)($_GET['filter_isolation_to'] ?? ''));
     $filter_register_from = trim((string)($_GET['filter_register_from'] ?? ''));
     $filter_register_to = trim((string)($_GET['filter_register_to'] ?? ''));
 
@@ -342,14 +342,8 @@ if ($customersTableExists) {
     }
 
     // Isolation date (day of month) range
-    if ($filter_isolation_from !== null) {
-        $whereClauses[] = 'c.isolation_date >= ?';
-        $whereParams[] = $filter_isolation_from;
-    }
-    if ($filter_isolation_to !== null) {
-        $whereClauses[] = 'c.isolation_date <= ?';
-        $whereParams[] = $filter_isolation_to;
-    }
+    if ($filter_isolation_from !== '') { $whereClauses[] = 'c.isolation_date >= ?'; $whereParams[] = $filter_isolation_from; }
+	if ($filter_isolation_to !== '') { $whereClauses[] = 'c.isolation_date <= ?'; $whereParams[] = $filter_isolation_to; }
 
     // Register date range
     if ($filter_register_from !== '') {
@@ -433,6 +427,7 @@ $randomCustomer = getRandomCustomer();
 $paginationQuery = $_GET;
 unset($paginationQuery['page']);
 $paginationQueryString = http_build_query($paginationQuery);
+$defaultIsolationDate = date('Y-m-d', strtotime('+1 month', strtotime(date('Y-m-20'))));
 
 if ($paginationQueryString !== '') {
     $paginationQueryString = '&' . $paginationQueryString;
@@ -505,6 +500,11 @@ ob_start();
 
 <style>
     /* Tour Styles */
+    .badge-danger {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
     .tour-overlay {
         position: fixed;
         top: 0;
@@ -891,8 +891,8 @@ ob_start();
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Tanggal Isolir (1-31)</label>
-                        <input type="number" name="isolation_date" class="form-control" value="20" min="1" max="31" required>
+                        <label class="form-label">Tanggal Isolir</label>
+                        <input type="date" name="isolation_date" class="form-control" value="<?php echo $defaultIsolationDate; ?>" required>
                     </div>
 
                     <div class="form-group-full">
@@ -1014,12 +1014,12 @@ ob_start();
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 0.75rem; color: var(--text-muted);">Isolir From (day)</label>
-                    <input type="number" id="filterIsolationFrom" class="form-control" min="1" max="28" style="width: 120px;" value="<?php echo htmlspecialchars($_GET['filter_isolation_from'] ?? ''); ?>">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Isolir Dari (Tanggal)</label>
+                    <input type="date" id="filterIsolationFrom" class="form-control" style="width: 160px;" value="<?php echo htmlspecialchars($_GET['filter_isolation_from'] ?? ''); ?>">
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 0.75rem; color: var(--text-muted);">Isolir To (day)</label>
-                    <input type="number" id="filterIsolationTo" class="form-control" min="1" max="28" style="width: 120px;" value="<?php echo htmlspecialchars($_GET['filter_isolation_to'] ?? ''); ?>">
+                    <label style="font-size: 0.75rem; color: var(--text-muted);">Isolir Sampai (Tanggal)</label>
+                    <input type="date" id="filterIsolationTo" class="form-control" style="width: 160px;" value="<?php echo htmlspecialchars($_GET['filter_isolation_to'] ?? ''); ?>">
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -1117,7 +1117,15 @@ ob_start();
                         <?php endif; ?>
                     </td>
                     <td data-label="Tgl Isolir">
-                        <span class="badge badge-info">Tgl <?php echo $c['isolation_date']; ?></span>
+                        <?php 
+                        if (!empty($c['isolation_date']) && $c['isolation_date'] != '0000-00-00') {
+                            $isPast = (strtotime($c['isolation_date']) < strtotime(date('Y-m-d')));
+                            $badgeClass = $isPast ? 'badge-danger' : 'badge-info';
+                            echo '<span class="badge ' . $badgeClass . '">' . date('d M Y', strtotime($c['isolation_date'])) . '</span>';
+                        } else {
+                            echo '<span class="badge badge-muted">Belum diatur</span>';
+                        }
+                        ?>
                     </td>
                     <td data-label="Register Date">
                         <?php echo date('d M Y', strtotime($c['created_at'])); ?>
@@ -1309,8 +1317,8 @@ ob_start();
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">Tanggal Isolir (1-28)</label>
-                        <input type="number" name="isolation_date" id="edit_isolation_date" class="form-control" min="1" max="28" required>
+                        <label class="form-label">Tanggal Isolir</label>
+                        <input type="date" name="isolation_date" id="edit_isolation_date" class="form-control" required>
                     </div>
 
                     <div class="form-group">
@@ -1984,20 +1992,11 @@ function loadFormCreate(){
             return acc;
         }, {});
 
-    // --- PERBAIKAN: Gunakan waktu lokal untuk penambahan 7 jam ---
-    const now = new Date(); // Waktu lokal sekarang
+    // Ambil tanggal hari ini untuk default isolation_date
+    const today = new Date();
+    const todayFormatted = today.toISOString().slice(0, 10); // Format YYYY-MM-DD
     
-    // Tambah 7 jam
-    
-    // Ambil tanggal dari waktu lokal yang sudah ditambah 7 jam
-    const dayOfMonth = now.getDate();
-
-
-    
-    console.log('Waktu sekarang (WIB):', new Date().toLocaleString('id-ID'));
-    console.log('Waktu + 7 jam (WIB):', now.toLocaleString('id-ID'));
-    console.log('Tanggal isolasi:', dayOfMonth);
-
+    console.log('Tanggal hari ini:', todayFormatted);
     console.log('Parsed form input:', formInputObject);
     
     // 1. Ambil & Toleransi Nama
@@ -2008,8 +2007,10 @@ function loadFormCreate(){
     const rawPhone = formInputObject['no hp'] || formInputObject['no. hp'] || '';
     document.getElementById('edit_phone').value = formatPhoneNumber(rawPhone);
     
-    // 3. Ambil Paket & Sinkronisasi dengan PHP (Menggunakan key lowercase 'paket wifi')
-    document.getElementById('edit_package_id').value = <?php echo getPackageIdbyProfileName($formInputObject['paket wifi'] ?? '') ?: 1; ?>;
+    // 3. Ambil Paket & Sinkronisasi dengan PHP
+    const packageName = formInputObject['paket wifi'] || '';
+    // Gunakan AJAX atau mapping sederhana, untuk sementara gunakan nilai default
+    // document.getElementById('edit_package_id').value = <?php echo json_encode(getPackageIdByProfileName($formInputObject['paket wifi'] ?? '') ?: 1); ?>;
     
     // 4. Ambil Username
     document.getElementById('edit_pppoe_username').value = formInputObject['username'] || '';
@@ -2017,14 +2018,34 @@ function loadFormCreate(){
     // 5. Password dikunci langsung ke 1234 sesuai request
     document.getElementById('edit_pppoe_password').value = '1234'; 
     
-    // // 6. Router ID & Tanggal Isolasi (TANPA LEADING ZERO)
-    // document.getElementById('edit_router_id').value = 4;
+    // 6. Set Tanggal Isolir (DATE) - default ke HARI INI
+    let isolationDate = formInputObject['tanggal isolir'] || formInputObject['tgl isolir'] || '';
     
-    // --- PERBAIKAN: Gunakan dayOfMonth dari waktu lokal + 7 jam ---
-    const isolationDayFromForm = formInputObject['tanggal isolir'] || formInputObject['tgl isolir'] || '';
-    const isolationDay = isolationDayFromForm ? parseInt(isolationDayFromForm, 10) || dayOfMonth : dayOfMonth;
-    
-    document.getElementById('edit_isolation_date').value = isolationDay; 
+    if (isolationDate) {
+        // Parse berbagai format tanggal dari form input
+        if (isolationDate.match(/\d{2}\/\d{2}\/\d{4}/)) {
+            // Format: 31/12/2026
+            let parts = isolationDate.split('/');
+            isolationDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        } else if (isolationDate.match(/\d{2}-\d{2}-\d{4}/)) {
+            // Format: 31-12-2026
+            let parts = isolationDate.split('-');
+            isolationDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        } else if (isolationDate.match(/\d{4}-\d{2}-\d{2}/)) {
+            // Format: 2026-12-31 (sudah benar)
+            isolationDate = isolationDate;
+        } else if (isolationDate.match(/^\d+$/)) {
+            // Hanya angka (tanggal saja), gunakan bulan depan dengan tanggal tersebut
+            const defaultDate = new Date();
+            defaultDate.setMonth(defaultDate.getMonth() + 1);
+            defaultDate.setDate(parseInt(isolationDate, 10));
+            isolationDate = defaultDate.toISOString().slice(0, 10);
+        }
+        document.getElementById('edit_isolation_date').value = isolationDate;
+    } else {
+        // Jika tidak ada input tanggal isolir, gunakan HARI INI
+        document.getElementById('edit_isolation_date').value = todayFormatted;
+    }
     
     // 7. Gabungkan Alamat Lengkap
     document.getElementById('edit_address').value = 
@@ -2110,7 +2131,7 @@ function editCustomer(customer) {
     document.getElementById('edit_pppoe_username').value = customer.pppoe_username;
     document.getElementById('edit_package_id').value = customer.package_id;
     document.getElementById('edit_router_id').value = customer.router_id || 0;
-    document.getElementById('edit_isolation_date').value = customer.isolation_date || 20;
+    if (customer.isolation_date && customer.isolation_date !== '0000-00-00') { document.getElementById('edit_isolation_date').value = customer.isolation_date; } else { const defaultDate = new Date(); defaultDate.setMonth(defaultDate.getMonth() + 1); defaultDate.setDate(20); document.getElementById('edit_isolation_date').value = defaultDate.toISOString().slice(0, 10); }
     const autoIsolate = document.getElementById('edit_auto_isolate');
     if (autoIsolate) {
         autoIsolate.checked = String(customer.auto_isolate ?? 1) === '1';

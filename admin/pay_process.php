@@ -38,6 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $monthsCount = count($selectedMonths);
     $amountPerMonth = $package['price'];
     $totalBill = $amountPerMonth * $monthsCount;
+    $paymentDateTime = date('Y-m-d H:i:s');
+    $paymentDate = date('Y-m-d');
 
     $pdo = getDB();
     try {
@@ -45,16 +47,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $generatedInvoiceIds = [];
         foreach ($selectedMonths as $monthNum) {
-            // Create specific due date for selected month/year
-            // Assuming billing date is based on isolation_date or default 20th
-            $day = isset($customer['isolation_date']) ? (int) $customer['isolation_date'] : 20;
-            if ($day < 1) $day = 1;
-            if ($day > 28) $day = 28; // Avoid invalid dates
+            // Get due date based on payment date (same day)
+            $day = (int) date('d', strtotime($paymentDate));
+            
+            // Adjust if day exceeds month days
+            $lastDayOfMonth = (int) date('t', strtotime("$selectedYear-$monthNum-01"));
+            if ($day > $lastDayOfMonth) {
+                $day = $lastDayOfMonth;
+            }
             
             $dueDate = date('Y-m-d', strtotime("$selectedYear-$monthNum-$day"));
-            $monthName = date('F', mktime(0, 0, 0, $monthNum, 10)); // Get month name
 
-            // Check if invoice already exists for this month/year (and unpaid)
+            // Check if invoice already exists for this month/year (unpaid)
             $existingInvoice = fetchOne("SELECT id FROM invoices 
                 WHERE customer_id = ? 
                 AND MONTH(due_date) = ? 
@@ -63,29 +67,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 [$id, $monthNum, $selectedYear]);
 
             if ($existingInvoice) {
-                // Update existing invoice instead of creating new one
+                // Update existing unpaid invoice to paid
                 update('invoices', [
                     'status' => 'paid',
-                    'paid_at' => date('Y-m-d H:i:s'),
+                    'paid_at' => $paymentDateTime,
                     'payment_method' => 'manual_admin',
-                    'updated_at' => date('Y-m-d H:i:s')
+                    'updated_at' => $paymentDateTime
                 ], 'id = ?', [$existingInvoice['id']]);
                 
                 $generatedInvoiceIds[] = $existingInvoice['id'];
             } else {
-                // Create new invoice if not exists
-                $invData = [
-                    'invoice_number' => 'INV-' . date('ymd') . rand(1000,9999),
-                    'customer_id' => $id,
-                    'amount' => $amountPerMonth,
-                    'status' => 'paid',
-                    'due_date' => $dueDate,
-                    'paid_at' => date('Y-m-d H:i:s'),
-                    'payment_method' => 'manual_admin',
-                    'created_at' => date('Y-m-d H:i:s')
-                ];
-                $invId = insert('invoices', $invData);
-                $generatedInvoiceIds[] = $invId;
+                // Check if already paid
+                $alreadyPaid = fetchOne("SELECT id FROM invoices 
+                    WHERE customer_id = ? 
+                    AND MONTH(due_date) = ? 
+                    AND YEAR(due_date) = ? 
+                    AND status = 'paid'", 
+                    [$id, $monthNum, $selectedYear]);
+                
+                if (!$alreadyPaid) {
+                    // Create new invoice
+                    $invData = [
+                        'invoice_number' => 'INV-' . date('ymd') . rand(1000,9999),
+                        'customer_id' => $id,
+                        'amount' => $amountPerMonth,
+                        'status' => 'paid',
+                        'due_date' => $dueDate,
+                        'paid_at' => $paymentDateTime,
+                        'payment_method' => 'manual_admin',
+                        'created_at' => $paymentDateTime
+                    ];
+                    $invId = insert('invoices', $invData);
+                    $generatedInvoiceIds[] = $invId;
+                }
             }
         }
 
@@ -94,17 +108,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             unisolateCustomer($id);
         }
 
+        // ========== UPDATE ISOLATION DATE BASED ON PAYMENT ==========
+        // Get the LAST month paid
+        $maxMonth = max($selectedMonths);
+        $maxYear = $selectedYear;
+        
+        // Get payment day
+        $paymentDay = (int) date('d', strtotime($paymentDate));
+        
+        // Create date for last paid month
+        $lastDayOfLastMonth = (int) date('t', strtotime("$maxYear-$maxMonth-01"));
+        if ($paymentDay > $lastDayOfLastMonth) {
+            $paymentDay = $lastDayOfLastMonth;
+        }
+        
+        $lastPaidFullDate = date('Y-m-d', strtotime("$maxYear-$maxMonth-$paymentDay"));
+        
+        // Add 1 month to get next isolation date
+        $newIsolationDate = date('Y-m-d', strtotime($lastPaidFullDate . ' +1 month'));
+        
+        // Adjust if day changed (e.g., Jan 31 -> Feb 28)
+        $newDay = (int) date('d', strtotime($newIsolationDate));
+        if ($paymentDay != $newDay) {
+            $newIsolationDate = date('Y-m-t', strtotime($newIsolationDate));
+        }
+        
+        // Update customer's isolation_date
+        $pdo->prepare("UPDATE customers SET isolation_date = ?, updated_at = ? WHERE id = ?")
+            ->execute([$newIsolationDate, $paymentDateTime, $id]);
+        
+        // Update status to active
+        if ($customer['status'] === 'isolated') {
+            $pdo->prepare("UPDATE customers SET status = 'active' WHERE id = ?")
+                ->execute([$id]);
+        }
+        // ========== END UPDATE ISOLATION DATE ==========
+
         $pdo->commit();
 
-        // Update isolation date to next month
-        updateIsolationDateToNextMonth($id);
-        
-        // Send Notification (Optional)
+        // Send Notification
         if (function_exists('sendWhatsApp') && !empty($customer['phone'])) {
             $msg = "Pembayaran Diterima\n\n";
             $msg .= "Nama: {$customer['name']}\n";
             $msg .= "Total: " . formatCurrency($totalBill) . "\n";
             $msg .= "Periode: $monthsCount bulan\n";
+            $msg .= "Tgl. Pembayaran: " . date('d/m/Y', strtotime($paymentDate)) . "\n";
+            $msg .= "Tgl. Isolasi Berikutnya: " . date('d/m/Y', strtotime($newIsolationDate)) . "\n";
             $msg .= "Via: Admin\n\n";
             $msg .= "Terima kasih.";
             if (function_exists('getWhatsAppFooter')) {
@@ -113,14 +162,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             sendWhatsApp($customer['phone'], $msg);
         }
 
-        logActivity('RENEW USER', "Customer ID: $id, Months: $monthsCount, Total: $totalBill");
+        logActivity('RENEW USER', "Customer ID: $id, Months: $monthsCount, Total: $totalBill, Next Isolation: $newIsolationDate");
 
-        setFlash('success', "Pembayaran berhasil untuk $monthsCount bulan.");
-        
-        // Redirect to Print Page (Admin version?) or Invoice List
-        // Admin might want to print too.
-        // Let's create admin/print_invoice.php or reuse sales/print_invoice.php?
-        // Better create admin/print_invoice.php to be safe with auth.
+        setFlash('success', "Pembayaran berhasil untuk $monthsCount bulan. Tanggal isolasi berikutnya: " . date('d/m/Y', strtotime($newIsolationDate)));
         
         $ids = implode(',', $generatedInvoiceIds);
         redirect("print_invoice.php?ids=$ids");
@@ -128,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         $pdo->rollBack();
         logError("GAGAL RENEW: Customer ID: $id, Error: " . $e->getMessage());
-        setFlash('error', 'Gagal memproses pembayaran.');
+        setFlash('error', 'Gagal memproses pembayaran: ' . $e->getMessage());
         redirect("pay_process.php?id=$id&year=$selectedYear");
     }
 }
@@ -141,10 +185,14 @@ $monthsList = [
     9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
 ];
 
-// Fetch paid invoices for selected year to mark as paid
+// Fetch paid invoices for selected year
 $paidInvoices = fetchAll("SELECT MONTH(due_date) as month_num FROM invoices 
     WHERE customer_id = ? AND YEAR(due_date) = ? AND status = 'paid'", [$id, $currentYear]);
 $paidMonths = array_column($paidInvoices, 'month_num');
+
+// Get latest payment date
+$latestPayment = getLatestPaymentDate($id);
+$nextIsolation = $latestPayment ? calculateNextIsolationDate($id) : 'Belum ada pembayaran';
 
 ob_start();
 ?>
@@ -173,9 +221,29 @@ ob_start();
                         <td>Alamat</td>
                         <td>: <?php echo htmlspecialchars($customer['address']); ?></td>
                     </tr>
+                    <tr>
+                        <td>Pembayaran Terakhir</td>
+                        <td>: <strong><?php echo $latestPayment ? date('d/m/Y', strtotime($latestPayment)) : '-'; ?></strong></td>
+                    </tr>
+                    <tr>
+                        <td>Isolasi Berikutnya</td>
+                        <td>: <strong class="text-warning">
+                            <?php 
+                            if ($nextIsolation && $nextIsolation != 'Belum ada pembayaran') {
+                                echo date('d/m/Y', strtotime($nextIsolation));
+                            } else {
+                                echo '-';
+                            }
+                            ?>
+                        </strong></td>
+                    </tr>
                 </table>
                 <hr>
                 <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> <strong>Informasi:</strong><br>
+                    Tanggal isolasi berikutnya = Tanggal pembayaran terbaru + 1 bulan
+                </div>
+                <div class="alert alert-success">
                     Total Tagihan: <strong id="totalBillDisplay" style="font-size: 1.2em;">Rp 0</strong>
                 </div>
                 <button type="button" class="btn btn-success btn-block" onclick="confirmPayment()" style="width: 100%;">
@@ -186,7 +254,7 @@ ob_start();
         
         <div class="card" style="margin-top: 20px;">
             <div class="card-header">
-                <h3 class="card-title"><i class="fas fa-history"></i> Riwayat Terakhir</h3>
+                <h3 class="card-title"><i class="fas fa-history"></i> Riwayat Pembayaran</h3>
             </div>
             <div class="card-body p-0">
                 <?php
@@ -210,9 +278,9 @@ ob_start();
 
     <div class="col-md-8">
         <div class="card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-header">
                 <h3 class="card-title"><i class="fas fa-calendar-alt"></i> Pilih Periode Pembayaran</h3>
-                <form method="GET" style="display: flex; gap: 10px; align-items: center;">
+                <form method="GET" class="float-right">
                     <input type="hidden" name="id" value="<?php echo $id; ?>">
                     <select name="year" class="form-control" onchange="this.form.submit()" style="width: 100px;">
                         <?php 
@@ -304,10 +372,8 @@ ob_start();
     function updateTotal() {
         const checkboxes = document.querySelectorAll('input[name="selected_months[]"]:checked');
         const count = checkboxes.length;
-        
         const totalBill = pricePerMonth * count;
         
-        // Simple currency formatter
         const formatter = new Intl.NumberFormat('id-ID', {
             style: 'currency',
             currency: 'IDR',
