@@ -2535,6 +2535,12 @@ const tourSteps = [
         description: 'Gunakan username PPPoE cadangan yang sudah ada di MikroTik untuk mendaftarkan pelanggan baru.',
         placement: 'bottom'
     },
+        {
+        element: 'body > div.main-content > div.page-content > div.actions-row > button:nth-child(3)',
+        title: '📤 Export/Import',
+        description: 'Export atau import data pelanggan dalam format Excel untuk manajemen data massal yang lebih mudah.',
+        placement: 'right'
+    },
     {
         element: '#perPageSelect',
         title: '📄 Jumlah Data per Halaman',
