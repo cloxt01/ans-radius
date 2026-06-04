@@ -41,7 +41,7 @@ if (isset($_GET['switch_router'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($pageTitle); ?> - <?php echo htmlspecialchars($appName); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($pageDescription); ?>">
-
+    <link rel="icon" type="image/x-icon" href="<?php echo APP_URL; ?>/assets/icons/favicon.ico">
     <!-- Anthropic Fonts -->
     <link rel="preconnect" href="https://assets.claude.ai">
     <style>
@@ -171,10 +171,34 @@ if (isset($_GET['switch_router'])) {
 
     <style>
         /* ── Anthropic Theme Variables ──────────────────────────────────── */
-        :root {
             /* Color scheme */
+        :root {
             --color-scheme: dark;
+                
+            /* ── Anthropic Theme ───────────────────────────────────── */
+            --bg-body: #0b0b10;
+            --bg-primary: #0f0f14;
+            --bg-card: #14141c;
+            --bg-secondary: #1a1a24;
+            --bg-hover: rgba(255,255,255,0.03);
             
+            --text-primary: #e8e8f0;
+            --text-secondary: #a0a0b0;
+            --text-muted: #6c6c7a;
+            
+            --border-color: rgba(255,255,255,0.06);
+            --border-hover: rgba(255,255,255,0.12);
+            
+            --gradient-primary: linear-gradient(135deg, #0479df, #58a6ff);
+            --gradient-secondary: linear-gradient(135deg, #06b6d4, #22d3ee);
+            
+            --font-sans: "Anthropic Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-serif: "Anthropic Serif", Georgia, serif;
+            
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --radius-xl: 18px;
             /* Backgrounds */
             --color-background-primary: #0f0f14;
             --color-background-secondary: #14141c;
@@ -184,6 +208,7 @@ if (isset($_GET['switch_router'])) {
             --color-background-inverse: #e8e8f0;
 
             --gradient-primary: linear-gradient(135deg, var(--color-accent-cyan), var(--color-accent-blue));
+            --gradient-secondary: linear-gradient(135deg, var(--color-accent-cyan), var(--color-accent-green));
             
             /* Text */
             --color-text-primary: #e8e8f0;
@@ -495,6 +520,7 @@ if (isset($_GET['switch_router'])) {
         }
 
         .stat-card {
+            position: relative; /* Tambahkan ini */
             background: var(--color-background-card);
             border: 0.5px solid var(--color-border-secondary);
             border-radius: var(--radius-lg);
