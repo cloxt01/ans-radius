@@ -212,37 +212,7 @@ ob_start();
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    :root {
-        /* ── Anthropic Theme ───────────────────────────────────── */
-        --bg-body: #0b0b10;
-        --bg-card: #14141c;
-        --bg-secondary: #1a1a24;
-        --bg-hover: rgba(255,255,255,0.03);
-        
-        --text-primary: #e8e8f0;
-        --text-secondary: #a0a0b0;
-        --text-muted: #6c6c7a;
-        
-        --border-color: rgba(255,255,255,0.06);
-        --border-hover: rgba(255,255,255,0.12);
-        
-        /* Accents - Anthropic palette */
-        --accent-blue: #58a6ff;
-        --accent-cyan: #06b6d4;
-        --accent-green: #10b981;
-        --accent-orange: #f59e0b;
-        --accent-red: #ef4444;
-        --accent-purple: #8b5cf6;
-        --accent-teal: #1D9E75; /* Dari Gambar 1 */
-        
-        --font-sans: "Anthropic Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-        --font-serif: "Anthropic Serif", Georgia, serif;
-        
-        --radius-sm: 6px;
-        --radius-md: 10px;
-        --radius-lg: 14px;
-        --radius-xl: 18px;
-    }
+
 
     body {
         font-family: var(--font-sans);
@@ -693,17 +663,22 @@ ob_start();
         <div class="router-card">
             <div class="router-donut-wrap">
                 <svg viewBox="0 0 60 60">
-                    <circle cx="30" cy="30" r="22" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="12"></circle>
-                    <?php if ($isConnected): ?>
-                        <!-- FREE (Hijau) - lapisan bawah -->
-                        <circle cx="30" cy="30" r="22" fill="none" stroke="#10b981" stroke-width="12" stroke-dasharray="<?php echo round(13.823*(100-$cpuLoad), 1); ?> 138.23" stroke-dashoffset="0"></circle>
-                        <!-- USED (Merah) - lapisan atas -->
-                        <circle cx="30" cy="30" r="22" fill="none" stroke="#ef4444" stroke-width="12" stroke-dasharray="<?php echo round(13.823*$cpuLoad, 1); ?> 138.23" stroke-dashoffset="<?php echo round(-13.823*(100-$cpuLoad), 1); ?>"></circle>
-                    <?php else: ?>
-                        <!-- Tidak konek: lingkaran abu-abu penuh -->
-                        <circle cx="30" cy="30" r="22" fill="none" stroke="#6c6c7a" stroke-width="12" stroke-dasharray="138.23 138.23" stroke-dashoffset="0"></circle>
+                    <!-- Track = hijau (free) -->
+                    <circle cx="30" cy="30" r="22" fill="none" 
+                            stroke="#10b981" stroke-width="12"/>
+                    <!-- Used = merah, menimpa dari atas -->
+                    <?php if ($isConnected && $cpuLoad > 0): ?>
+                    <circle cx="30" cy="30" r="22" fill="none"
+                            stroke="#ef4444" stroke-width="12"
+                            stroke-dasharray="<?php echo round(1.3823 * $cpuLoad, 1); ?> 138.23"
+                            stroke-dashoffset="34.56"
+                            transform="rotate(-90 30 30)"/>
+                    <?php elseif (!$isConnected): ?>
+                    <circle cx="30" cy="30" r="22" fill="none" 
+                            stroke="#6c6c7a" stroke-width="12"/>
                     <?php endif; ?>
-                    <text x="30" y="34" text-anchor="middle" font-size="11" font-weight="600" fill="#e8e8f0">
+                    <text x="30" y="34" text-anchor="middle" font-size="11" 
+                        font-weight="600" fill="#e8e8f0">
                         <?php echo $isConnected ? $cpuLoad : '?'; ?>%
                     </text>
                 </svg>

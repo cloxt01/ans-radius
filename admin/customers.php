@@ -505,24 +505,32 @@ ob_start();
         color: #ef4444;
         border: 1px solid rgba(239, 68, 68, 0.3);
     }
-    .tour-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.75);
-        z-index: 9998;
-    }
+
 
     .tour-highlight {
-        position: relative;
-        z-index: 9999;
-        box-shadow: 0 0 0 4px var(--gradient-primary), 0 0 0 8px rgba(139, 92, 246, 0.3);
-        border-radius: 8px;
-        transition: all 0.3s ease;
+        position: relative !important;
+        z-index: 9999 !important;
     }
 
+    .tour-highlight::before {
+        content: '' !important;
+        position: absolute !important;
+        top: -5px !important;
+        left: -5px !important;
+        right: -5px !important;
+        bottom: -5px !important;
+        border: 4px solid #00d4ff !important;
+        border-radius: 12px !important;
+        box-shadow: 0 0 20px #00d4ff !important;
+        pointer-events: none !important;
+        animation: tourPulse 0.5s ease-in-out infinite alternate !important;
+        z-index: 10000 !important;
+    }
+
+    @keyframes tourPulse {
+        from { box-shadow: 0 0 0 4000px rgba(0,0,0,0.6), 0 0 10px #00d4ff; }
+        to   { box-shadow: 0 0 0 4000px rgba(0,0,0,0.6), 0 0 25px #00d4ff, 0 0 8px #00d4ff inset; }
+    }
     .tour-tooltip {
         position: absolute;
         background: var(--bg-card);
@@ -791,6 +799,7 @@ ob_start();
         }
         .stat-card {
             padding: 15px;
+            
         }
         .stat-icon {
             width: 40px;
@@ -806,8 +815,8 @@ ob_start();
     }
 </style>
 
-<div class="alert" style="background: var(--color-accent-orange); color: #fff; border: 1px solid rgba(0,0,0,0.06); padding: 12px; border-radius: 6px;">
-    <i class="fas fa-warning" style="color: #fff; margin-right:5px;"></i>
+<div class="alert alert-warning">
+    <i class="fas fa-warning"></i>
     <strong>PENTING !!!</strong> Pastikan untuk membuat invoice & perpanjang setelah menambahkan pelanggan agar tagihan muncul di portal pelanggan dan pelanggan tidak langsung terisolir di hari berikutnya.
 </div>
 <?php if (empty($randomCustomer)): ?>
@@ -2329,6 +2338,7 @@ class ProductTour {
         this.currentStep = 0;
         this.overlay = null;
         this.tooltip = null;
+        this.highlightBox = null; // elemen overlay terpisah untuk highlight
     }
 
     start() {
@@ -2349,23 +2359,53 @@ class ProductTour {
         const step = this.steps[index];
         const element = document.querySelector(step.element);
 
-        if (!element) { this.next(); return; }
+        // Jika elemen tidak ada di DOM, skip ke step berikutnya
+        if (!element) {
+            this.showStep(index + 1);
+            return;
+        }
 
         this.removeHighlight();
 
-        if (!this.overlay) {
-            this.overlay = document.createElement('div');
-            this.overlay.className = 'tour-overlay';
-            document.body.appendChild(this.overlay);
-        }
 
-        element.classList.add('tour-highlight');
+
+        // Scroll elemen ke tengah viewport dulu
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        // Tunggu scroll selesai baru posisikan tooltip
-        setTimeout(() => this.createTooltip(element, step), 350);
+        // Tunggu scroll selesai, baru gambar highlight dan tooltip
+        setTimeout(() => {
+            this.drawHighlight(element);
+            this.createTooltip(element, step);
+        }, 400);
     }
 
+    drawHighlight(element) {
+        if (this.highlightBox) {
+            this.highlightBox.remove();
+            this.highlightBox = null;
+        }
+
+        const rect = element.getBoundingClientRect();
+        const PAD = 6;
+
+        this.highlightBox = document.createElement('div');
+        Object.assign(this.highlightBox.style, {
+            position:      'fixed',
+            top:           `${rect.top - PAD}px`,
+            left:          `${rect.left - PAD}px`,
+            width:         `${rect.width + PAD * 2}px`,
+            height:        `${rect.height + PAD * 2}px`,
+            border:        '3px solid #00d4ff',
+            borderRadius:  '10px',
+            // box-shadow spread 9999px = gelap di luar, glow di dalam border
+            boxShadow:     '0 0 0 9999px rgba(0,0,0,0.72), 0 0 18px 4px #00d4ff',
+            zIndex:        '9999',
+            pointerEvents: 'none',
+            animation:     'tourPulse 1s ease-in-out infinite alternate',
+        });
+
+        document.body.appendChild(this.highlightBox);
+    }
     createTooltip(element, step) {
         if (this.tooltip) this.tooltip.remove();
 
@@ -2380,22 +2420,23 @@ class ProductTour {
             <div class="tour-buttons">
                 <button class="tour-close" onclick="tour.finish()">Lewati</button>
                 ${this.currentStep > 0 ? '<button class="tour-prev" onclick="tour.prev()">Kembali</button>' : ''}
-                <button class="tour-next" onclick="tour.next()">${this.currentStep === this.steps.length - 1 ? 'Selesai' : 'Selanjutnya'}</button>
+                <button class="tour-next" onclick="tour.next()">
+                    ${this.currentStep === this.steps.length - 1 ? 'Selesai' : 'Selanjutnya'}
+                </button>
             </div>
         `;
 
-        // Render dulu tersembunyi agar bisa diukur
         this.tooltip.style.visibility = 'hidden';
         this.tooltip.style.position = 'fixed';
+        this.tooltip.style.zIndex = '10000';
         document.body.appendChild(this.tooltip);
 
-        // Ukur setelah render
         requestAnimationFrame(() => {
-            const elRect = element.getBoundingClientRect();
-            const ttRect = this.tooltip.getBoundingClientRect();
-            const GAP = 14;
-            const MARGIN = 10;
-            const ARROW_HALF = 6;
+            const elRect  = element.getBoundingClientRect();
+            const ttRect  = this.tooltip.getBoundingClientRect();
+            const GAP     = 14;
+            const MARGIN  = 10;
+            const ARROW_HALF     = 6;
             const MIN_ARROW_OFFSET = 16;
 
             let top, left;
@@ -2422,14 +2463,13 @@ class ProductTour {
                     left = elRect.left + elRect.width / 2 - ttRect.width / 2;
             }
 
-            // Clamp tooltip agar tidak keluar viewport
             left = Math.max(MARGIN, Math.min(left, window.innerWidth  - ttRect.width  - MARGIN));
             top  = Math.max(MARGIN, Math.min(top,  window.innerHeight - ttRect.height - MARGIN));
 
             this.tooltip.style.left = `${left}px`;
             this.tooltip.style.top  = `${top}px`;
 
-            // Hitung posisi arrow agar menunjuk ke pusat elemen target
+            // Posisi arrow
             const targetCX = elRect.left + elRect.width  / 2;
             const targetCY = elRect.top  + elRect.height / 2;
 
@@ -2450,22 +2490,20 @@ class ProductTour {
     }
 
     removeHighlight() {
+        if (this.highlightBox) {
+            this.highlightBox.remove();
+            this.highlightBox = null;
+        }
+        // Bersihkan juga sisa-sisa class lama jika ada
         document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
     }
 
-    next() {
-        this.removeHighlight();
-        this.showStep(this.currentStep + 1);
-    }
-
-    prev() {
-        this.removeHighlight();
-        this.showStep(this.currentStep - 1);
-    }
+    next() { this.removeHighlight(); this.showStep(this.currentStep + 1); }
+    prev() { this.removeHighlight(); this.showStep(this.currentStep - 1); }
 
     finish() {
-        if (this.overlay) { this.overlay.remove(); this.overlay = null; }
-        if (this.tooltip) { this.tooltip.remove(); this.tooltip = null; }
+        if (this.tooltip)       { this.tooltip.remove();       this.tooltip = null; }
+        if (this.highlightBox)  { this.highlightBox.remove();  this.highlightBox = null; }
         this.removeHighlight();
         localStorage.setItem('tourCompleted_customers', 'true');
     }
@@ -2486,15 +2524,21 @@ const tourSteps = [
         placement: 'bottom'
     },
     {
-        element: '.card-header .btn-primary',
+        element: 'body > div.main-content > div.page-content > div.actions-row > button:nth-child(1)',
         title: '➕ Tambah Pelanggan',
         description: 'Klik untuk menambah pelanggan baru. Isi data nama, nomor HP, username PPPoE, paket, dan lokasi.',
         placement: 'left'
     },
     {
-        element: '.card-header .btn-secondary',
+        element: 'body > div.main-content > div.page-content > div.actions-row > button:nth-child(2)',
         title: '🔁 Tambah via Rename',
         description: 'Gunakan username PPPoE cadangan yang sudah ada di MikroTik untuk mendaftarkan pelanggan baru.',
+        placement: 'bottom'
+    },
+    {
+        element: '#perPageSelect',
+        title: '📄 Jumlah Data per Halaman',
+        description: 'Ubah jumlah data yang ditampilkan per halaman: 10, 50, 100, 250, atau 500.',
         placement: 'bottom'
     },
     {
@@ -2527,12 +2571,6 @@ const tourSteps = [
         title: '⚙️ Tombol Aksi',
         description: 'Setiap baris memiliki: Bayar (catat pembayaran), Edit (ubah data), Reset Password, Hapus, dan Isolir/Buka Isolir.',
         placement: 'left'
-    },
-    {
-        element: '#perPageSelect',
-        title: '📄 Jumlah Data per Halaman',
-        description: 'Ubah jumlah data yang ditampilkan per halaman: 10, 50, 100, 250, atau 500.',
-        placement: 'bottom'
     },
     {
         element: '#customerPagination',
