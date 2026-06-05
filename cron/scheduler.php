@@ -69,6 +69,9 @@ function runScheduler() {
                     case 'auto_isolir':
                         runAutoIsolir($pdo);
                         break;
+                    case 'fiktif_customers':
+                        runFiktifCustomers($pdo);
+                        break;
                     case 'backup_db':
                         runBackupDb();
                         break;
@@ -247,8 +250,57 @@ function runAutoIsolir($pdo)
     }
 }
 
+/** 
+ * Run fiktifCustomers 
+*/
+function runFiktifCustomers($pdo)
+{
+    $fiktifCustomers = fetchAll("SELECT customer_id FROM fiktif_customers");
+
+    // Aktivasi pelanggan fiktif
+    foreach ($fiktifCustomers as $fiktif) {
+        $customerId = $fiktif['customer_id'];
+        $customer = fetchOne("SELECT id, name, status FROM customers WHERE id = ?", [$customerId]);
+        if ($customer && $customer['status'] === 'isolated') {
+            if (activateCustomer($customerId)) {
+                echo "Activated fiktif customer: {$customer['name']} (ID: {$customerId})\n";
+            } else {
+                echo "Failed to activate fiktif customer: {$customer['name']} (ID: {$customerId})\n";
+            }
+        }
+    }
+
+    // Perpanjangan pelanggan fiktif
+    foreach ($fiktifCustomers as $fiktif) {
+        $customerId = $fiktif['customer_id'];
+        $invoice = fetchOne("SELECT * FROM invoices 
+        WHERE customer_id = ? 
+        AND MONTH(due_date) = MONTH(CURDATE()) 
+        AND YEAR(due_date) = YEAR(CURDATE())
+        ORDER BY due_date DESC 
+        LIMIT 1", [$customerId]);
+
+        if ($invoice) {
+            if($invoice['status'] === 'unpaid') {
+                $randomPaidAt = date('Y-m-d H:i:s', rand(strtotime(date('Y-m-01 00:00:00')), time()));
+                $isolationDate = date('Y-m-d', strtotime($randomPaidAt . ' +30 days'));
+
+                $updateResult = update('invoices', ['status' => 'paid', 'paid_at' => $randomPaidAt, 'updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$invoice['id']]);
+                update('customers', ['isolation_date' => $isolationDate], 'id = ?', [$customerId]);
+                if ($updateResult) {
+                    echo "Invoice ID {$invoice['id']} for customer ID {$customerId} marked as paid.\n";
+                } else {
+                    echo "Failed to mark invoice ID {$invoice['id']} for customer ID {$customerId} as paid.\n";
+                }
+            } else {
+                echo "Invoice ID {$invoice['id']} for customer ID {$customerId} is not unpaid, skipping extension.\n";
+            }
+        }
+    }
+}
+
 /**
- * Run auto invoice generation (for 1st of each month)
+ * Run auto invoice generation (for 1st of each month) - OPTIMIZED VERSION
  */
 function runAutoInvoice($pdo)
 {
@@ -260,53 +312,117 @@ function runAutoInvoice($pdo)
         return;
     }
 
-    $currentMonth = date('Y-m');
-    $firstDayOfMonth = $currentMonth . '-01';
-    $lastDayOfMonth = date('Y-m-t', strtotime($firstDayOfMonth));
+    $currentYear = date('Y');
+    $currentMonth = date('m');
+    $firstDayOfMonth = date('Y-m-01');
+    $now = date('Y-m-d H:i:s');
     $generatedCount = 0;
+    $skippedCount = 0;
+    $failedCount = 0;
 
-    // Get all active customers
-    $customers = fetchAll("SELECT * FROM customers WHERE status = 'active'");
-
+    // Get all active customers with their package info in ONE QUERY
+    $customers = fetchAll("
+        SELECT c.*, p.price as package_price, p.name as package_name
+        FROM customers c
+        LEFT JOIN packages p ON c.package_id = p.id
+        WHERE c.status = 'active'
+        ORDER BY c.id
+    ");
+    
     echo "Found " . count($customers) . " active customers\n";
 
+    if (empty($customers)) {
+        echo "No active customers found\n";
+        return;
+    }
+
+    // Get all existing invoices for this month in ONE QUERY (untuk batch check)
+    $existingInvoices = fetchAll("
+        SELECT customer_id, due_date, status 
+        FROM invoices 
+        WHERE YEAR(due_date) = ? AND MONTH(due_date) = ?
+        AND status != 'cancelled'
+    ", [$currentYear, $currentMonth]);
+    
+    // Convert to lookup array for O(1) check
+    $existingMap = [];
+    foreach ($existingInvoices as $inv) {
+        $existingMap[$inv['customer_id']] = $inv['due_date'];
+    }
+    
+    echo "Found " . count($existingMap) . " existing invoices for this month\n";
+
+    $batchInsertData = [];
+    
     foreach ($customers as $customer) {
-        // Cek apakah sudah ada invoice untuk bulan ini berdasarkan due_date
-        $existingInvoice = fetchOne("
-            SELECT id FROM invoices 
-            WHERE customer_id = ? 
-            AND due_date BETWEEN ? AND ?
-            AND status != 'cancelled'",
-            [$customer['id'], $firstDayOfMonth, $lastDayOfMonth]
-        );
+        if (isset($existingMap[$customer['id']])) {
+            echo "  ✗ Invoice already exists for: {$customer['name']} (due_date: {$existingMap[$customer['id']]})\n";
+            $skippedCount++;
+            continue;
+        }
+        
+        // Check if customer has package
+        if (!$customer['package_price']) {
+            echo "  ⚠ No package found for: {$customer['name']}\n";
+            $skippedCount++;
+            continue;
+        }
 
-        if (!$existingInvoice) {
-            $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
-
-            if ($package) {
-                $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
-                $invoiceData = [
-                    'invoice_number' => generateInvoiceNumber(),
-                    'customer_id' => $customer['id'],
-                    'amount' => $package['price'],
-                    'status' => 'unpaid',
-                    'due_date' => $dueDate,
-                    'created_at' => date('Y-m-d H:i:s')
-                ];
-
-                insert('invoices', $invoiceData);
-                $generatedCount++;
-                echo "  ✓ Generated invoice for: {$customer['name']}\n";
+        // Get due date based on customer's isolation_date day
+        $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
+        
+        // Validate due_date
+        if (!$dueDate || $dueDate < $firstDayOfMonth) {
+            echo "  ⚠ Invalid due_date for: {$customer['name']}, using default\n";
+            $dueDate = date('Y-m-20', strtotime($firstDayOfMonth));
+        }
+        
+        $invoiceNumber = generateInvoiceNumber();
+        
+        $batchInsertData[] = [
+            'invoice_number' => $invoiceNumber,
+            'customer_id' => $customer['id'],
+            'amount' => $customer['package_price'],
+            'status' => 'unpaid',
+            'due_date' => $dueDate,
+            'created_at' => $now
+        ];
+        
+        echo "  ✓ Ready: {$customer['name']} - {$invoiceNumber} (due: {$dueDate})\n";
+        $generatedCount++;
+    }
+    
+    // Batch insert if using PDO (opsional, untuk performa)
+    if ($generatedCount > 0 && function_exists('batchInsert')) {
+        $result = batchInsert('invoices', $batchInsertData);
+        if (!$result) {
+            echo "  ✗ Batch insert failed!\n";
+            $failedCount = $generatedCount;
+            $generatedCount = 0;
+        }
+    } else {
+        // Fallback to single insert
+        foreach ($batchInsertData as $data) {
+            if (insert('invoices', $data)) {
+                echo "  ✓ Inserted: {$data['invoice_number']}\n";
+            } else {
+                echo "  ✗ Failed: {$data['invoice_number']}\n";
+                $failedCount++;
+                $generatedCount--;
             }
-        } else {
-            echo "  ✗ Invoice already exists for: {$customer['name']}\n";
         }
     }
 
-    echo "Generated {$generatedCount} invoices for " . date('F Y') . "\n";
+    echo "\n=== Summary ===\n";
+    echo "✓ Generated: {$generatedCount} invoices\n";
+    echo "⚠ Skipped: {$skippedCount} customers (already have invoice)\n";
+    echo "✗ Failed: {$failedCount} customers\n";
+    echo "Total processed: " . count($customers) . " active customers\n";
 
     // Log activity
-    logActivity('AUTO_INVOICE', "Auto-generated {$generatedCount} invoices for " . date('F Y'));
+    if ($generatedCount > 0) {
+        logActivity('AUTO_INVOICE', "Auto-generated {$generatedCount} invoices for " . date('F Y'));
+    }
 }
 
 /**

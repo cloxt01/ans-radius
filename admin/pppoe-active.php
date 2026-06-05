@@ -11,6 +11,18 @@ $pageTitle = 'PPPoE Active Sessions';
 // Get active sessions
 $activeSessions = mikrotikGetActiveSessionsAllRouter();
 
+// 2. Ambil data fiktif dari fungsi Anda
+$fiktifData = getFiktifCustomers();
+
+// 3. Inject data fiktif ke dalam daftar sesi aktif
+foreach ($fiktifData as $user) {
+    $activeSessions[] = [
+        'name'           => $user['name'],
+        'address'        => '11.7.'.(string) rand(1, 10).'.' . rand(1, 254), // IP Dummy agar terlihat seperti sesi real
+        'uptime'         => rand(3600, 86400),
+        'radius'         => 'true'
+    ];
+}
 ob_start();
 ?>
 

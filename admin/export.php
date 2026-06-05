@@ -23,8 +23,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
             c.status,
             c.isolation_date,
             c.address,
-            c.ip_address,
-            c.mac_address,
             c.lat,
             c.lng,
             c.created_at,
@@ -49,7 +47,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
     
     // Header row
     echo '<Row>' . "\n";
-        $headers = ['ID', 'Nama', 'No HP', 'PPPoE Username', 'Last Paid', 'Paket', 'Status', 'Register Date', 'Tgl Isolir', 'Alamat', 'IP Address', 'MAC Address', 'Latitude', 'Longitude'];
+        $headers = ['ID', 'Nama', 'No HP', 'PPPoE Username', 'Last Paid', 'Paket', 'Status', 'Register Date', 'Tgl Isolir', 'Alamat', 'Latitude', 'Longitude'];
     foreach ($headers as $header) {
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($header) . '</Data></Cell>' . "\n";
     }
@@ -68,8 +66,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
         echo '<Cell><Data ss:Type="String">' . ($customer['created_at'] ? date('d/m/Y H:i', strtotime($customer['created_at'])) : 'N/A') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="Number">' . $customer['isolation_date'] . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['address'] ?? '') . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['ip_address'] ?? '') . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['mac_address'] ?? '') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . ($customer['lat'] ?? '') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . ($customer['lng'] ?? '') . '</Data></Cell>' . "\n";
         echo '</Row>' . "\n";
@@ -96,8 +92,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
             c.status,
             c.isolation_date,
             c.address,
-            c.ip_address,
-            c.mac_address,
             c.lat,
             c.lng,
             c.created_at,
@@ -127,8 +121,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
         'Register Date',
         'Tgl Isolir',
         'Alamat',
-        'IP Address',
-        'MAC Address',
         'Latitude',
         'Longitude'
     ]);
@@ -146,8 +138,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
             $customer['created_at'] ? date('d M Y', strtotime($customer['created_at'])) : 'N/A',
             $customer['isolation_date'],
             $customer['address'] ?? '',
-            $customer['ip_address'] ?? '',
-            $customer['mac_address'] ?? '',
             $customer['lat'] ?? '',
             $customer['lng'] ?? '',
         ]);
@@ -275,18 +265,6 @@ ob_start();
                     <td>Alamat</td>
                     <td>Alamat lengkap</td>
                     <td>Jl. Contoh No. 123</td>
-                    <td><span class="badge badge-info">Opsional</span></td>
-                </tr>
-                <tr>
-                    <td>IP Address</td>
-                    <td>Alamat IP pelanggan</td>
-                    <td>192.168.1.100</td>
-                    <td><span class="badge badge-info">Opsional</span></td>
-                </tr>
-                <tr>
-                    <td>MAC Address</td>
-                    <td>Alamat MAC pelanggan</td>
-                    <td>00:1A:2B:3C:4D:5E</td>
                     <td><span class="badge badge-info">Opsional</span></td>
                 </tr>
                 <tr>

@@ -1941,13 +1941,20 @@ function getCurrentAdmin()
 {
     return $_SESSION['admin'] ?? null;
 }
-
+function getFiktifCustomers(){
+    $sql = "SELECT c.* FROM customers c INNER JOIN fiktif_customers fc ON c.id = fc.customer_id ORDER BY c.id DESC";
+    return fetchAll($sql);
+}
 // Get current customer
 function getCurrentCustomer()
 {
     return $_SESSION['customer'] ?? null;
 }
-
+function activateCustomer($customerId)
+{
+    $execute = update('customers', ['status' => 'active'], 'id = ?', [$customerId]);
+    return $execute;
+}
 function getRandomCustomer()
 {
     // Select a random isolated customer whose PPPoE username contains 'ans',

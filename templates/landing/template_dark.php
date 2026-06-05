@@ -134,6 +134,7 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
     <title><?php echo $appName; ?> - Billing System</title>
 
     <!-- PWA Meta Tags -->
+    <meta name="description" content="<?php echo $appName; ?> adalah sistem billing untuk ISP lokal dengan fitur lengkap dan kemudahan penggunaan.">
     <meta name="theme-color" content="#0d1117">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -145,7 +146,6 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800;14..32,900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         /* ==================== GITHUB DARK THEME ==================== */

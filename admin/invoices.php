@@ -396,7 +396,16 @@ $totalInvoices = (int) (fetchOne("SELECT COUNT(*) as total FROM invoices")['tota
 $paidInvoices = (int) (fetchOne("SELECT COUNT(*) as total FROM invoices WHERE status = 'paid'")['total'] ?? 0);
 $unpaidInvoices = (int) (fetchOne("SELECT COUNT(*) as total FROM invoices WHERE status = 'unpaid'")['total'] ?? 0);
 $currentMonthKey = date('Y-m');
-$monthRevenue = (float) (fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM invoices WHERE status = 'paid' AND paid_at IS NOT NULL AND DATE_FORMAT(paid_at, '%Y-%m') = ?", [$currentMonthKey])['total'] ?? 0);
+$monthRevenue = (float) (fetchOne("SELECT COALESCE(SUM(i.amount), 0) as total 
+        FROM invoices i 
+        WHERE i.status = 'paid' 
+          AND i.paid_at IS NOT NULL 
+          AND DATE_FORMAT(i.paid_at, '%Y-%m') = ? 
+          AND NOT EXISTS (
+              SELECT 1 
+              FROM fiktif_customers fc 
+              WHERE fc.customer_id = i.customer_id
+          )", [$currentMonthKey])['total'] ?? 0);
 $csrfToken = generateCsrfToken();
 $paginationQuery = $_GET;
 unset($paginationQuery['page']);
