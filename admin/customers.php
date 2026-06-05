@@ -1662,61 +1662,7 @@ async function fetchCustomerSearch(search) {
     }
 }
 
-// Filter button handlers (separate from live-search)
-const applyFilterBtn = document.getElementById('applyFilterBtn');
-const resetFilterBtn = document.getElementById('resetFilterBtn');
-const perPageSelect = document.getElementById('perPageSelect');
-if (applyFilterBtn) {
-    applyFilterBtn.addEventListener('click', function() {
-        const searchVal = (document.getElementById('searchCustomer') || { value: '' }).value.trim();
-        const params = new URLSearchParams(window.location.search);
-        params.set('page', '1');
-        params.set('search', searchVal);
-        if (perPageSelect && perPageSelect.value) {
-            params.set('per_page', perPageSelect.value);
-        }
 
-        const filterParamMap = {
-            filterStatus: 'filter_status',
-            filterPackage: 'filter_package',
-            filterRouter: 'filter_router',
-            filterTech: 'filter_tech',
-            filterLastPaidFrom: 'filter_last_paid_from',
-            filterLastPaidTo: 'filter_last_paid_to',
-            filterIsolationFrom: 'filter_isolation_from',
-            filterIsolationTo: 'filter_isolation_to',
-            filterRegisterFrom: 'filter_register_from',
-            filterRegisterTo: 'filter_register_to'
-        };
-
-        Object.keys(filterParamMap).forEach(id => {
-            const element = document.getElementById(id);
-            const value = element ? element.value.trim() : '';
-            const paramName = filterParamMap[id];
-
-            if (value) {
-                params.set(paramName, value);
-            } else {
-                params.delete(paramName);
-            }
-        });
-
-        window.location.search = params.toString();
-    });
-}
-if (resetFilterBtn) {
-    resetFilterBtn.addEventListener('click', function() {
-        window.location.href = window.location.pathname;
-    });
-}
-if (perPageSelect) {
-    perPageSelect.addEventListener('change', function() {
-        const params = new URLSearchParams(window.location.search);
-        params.set('page', '1');
-        params.set('per_page', perPageSelect.value || '10');
-        window.location.search = params.toString();
-    });
-}
 
 function editCustomerFromRow(button) {
     const row = button.closest('tr');
@@ -1927,6 +1873,62 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target === addModal) {
                 closeAddCustomerModal();
             }
+        });
+    }
+
+    // Filter button handlers (separate from live-search)
+    const applyFilterBtn = document.getElementById('applyFilterBtn');
+    const resetFilterBtn = document.getElementById('resetFilterBtn');
+    const perPageSelect = document.getElementById('perPageSelect');
+    if (applyFilterBtn) {
+        applyFilterBtn.addEventListener('click', function() {
+            const searchVal = (document.getElementById('searchCustomer') || { value: '' }).value.trim();
+            const params = new URLSearchParams(window.location.search);
+            params.set('page', '1');
+            params.set('search', searchVal);
+            if (perPageSelect && perPageSelect.value) {
+                params.set('per_page', perPageSelect.value);
+            }
+
+            const filterParamMap = {
+                filterStatus: 'filter_status',
+                filterPackage: 'filter_package',
+                filterRouter: 'filter_router',
+                filterTech: 'filter_tech',
+                filterLastPaidFrom: 'filter_last_paid_from',
+                filterLastPaidTo: 'filter_last_paid_to',
+                filterIsolationFrom: 'filter_isolation_from',
+                filterIsolationTo: 'filter_isolation_to',
+                filterRegisterFrom: 'filter_register_from',
+                filterRegisterTo: 'filter_register_to'
+            };
+
+            Object.keys(filterParamMap).forEach(id => {
+                const element = document.getElementById(id);
+                const value = element ? element.value.trim() : '';
+                const paramName = filterParamMap[id];
+
+                if (value) {
+                    params.set(paramName, value);
+                } else {
+                    params.delete(paramName);
+                }
+            });
+
+            window.location.search = params.toString();
+        });
+    }
+    if (resetFilterBtn) {
+        resetFilterBtn.addEventListener('click', function() {
+            window.location.href = window.location.pathname;
+        });
+    }
+    if (perPageSelect) {
+        perPageSelect.addEventListener('change', function() {
+            const params = new URLSearchParams(window.location.search);
+            params.set('page', '1');
+            params.set('per_page', perPageSelect.value || '10');
+            window.location.search = params.toString();
         });
     }
 });
