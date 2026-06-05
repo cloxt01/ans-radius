@@ -1150,7 +1150,7 @@ ob_start();
                     <td data-label="Tgl Isolir">
                         <?php 
                         if (!empty($c['isolation_date']) && $c['isolation_date'] != '0000-00-00') {
-                            $isPast = (strtotime($c['isolation_date']) <= strtotime(date('Y-m-d')));
+                            $isPast = (strtotime($c['isolation_date']) < strtotime(date('Y-m-d')));
                             $badgeClass = $isPast ? 'badge-danger' : 'badge-info';
                             echo '<span class="badge ' . $badgeClass . '">' . date('d M Y', strtotime($c['isolation_date'])) . '</span>';
                         } else {
