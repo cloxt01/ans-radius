@@ -1111,9 +1111,9 @@ ob_start();
                     </td>
                     <td>
                         <?php
-                        $lastInvoice = fetchOne("SELECT due_date FROM invoices WHERE customer_id = ? AND status = 'paid' ORDER BY due_date DESC LIMIT 1", [$c['id']]);
-                        if ($lastInvoice && isset($lastInvoice['due_date'])) {
-                            echo date('d M Y', strtotime($lastInvoice['due_date']));
+                        $lastInvoice = fetchOne("SELECT paid_at FROM invoices WHERE customer_id = ? AND status = 'paid' ORDER BY due_date DESC LIMIT 1", [$c['id']]);
+                        if ($lastInvoice && isset($lastInvoice['paid_at'])) {
+                            echo date('d M Y H:i:s', strtotime($lastInvoice['paid_at']));
                         } else {
                             echo '<span style="color: var(--text-muted);">Belum ada pembayaran</span>';
                         }
