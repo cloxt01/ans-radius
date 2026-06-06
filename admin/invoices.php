@@ -17,44 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'generate':
-                $customers = fetchAll("SELECT * FROM customers WHERE status = 'active'");
-                $generatedCount = 0;
-                $currentMonth = date('Y-m');
-                $firstDayOfMonth = $currentMonth . '-01';
-                $lastDayOfMonth = date('Y-m-t', strtotime($firstDayOfMonth));
-                
-                foreach ($customers as $customer) {
-                    // Cek berdasarkan due_date dalam rentang bulan ini
-                    $existingInvoice = fetchOne("
-                        SELECT id FROM invoices 
-                        WHERE customer_id = ? 
-                        AND due_date BETWEEN ? AND ?
-                        AND status != 'cancelled'",
-                        [$customer['id'], $firstDayOfMonth, $lastDayOfMonth]
-                    );
-                    
-                    if (!$existingInvoice) {
-                        $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
-                        
-                        if ($package) {
-                            $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
-                            $invoiceData = [
-                                'invoice_number' => generateInvoiceNumber(),
-                                'customer_id' => $customer['id'],
-                                'amount' => $package['price'],
-                                'status' => 'unpaid',
-                                'due_date' => $dueDate,
-                                'created_at' => date('Y-m-d H:i:s')
-                            ];
-                            
-                            insert('invoices', $invoiceData);
-                            $generatedCount++;
-                        }
-                    }
+                $generatedCount = generateInvoicesThisMonth();
+                setFlash('success', "Berhasil mengenerate {$generatedCount} invoice untuk bulan ini");
+                if ($generatedCount > 0) {
+                    logActivity('GENERATE_INVOICES', "Generated {$generatedCount} invoices for " . date('F Y'));
+                } else {
                 }
-                
-                setFlash('success', "Invoice berhasil digenerate untuk {$generatedCount} pelanggan aktif");
-                logActivity('GENERATE_INVOICES', "Generated {$generatedCount} invoices for " . date('F Y'));
+
                 redirect('invoices.php');
                 break;
 
@@ -400,12 +369,18 @@ $monthRevenue = (float) (fetchOne("SELECT COALESCE(SUM(i.amount), 0) as total
         FROM invoices i 
         WHERE i.status = 'paid' 
           AND i.paid_at IS NOT NULL 
-          AND DATE_FORMAT(i.paid_at, '%Y-%m') = ? 
-          AND NOT EXISTS (
-              SELECT 1 
-              FROM fiktif_customers fc 
-              WHERE fc.customer_id = i.customer_id
-          )", [$currentMonthKey])['total'] ?? 0);
+          AND DATE_FORMAT(i.paid_at, '%Y-%m') = ?
+          ", [$currentMonthKey])['total'] ?? 0);
+// $monthRevenue = (float) (fetchOne("SELECT COALESCE(SUM(i.amount), 0) as total 
+//         FROM invoices i 
+//         WHERE i.status = 'paid' 
+//           AND i.paid_at IS NOT NULL 
+//           AND DATE_FORMAT(i.paid_at, '%Y-%m') = ? 
+//           AND NOT EXISTS (
+//               SELECT 1 
+//               FROM fiktif_customers fc 
+//               WHERE fc.customer_id = i.customer_id
+//           )", [$currentMonthKey])['total'] ?? 0);
 $csrfToken = generateCsrfToken();
 $paginationQuery = $_GET;
 unset($paginationQuery['page']);

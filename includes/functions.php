@@ -130,6 +130,7 @@ function formatDate($date, $format = 'd M Y')
 
 //     return $prefix . str_pad($newNum, 6, '0', STR_PAD_LEFT);
 // }
+
 function generateInvoiceNumber()
 {
     $prefix = INVOICE_PREFIX; // Diambil dari config: INV
@@ -1941,6 +1942,7 @@ function getCurrentAdmin()
 {
     return $_SESSION['admin'] ?? null;
 }
+
 function getFiktifCustomers(){
     $sql = "SELECT c.* FROM customers c INNER JOIN fiktif_customers fc ON c.id = fc.customer_id ORDER BY c.id DESC";
     return fetchAll($sql);
@@ -2390,7 +2392,82 @@ function normalizePublicVoucherPhone($phone)
     }
     return $digits;
 }
+function generateInvoicesThisMonth()
+{
+    $customers = fetchAll("SELECT * FROM customers WHERE status = 'active'");
+    $generatedCount = 0;
+    $currentMonth = date('Y-m');
+    $firstDayOfMonth = $currentMonth . '-01';
+    $lastDayOfMonth = date('Y-m-t', strtotime($firstDayOfMonth));
+    
+    foreach ($customers as $customer) {
+        // Cek berdasarkan due_date dalam rentang bulan ini
+        $existingInvoice = fetchOne("
+            SELECT id FROM invoices 
+            WHERE customer_id = ? 
+            AND due_date BETWEEN ? AND ?
+            AND status != 'cancelled'",
+            [$customer['id'], $firstDayOfMonth, $lastDayOfMonth]
+        );
+        
+        if (!$existingInvoice) {
+            $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
+            
+            if ($package) {
+                $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
+                $invoiceData = [
+                    'invoice_number' => generateInvoiceNumber(),
+                    'customer_id' => $customer['id'],
+                    'amount' => $package['price'],
+                    'status' => 'unpaid',
+                    'due_date' => $dueDate,
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+                
+                insert('invoices', $invoiceData);
+                $generatedCount++;
+            }
 
+        }
+    }
+    return $generatedCount;
+}
+function generateInvoicesForFiktifCustomers(){
+    $customers = getFiktifCustomers();
+    $generatedCount = 0;
+    $currentMonth = date('Y-m');
+    $firstDayOfMonth = $currentMonth . '-01';
+    $lastDayOfMonth = date('Y-m-t', strtotime($firstDayOfMonth));
+    foreach ($customers as $customer) {
+        $existingInvoice = fetchOne(
+            "SELECT id FROM invoices 
+            WHERE customer_id = ? 
+            AND due_date BETWEEN ? AND ?
+            AND status != 'cancelled'",
+            [$customer['id'], $firstDayOfMonth, $lastDayOfMonth]
+        );
+        
+        if (!$existingInvoice) {
+            $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
+            
+            if ($package) {
+                $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
+                $invoiceData = [
+                    'invoice_number' => generateInvoiceNumber(),
+                    'customer_id' => $customer['id'],
+                    'amount' => $package['price'],
+                    'status' => 'unpaid',
+                    'due_date' => $dueDate,
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+                
+                insert('invoices', $invoiceData);
+                $generatedCount++;
+            }
+        }
+    }
+    return $generatedCount;
+}
 function generatePublicVoucherOrderNumber()
 {
     return 'VCR' . date('YmdHis') . strtoupper(generateRandomString(4, 'mixed'));

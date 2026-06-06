@@ -11,15 +11,45 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 
+// =====================================================
+// KONFIGURASI LOGGING
+// =====================================================
+define('LOG_FILE', __DIR__ . '/../logs/cron.log');
+define('LOG_MAX_SIZE', 10485760); // 10MB max file size
+
+/**
+ * Fungsi untuk menulis log ke file
+ */
+function writeLog($message, $type = 'INFO')
+{
+    $logDir = dirname(LOG_FILE);
+    if (!is_dir($logDir)) {
+        mkdir($logDir, 0755, true);
+    }
+    
+    // Rotate log jika file terlalu besar
+    if (file_exists(LOG_FILE) && filesize(LOG_FILE) > LOG_MAX_SIZE) {
+        $backupFile = LOG_FILE . '.' . date('Y-m-d-His') . '.bak';
+        rename(LOG_FILE, $backupFile);
+    }
+    
+    $timestamp = date('Y-m-d H:i:s');
+    $logMessage = "[{$timestamp}] [{$type}] {$message}" . PHP_EOL;
+    
+    file_put_contents(LOG_FILE, $logMessage, FILE_APPEND | LOCK_EX);
+    
+    // Tetap tampilkan di console juga (untuk debugging)
+    echo $logMessage;
+}
+
 // Use the configured application timezone for cron calculations.
-// This keeps PHP date() and MySQL NOW() aligned with cron_schedules.schedule_time.
 $schedulerTimezone = trim((string) getSetting('timezone', 'Asia/Jakarta'));
 if ($schedulerTimezone === '') {
     $schedulerTimezone = 'Asia/Jakarta';
 }
 if (function_exists('date_default_timezone_set')) {
     @date_default_timezone_set($schedulerTimezone);
-} 
+}
 
 // CLI Check - Only run if called directly from CLI
 if (php_sapi_name() === 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
@@ -34,7 +64,7 @@ if (php_sapi_name() === 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIP
 function runScheduler() {
     global $schedulerTimezone;
 
-    echo "[" . date('Y-m-d H:i:s') . "] Cron Scheduler started\n";
+    writeLog("=== CRON SCHEDULER STARTED ===", "START");
 
     try {
         $pdo = getDB();
@@ -49,17 +79,22 @@ function runScheduler() {
         ");
 
         if (empty($schedules)) {
-            echo "No active schedules to run.\n";
+            writeLog("No active schedules to run.", "INFO");
+            writeLog("=== CRON SCHEDULER COMPLETED ===", "END");
             return;
         }
 
-        echo "Found " . count($schedules) . " schedule(s) to run.\n";
+        writeLog("Found " . count($schedules) . " schedule(s) to run.", "INFO");
 
         foreach ($schedules as $schedule) {
-            echo "\n--- Running schedule: {$schedule['name']} ---\n";
+            writeLog("--- Running schedule: {$schedule['name']} ---", "TASK");
 
             $startTime = microtime(true);
             $status = 'started';
+            $outputMessage = '';
+
+            // Mulai output buffering untuk menangkap semua output
+            ob_start();
 
             try {
                 switch ($schedule['task_type']) {
@@ -78,11 +113,9 @@ function runScheduler() {
                     case 'send_reminders':
                         sendReminders($pdo);
                         break;
-
                     case 'custom_script':
                         runCustomScript($pdo, $schedule);
                         break;
-
                     default:
                         echo "Unknown task type: {$schedule['task_type']}\n";
                         $status = 'failed';
@@ -93,9 +126,17 @@ function runScheduler() {
             } catch (Exception $e) {
                 echo "Error: " . $e->getMessage() . "\n";
                 $status = 'failed';
+                $outputMessage = $e->getMessage();
             }
 
+            // Tangkap semua output
+            $output = ob_get_clean();
             $executionTime = round(microtime(true) - $startTime, 2);
+
+            // Tulis output ke log
+            if (!empty($output)) {
+                writeLog("OUTPUT:\n" . trim($output), "TASK");
+            }
 
             // Update schedule
             update('cron_schedules', [
@@ -104,18 +145,17 @@ function runScheduler() {
                 'next_run' => calculateNextRun($schedule)
             ], 'id = ?', [$schedule['id']]);
 
-            // Log execution
+            // Log execution ke database
             $pdo->prepare("INSERT INTO cron_logs (schedule_id, status, execution_time, created_at) VALUES (?, ?, ?, NOW())")
                 ->execute([$schedule['id'], $status, $executionTime]);
 
-            echo "Status: {$status}\n";
-            echo "Execution time: {$executionTime}s\n";
+            writeLog("Status: {$status}, Execution time: {$executionTime}s", "RESULT");
         }
 
-        echo "\n[" . date('Y-m-d H:i:s') . "] Cron Scheduler completed\n";
+        writeLog("=== CRON SCHEDULER COMPLETED ===", "END");
 
     } catch (Exception $e) {
-        echo "Error: " . $e->getMessage() . "\n";
+        writeLog("ERROR: " . $e->getMessage(), "ERROR");
         return;
     }
 }
@@ -189,7 +229,116 @@ function applySchedulerDatabaseTimezone($pdo, $timezoneName)
         // If the timezone cannot be applied, continue with the process timezone.
     }
 }
+function runFiktifCustomers($pdo)
+{
+    
+                
+    writeLog("Running fiktif customers (processing yesterday's due dates with variative late payment)...", "INFO");
+    
+    $fiktifCustomers = fetchAll("SELECT customer_id FROM fiktif_customers");
+    $processedCount = 0;
+    $activatedCount = 0;
+    $skippedCount = 0;
+    $today = new DateTime();
+    $todayDate = $today->format('Y-m-d');
 
+    // Aktivasi pelanggan fiktif
+    foreach ($fiktifCustomers as $fiktif) {
+        $customerId = $fiktif['customer_id'];
+        $customer = fetchOne("SELECT id, name, status FROM customers WHERE id = ?", [$customerId]);
+        if ($customer && $customer['status'] === 'isolated') {
+            if (activateCustomer($customerId)) {
+                writeLog("✓ Activated fiktif customer: {$customer['name']} (ID: {$customerId})", "ACTIVATE");
+                $activatedCount++;
+            } else {
+                writeLog("✗ Failed to activate fiktif customer: {$customer['name']} (ID: {$customerId})", "ERROR");
+            }
+        }
+    }
+    $generatedCount = generateInvoicesForFiktifCustomers();
+    writeLog("Generated {$generatedCount} invoices for fiktif customers.", "INFO"); // Pastikan invoice sudah ada untuk diproses
+
+    // Perpanjangan pelanggan fiktif (due_date = kemarin)
+    foreach ($fiktifCustomers as $fiktif) {
+        $customerId = $fiktif['customer_id'];
+        $invoice = fetchOne(
+            "SELECT * FROM invoices 
+            WHERE customer_id = ? 
+            AND due_date = CURDATE() - INTERVAL 1 DAY
+            ORDER BY due_date DESC 
+            LIMIT 1
+        ", [$customerId]);
+
+        if ($invoice && $invoice['status'] === 'unpaid') {
+            // Hitung keterlambatan variatif 1-10 hari
+            $lateDays = rand(1, 10);
+            writeLog("⏳ Processing invoice ID {$invoice['id']} for customer ID {$customerId} - Late by {$lateDays} days", "PROCESS");
+            $paidAtDate = date('Y-m-d', strtotime($invoice['due_date'] . " +{$lateDays} days"));
+            
+            // CEK: Apakah paid_at_date > CURDATE()?
+            if ($paidAtDate > $todayDate) {
+                writeLog("⏳ SKIP: Invoice ID {$invoice['id']} for customer ID {$customerId} - Would be paid on {$paidAtDate} (in the future)", "SKIP");
+                $skippedCount++;
+                continue;
+            }
+            
+            // Hitung selisih hari untuk mengetahui telat berapa hari
+            $dueDateObj = new DateTime($invoice['due_date']);
+            $paidAtObj = new DateTime($paidAtDate);
+            $actualLateDays = $dueDateObj->diff($paidAtObj)->days;
+            
+            // Generate jam random
+            $randomHour = rand(0, 23);
+            $randomMinute = rand(0, 59);
+            $randomSecond = rand(0, 59);
+            
+            // Cek apakah paidAtDate == hari ini?
+            if ($paidAtDate == $todayDate) {
+                $currentHour = (int)$today->format('H');
+                $currentMinute = (int)$today->format('i');
+                $currentSecond = (int)$today->format('s');
+                
+                $randomHour = rand(0, $currentHour);
+                if ($randomHour == $currentHour) {
+                    $randomMinute = rand(0, $currentMinute);
+                    if ($randomMinute == $currentMinute) {
+                        $randomSecond = rand(0, $currentSecond);
+                    } else {
+                        $randomSecond = rand(0, 59);
+                    }
+                } else {
+                    $randomMinute = rand(0, 59);
+                    $randomSecond = rand(0, 59);
+                }
+            }
+            
+            $randomPaidAt = date('Y-m-d H:i:s', strtotime("{$paidAtDate} {$randomHour}:{$randomMinute}:{$randomSecond}"));
+            $isolationDate = date('Y-m-d', strtotime($randomPaidAt . ' +30 days'));
+            
+            $updateResult = update('invoices', [
+                'status' => 'paid', 
+                'paid_at' => $randomPaidAt, 
+                'updated_at' => date('Y-m-d H:i:s')
+            ], 'id = ?', [$invoice['id']]);
+            
+            update('customers', ['isolation_date' => $isolationDate], 'id = ?', [$customerId]);
+            
+            if ($updateResult) {
+                writeLog("✓ Invoice ID {$invoice['id']} for customer ID {$customerId} marked as paid", "PAYMENT");
+                writeLog("  Due: {$invoice['due_date']} → Paid: {$randomPaidAt} (telat {$actualLateDays} hari)", "DETAIL");
+                writeLog("  New isolation: {$isolationDate}", "DETAIL");
+                $processedCount++;
+            } else {
+                writeLog("✗ Failed to mark invoice ID {$invoice['id']} for customer ID {$customerId} as paid", "ERROR");
+            }
+        }
+    }
+    
+    writeLog("=== FIKTIF CUSTOMERS SUMMARY ===", "SUMMARY");
+    writeLog("✓ Activated customers: {$activatedCount}", "SUMMARY");
+    writeLog("✓ Processed payments: {$processedCount}", "SUMMARY");
+    writeLog("⏳ Skipped (future payment date): {$skippedCount}", "SUMMARY");
+}
 
 /**
  * Run auto-isolir based on customers.isolation_date
@@ -250,54 +399,6 @@ function runAutoIsolir($pdo)
     }
 }
 
-/** 
- * Run fiktifCustomers 
-*/
-function runFiktifCustomers($pdo)
-{
-    $fiktifCustomers = fetchAll("SELECT customer_id FROM fiktif_customers");
-
-    // Aktivasi pelanggan fiktif
-    foreach ($fiktifCustomers as $fiktif) {
-        $customerId = $fiktif['customer_id'];
-        $customer = fetchOne("SELECT id, name, status FROM customers WHERE id = ?", [$customerId]);
-        if ($customer && $customer['status'] === 'isolated') {
-            if (activateCustomer($customerId)) {
-                echo "Activated fiktif customer: {$customer['name']} (ID: {$customerId})\n";
-            } else {
-                echo "Failed to activate fiktif customer: {$customer['name']} (ID: {$customerId})\n";
-            }
-        }
-    }
-
-    // Perpanjangan pelanggan fiktif
-    foreach ($fiktifCustomers as $fiktif) {
-        $customerId = $fiktif['customer_id'];
-        $invoice = fetchOne("SELECT * FROM invoices 
-        WHERE customer_id = ? 
-        AND MONTH(due_date) = MONTH(CURDATE()) 
-        AND YEAR(due_date) = YEAR(CURDATE())
-        ORDER BY due_date DESC 
-        LIMIT 1", [$customerId]);
-
-        if ($invoice) {
-            if($invoice['status'] === 'unpaid') {
-                $randomPaidAt = date('Y-m-d H:i:s', rand(strtotime(date('Y-m-01 00:00:00')), time()));
-                $isolationDate = date('Y-m-d', strtotime($randomPaidAt . ' +30 days'));
-
-                $updateResult = update('invoices', ['status' => 'paid', 'paid_at' => $randomPaidAt, 'updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$invoice['id']]);
-                update('customers', ['isolation_date' => $isolationDate], 'id = ?', [$customerId]);
-                if ($updateResult) {
-                    echo "Invoice ID {$invoice['id']} for customer ID {$customerId} marked as paid.\n";
-                } else {
-                    echo "Failed to mark invoice ID {$invoice['id']} for customer ID {$customerId} as paid.\n";
-                }
-            } else {
-                echo "Invoice ID {$invoice['id']} for customer ID {$customerId} is not unpaid, skipping extension.\n";
-            }
-        }
-    }
-}
 
 /**
  * Run auto invoice generation (for 1st of each month) - OPTIMIZED VERSION

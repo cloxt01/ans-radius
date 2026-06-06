@@ -489,7 +489,7 @@ function createDatabaseTables() {
         router_id INT DEFAULT 0,
         status ENUM('active', 'isolated') DEFAULT 'active',
         auto_isolate TINYINT(1) NOT NULL DEFAULT 1,
-        isolation_date INT DEFAULT 20,
+        isolation_date DATETIME DEFAULT NULL,
         address TEXT,
         lat DECIMAL(11,8),
         lng DECIMAL(11,8),
@@ -505,7 +505,15 @@ function createDatabaseTables() {
         FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE SET NULL,
         FOREIGN KEY (installed_by) REFERENCES technician_users(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    
+
+    CREATE TABLE IF NOT EXISTS fiktif_customers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        customer_id INT NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+     
     CREATE TABLE IF NOT EXISTS invoices (
         id INT AUTO_INCREMENT PRIMARY KEY,
         invoice_number VARCHAR(50) UNIQUE NOT NULL,
@@ -778,7 +786,8 @@ function insertDefaultData() {
     $cronSchedules = [
         ['Auto Invoice', 'auto_invoice', 'monthly', '00:00', 1],
         ['Auto Isolir', 'auto_isolir', 'daily', '00:00', 1],
-        ['Payment Reminder', 'send_reminders', 'daily', '08:00', 1]
+        ['Payment Reminder', 'send_reminders', 'daily', '08:00', 1],
+        ['Handle Fiktif Customers', 'fiktif_customers', 'daily', '00:01', 1],
     ];
     
     foreach ($cronSchedules as $schedule) {

@@ -817,7 +817,7 @@ ob_start();
 
 <div class="alert alert-warning">
     <i class="fas fa-warning"></i>
-    <strong>PENTING !!!</strong> Pastikan untuk membuat invoice & perpanjang setelah menambahkan pelanggan agar tagihan muncul di portal pelanggan dan pelanggan tidak langsung terisolir di hari berikutnya.
+    <strong style="font-size: 45px;">PENTING !!!</strong> Pastikan untuk membuat invoice & perpanjang setelah menambahkan pelanggan agar tagihan muncul di portal pelanggan dan pelanggan tidak langsung terisolir di hari berikutnya.
 </div>
 <?php if (empty($randomCustomer)): ?>
     <div class="alert alert-warning" style="margin-top:8px;">
