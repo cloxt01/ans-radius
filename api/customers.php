@@ -107,11 +107,11 @@ try {
             }
 
             if ($filter_last_paid_from !== '') {
-                $whereParts[] = "(SELECT MAX(i.due_date) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') >= ?";
+                $whereParts[] = "(SELECT MAX(i.paid_at) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') >= ?";
                 $params[] = $filter_last_paid_from . ' 00:00:00';
             }
             if ($filter_last_paid_to !== '') {
-                $whereParts[] = "(SELECT MAX(i.due_date) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') <= ?";
+                $whereParts[] = "(SELECT MAX(i.paid_at) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') <= ?";
                 $params[] = $filter_last_paid_to . ' 23:59:59';
             }
 
@@ -149,7 +149,7 @@ try {
                 p.price as package_price,
                 " . ($routersTableExists ? "r.name as router_name," : "'' as router_name,") . "
                 (
-                    SELECT MAX(i.due_date)
+                    SELECT MAX(i.paid_at)
                     FROM invoices i
                     WHERE i.customer_id = c.id AND i.status = 'paid'
                 ) as last_paid

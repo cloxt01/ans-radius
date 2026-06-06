@@ -333,11 +333,11 @@ if ($customersTableExists) {
 
     // Last paid range (dates expected in YYYY-MM-DD)
     if ($filter_last_paid_from !== '') {
-        $whereClauses[] = "(SELECT MAX(i.due_date) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') >= ?";
+        $whereClauses[] = "(SELECT MAX(i.paid_at) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') >= ?";
         $whereParams[] = $filter_last_paid_from . ' 00:00:00';
     }
     if ($filter_last_paid_to !== '') {
-        $whereClauses[] = "(SELECT MAX(i.due_date) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') <= ?";
+        $whereClauses[] = "(SELECT MAX(i.paid_at) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') <= ?";
         $whereParams[] = $filter_last_paid_to . ' 23:59:59';
     }
 
@@ -378,7 +378,7 @@ if ($customersTableExists) {
         $routersTableExists ? 'r.name as router_name' : "'' as router_name",
         'COALESCE(onu.odp_id, NULL) as onu_odp_id',
         'IF(rc.username IS NOT NULL, TRUE, FALSE) as in_radius'
-        , '(SELECT MAX(i.due_date) FROM invoices i WHERE i.customer_id = c.id AND i.status = \'paid\') as last_paid'
+        , '(SELECT MAX(i.paid_at) FROM invoices i WHERE i.customer_id = c.id AND i.status = \'paid\') as last_paid'
     ];
 
     $joinParts = [];
@@ -1457,10 +1457,12 @@ function formatDateLabel(dateStr) {
     return new Intl.DateTimeFormat('id-ID', {
         day: '2-digit',
         month: 'short',
-        year: 'numeric'
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
     }).format(date);
 }
-
 function restoreInitialCustomers() {
     if (!customerTableBody) {
         return;

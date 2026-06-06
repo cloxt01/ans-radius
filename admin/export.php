@@ -60,10 +60,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['name']) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['phone']) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['pppoe_username']) . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . ($customer['paid_at'] ? date('d/m/Y H:i', strtotime($customer['paid_at'])) : '') . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . ($customer['paid_at'] ? date('d/m/Y H:i:s', strtotime($customer['paid_at'])) : '') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['package_name'] ?? 'Tanpa Paket') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . ($customer['status'] == 'active' ? 'Aktif' : 'Isolir') . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . ($customer['created_at'] ? date('d/m/Y H:i', strtotime($customer['created_at'])) : 'N/A') . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . ($customer['created_at'] ? date('d/m/Y H:i:s', strtotime($customer['created_at'])) : 'N/A') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="Number">' . $customer['isolation_date'] . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['address'] ?? '') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . ($customer['lat'] ?? '') . '</Data></Cell>' . "\n";
@@ -116,7 +116,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
         'No HP',
         'PPPoE Username',
         'Paket',
-            'Last Paid',
+        'Last Paid',
         'Status',
         'Register Date',
         'Tgl Isolir',
