@@ -1150,7 +1150,7 @@ ob_start();
                     <td data-label="Tgl Isolir">
                         <?php 
                         if (!empty($c['isolation_date']) && $c['isolation_date'] != '0000-00-00') {
-                            $isPast = (strtotime($c['isolation_date']) < strtotime(date('Y-m-d')));
+                            $isPast = (strtotime($c['isolation_date']) <= strtotime(date('Y-m-d')));
                             $badgeClass = $isPast ? 'badge-danger' : 'badge-info';
                             echo '<span class="badge ' . $badgeClass . '">' . date('d M Y', strtotime($c['isolation_date'])) . '</span>';
                         } else {
@@ -1480,7 +1480,28 @@ function getFilterElementValue(id) {
     const element = document.getElementById(id);
     return element ? element.value.trim() : '';
 }
+function renderIsolationBadge(isoDate) {
+    if (!isoDate || isoDate === '0000-00-00') {
+        return '<span class="badge badge-muted">Belum diatur</span>';
+    }
 
+    // Hari ini jam 00:00 WIB
+    const today = new Date().setHours(0, 0, 0, 0);
+
+    // Parse tanggal agar mengikuti zona waktu lokal (WIB)
+    const [y, m, d] = isoDate.split('-');
+    const dateObj = new Date(y, m - 1, d);
+    
+    // Sekarang keduanya dalam WIB 00:00:00
+    const isPast = dateObj.getTime() <= today;
+    
+    const badgeClass = isPast ? 'badge-danger' : 'badge-info';
+    const formattedDate = dateObj.toLocaleDateString('id-ID', {
+        day: '2-digit', month: 'short', year: 'numeric'
+    });
+    
+    return `<span class="badge ${badgeClass}">${formattedDate}</span>`;
+}
 function renderFetchedCustomers(customers) {
     if (!customerTableBody) {
         return;
@@ -1535,7 +1556,7 @@ function renderFetchedCustomers(customers) {
                     </div>
                     ${radiusBadge}
                 </td>
-                <td data-label="Tgl Isolir"><span class="badge badge-info">${escapeHtml(customer.isolation_date)}</span></td>
+                <td data-label="Tgl Isolir">${renderIsolationBadge(customer.isolation_date)}</td>
                 <td data-label="Register Date">${formatDateLabel(customer.created_at)}</td>
                 <td data-label="IP Address">${escapeHtml(customer.ip_address || 'N/A')}</td>
                 <td data-label="MAC Address">${escapeHtml(customer.mac_address || 'N/A')}</td>
