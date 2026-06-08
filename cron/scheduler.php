@@ -229,116 +229,139 @@ function applySchedulerDatabaseTimezone($pdo, $timezoneName)
         // If the timezone cannot be applied, continue with the process timezone.
     }
 }
-function runFiktifCustomers($pdo)
+/**
+ * Process a single fiktif customer's overdue invoice.
+ * Returns one of: 'processed', 'activated', 'skipped', 'failed'
+ */
+function processFiktifCustomer(int $customerId, DateTime $today, string $todayStr): string
 {
-    
-                
-    writeLog("Running fiktif customers (processing yesterday's due dates with variative late payment)...", "INFO");
-    
-    $fiktifCustomers = fetchAll("SELECT customer_id FROM fiktif_customers");
-    $processedCount = 0;
-    $activatedCount = 0;
-    $skippedCount = 0;
-    $today = new DateTime();
-    $todayDate = $today->format('Y-m-d');
+    $invoice = fetchOne(
+        "SELECT * FROM invoices
+         WHERE customer_id = ?
+           AND status = 'unpaid'
+           AND due_date <= CURDATE() - INTERVAL 1 DAY
+         ORDER BY due_date DESC
+         LIMIT 1",
+        [$customerId]
+    );
 
-    $generatedCount = generateInvoicesForFiktifCustomers();
-    writeLog("Generated {$generatedCount} invoices for fiktif customers.", "INFO"); // Pastikan invoice sudah ada untuk diproses
-
-    // Perpanjangan pelanggan fiktif (due_date = kemarin)
-    foreach ($fiktifCustomers as $fiktif) {
-        $customerId = $fiktif['customer_id'];
-        $invoice = fetchOne(
-            "SELECT * FROM invoices 
-            WHERE customer_id = ? 
-            AND due_date <= CURDATE() - INTERVAL 1 DAY
-            ORDER BY due_date DESC 
-            LIMIT 1
-        ", [$customerId]);
-
-        if ($invoice && $invoice['status'] === 'unpaid') {
-            // Hitung keterlambatan variatif 1-10 hari
-            $lateDays = rand(1, 10);
-            writeLog("⏳ Processing invoice ID {$invoice['id']} for customer ID {$customerId} - Late by {$lateDays} days", "PROCESS");
-            $paidAtDate = date('Y-m-d', strtotime($invoice['due_date'] . " +{$lateDays} days"));
-            
-            // CEK: Apakah paid_at_date > CURDATE()?
-            if ($paidAtDate > $todayDate) {
-                writeLog("⏳ SKIP: Invoice ID {$invoice['id']} for customer ID {$customerId} - Would be paid on {$paidAtDate} (in the future)", "SKIP");
-                $skippedCount++;
-                continue;
-            }
-            
-            // Hitung selisih hari untuk mengetahui telat berapa hari
-            $dueDateObj = new DateTime($invoice['due_date']);
-            $paidAtObj = new DateTime($paidAtDate);
-            $actualLateDays = $dueDateObj->diff($paidAtObj)->days;
-            
-            // Generate jam random
-            $randomHour = rand(0, 23);
-            $randomMinute = rand(0, 59);
-            $randomSecond = rand(0, 59);
-            
-            // Cek apakah paidAtDate == hari ini?
-            if ($paidAtDate == $todayDate) {
-                $currentHour = (int)$today->format('H');
-                $currentMinute = (int)$today->format('i');
-                $currentSecond = (int)$today->format('s');
-                
-                $randomHour = rand(0, $currentHour);
-                if ($randomHour == $currentHour) {
-                    $randomMinute = rand(0, $currentMinute);
-                    if ($randomMinute == $currentMinute) {
-                        $randomSecond = rand(0, $currentSecond);
-                    } else {
-                        $randomSecond = rand(0, 59);
-                    }
-                } else {
-                    $randomMinute = rand(0, 59);
-                    $randomSecond = rand(0, 59);
-                }
-            }
-            
-            $randomPaidAt = date('Y-m-d H:i:s', strtotime("{$paidAtDate} {$randomHour}:{$randomMinute}:{$randomSecond}"));
-            $isolationDate = date('Y-m-d', strtotime($randomPaidAt . ' +30 days'));
-            
-            $updateResult = update('invoices', [
-                'status' => 'paid', 
-                'paid_at' => $randomPaidAt, 
-                'updated_at' => date('Y-m-d H:i:s')
-            ], 'id = ?', [$invoice['id']]);
-            
-            update('customers', ['isolation_date' => $isolationDate], 'id = ?', [$customerId]);
-            
-            if ($updateResult) {
-                writeLog("✓ Invoice ID {$invoice['id']} for customer ID {$customerId} marked as paid", "PAYMENT");
-                writeLog("  Due: {$invoice['due_date']} → Paid: {$randomPaidAt} (telat {$actualLateDays} hari)", "DETAIL");
-                writeLog("  New isolation: {$isolationDate}", "DETAIL");
-
-                // Aktifkan
-                $customerId = $fiktif['customer_id'];
-                $customer = fetchOne("SELECT id, name, status FROM customers WHERE id = ?", [$customerId]);
-                if ($customer && $customer['status'] === 'isolated') {
-                    if (activateCustomer($customerId)) {
-                        writeLog("✓ Activated fiktif customer: {$customer['name']} (ID: {$customerId})", "ACTIVATE");
-                        $activatedCount++;
-                    } else {
-                        writeLog("✗ Failed to activate fiktif customer: {$customer['name']} (ID: {$customerId})", "ERROR");
-                    }
-                }
-                $processedCount++;
-            } else {
-                writeLog("✗ Failed to mark invoice ID {$invoice['id']} for customer ID {$customerId} as paid", "ERROR");
-            }
-        }
+    if (!$invoice) {
+        return 'skipped';
     }
-    
-    writeLog("=== FIKTIF CUSTOMERS SUMMARY ===", "SUMMARY");
-    writeLog("✓ Activated customers: {$activatedCount}", "SUMMARY");
-    writeLog("✓ Processed payments: {$processedCount}", "SUMMARY");
-    writeLog("⏳ Skipped (future payment date): {$skippedCount}", "SUMMARY");
+
+    $lateDays   = rand(1, 10);
+    $paidOnDate = date('Y-m-d', strtotime("{$invoice['due_date']} +{$lateDays} days"));
+
+    if ($paidOnDate > $todayStr) {
+        writeLog(
+            "⏳ SKIP invoice #{$invoice['id']} (customer #{$customerId}) — would pay on {$paidOnDate}",
+            "SKIP"
+        );
+        return 'skipped';
+    }
+
+    $paidAt         = buildRandomPaidAt($paidOnDate, $today, $todayStr);
+    $isolationDate  = date('Y-m-d', strtotime($paidAt . ' +30 days'));
+    $actualLateDays = (new DateTime($invoice['due_date']))->diff(new DateTime($paidOnDate))->days;
+
+    $ok = update('invoices', [
+        'status'     => 'paid',
+        'paid_at'    => $paidAt,
+        'updated_at' => date('Y-m-d H:i:s'),
+    ], 'id = ?', [$invoice['id']]);
+
+    if (!$ok) {
+        writeLog("✗ Failed to mark invoice #{$invoice['id']} as paid (customer #{$customerId})", "ERROR");
+        return 'failed';
+    }
+
+    update('customers', ['isolation_date' => $isolationDate], 'id = ?', [$customerId]);
+
+    writeLog("✓ Invoice #{$invoice['id']} — customer #{$customerId} marked paid", "PAYMENT");
+    writeLog("  Due: {$invoice['due_date']} → Paid: {$paidAt} (telat {$actualLateDays} hari)", "DETAIL");
+    writeLog("  New isolation: {$isolationDate}", "DETAIL");
+
+    return tryActivateFiktifCustomer($customerId);
 }
 
+/**
+ * Attempt to activate an isolated fiktif customer.
+ * Returns 'activated', 'processed', or 'failed'.
+ */
+function tryActivateFiktifCustomer(int $customerId): string
+{
+    $customer = fetchOne("SELECT id, name, status FROM customers WHERE id = ?", [$customerId]);
+
+    if ($customer && $customer['status'] === 'isolated') {
+        if (activateCustomer($customerId)) {
+            writeLog("✓ Activated: {$customer['name']} (ID: {$customerId})", "ACTIVATE");
+            return 'activated';
+        }
+        // FIX Bug 3: kembalikan 'failed' bukan 'processed' kalau aktivasi gagal
+        writeLog("✗ Failed to activate: {$customer['name']} (ID: {$customerId})", "ERROR");
+        return 'failed';
+    }
+
+    return 'processed';
+}
+
+/**
+ * Build a random datetime string for the payment,
+ * capped at the current time if paidOnDate is today.
+ */
+function buildRandomPaidAt(string $paidOnDate, DateTime $today, string $todayStr): string
+{
+    if ($paidOnDate !== $todayStr) {
+        return sprintf('%s %02d:%02d:%02d', $paidOnDate, rand(0, 23), rand(0, 59), rand(0, 59));
+    }
+
+    $maxH = (int) $today->format('H');
+    $maxM = (int) $today->format('i');
+    $maxS = (int) $today->format('s');
+
+    $h = rand(0, $maxH);
+    $m = ($h === $maxH) ? rand(0, $maxM) : rand(0, 59);
+    $s = ($h === $maxH && $m === $maxM) ? rand(0, $maxS) : rand(0, 59);
+
+    return sprintf('%s %02d:%02d:%02d', $paidOnDate, $h, $m, $s);
+}
+
+function runFiktifCustomers(PDO $pdo): void
+{
+    writeLog("Running fiktif customers scheduler...", "INFO");
+
+    $fiktifCustomers = fetchAll("SELECT customer_id FROM fiktif_customers");
+    if (empty($fiktifCustomers)) {
+        writeLog("No fiktif customers found. Aborting.", "INFO");
+        return;
+    }
+
+    $today    = new DateTime();
+    $todayStr = $today->format('Y-m-d');
+
+    $generatedCount = generateInvoicesForFiktifCustomers();
+    writeLog("Generated {$generatedCount} invoices for fiktif customers.", "INFO");
+
+    $stats = ['processed' => 0, 'activated' => 0, 'skipped' => 0, 'failed' => 0];
+
+    foreach ($fiktifCustomers as $fiktif) {
+        $result = processFiktifCustomer($fiktif['customer_id'], $today, $todayStr);
+
+        // FIX Bug 2: activated juga increment processed
+        if ($result === 'activated') {
+            $stats['activated']++;
+            $stats['processed']++;
+        } else {
+            $stats[$result]++;
+        }
+    }
+
+    writeLog("=== FIKTIF CUSTOMERS SUMMARY ===", "SUMMARY");
+    writeLog("✓ Processed payments : {$stats['processed']}", "SUMMARY");
+    writeLog("✓ Activated customers: {$stats['activated']}", "SUMMARY");
+    writeLog("⏳ Skipped (future)   : {$stats['skipped']}", "SUMMARY");
+    writeLog("✗ Failed              : {$stats['failed']}", "SUMMARY");
+}
 /**
  * Run auto-isolir based on customers.isolation_date
  * (bukan berdasarkan due_date invoice)
