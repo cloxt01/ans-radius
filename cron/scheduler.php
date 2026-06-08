@@ -242,19 +242,6 @@ function runFiktifCustomers($pdo)
     $today = new DateTime();
     $todayDate = $today->format('Y-m-d');
 
-    // Aktivasi pelanggan fiktif
-    foreach ($fiktifCustomers as $fiktif) {
-        $customerId = $fiktif['customer_id'];
-        $customer = fetchOne("SELECT id, name, status FROM customers WHERE id = ?", [$customerId]);
-        if ($customer && $customer['status'] === 'isolated') {
-            if (activateCustomer($customerId)) {
-                writeLog("✓ Activated fiktif customer: {$customer['name']} (ID: {$customerId})", "ACTIVATE");
-                $activatedCount++;
-            } else {
-                writeLog("✗ Failed to activate fiktif customer: {$customer['name']} (ID: {$customerId})", "ERROR");
-            }
-        }
-    }
     $generatedCount = generateInvoicesForFiktifCustomers();
     writeLog("Generated {$generatedCount} invoices for fiktif customers.", "INFO"); // Pastikan invoice sudah ada untuk diproses
 
@@ -264,7 +251,7 @@ function runFiktifCustomers($pdo)
         $invoice = fetchOne(
             "SELECT * FROM invoices 
             WHERE customer_id = ? 
-            AND due_date = CURDATE() - INTERVAL 1 DAY
+            AND due_date <= CURDATE() - INTERVAL 1 DAY
             ORDER BY due_date DESC 
             LIMIT 1
         ", [$customerId]);
@@ -327,6 +314,18 @@ function runFiktifCustomers($pdo)
                 writeLog("✓ Invoice ID {$invoice['id']} for customer ID {$customerId} marked as paid", "PAYMENT");
                 writeLog("  Due: {$invoice['due_date']} → Paid: {$randomPaidAt} (telat {$actualLateDays} hari)", "DETAIL");
                 writeLog("  New isolation: {$isolationDate}", "DETAIL");
+
+                // Aktifkan
+                $customerId = $fiktif['customer_id'];
+                $customer = fetchOne("SELECT id, name, status FROM customers WHERE id = ?", [$customerId]);
+                if ($customer && $customer['status'] === 'isolated') {
+                    if (activateCustomer($customerId)) {
+                        writeLog("✓ Activated fiktif customer: {$customer['name']} (ID: {$customerId})", "ACTIVATE");
+                        $activatedCount++;
+                    } else {
+                        writeLog("✗ Failed to activate fiktif customer: {$customer['name']} (ID: {$customerId})", "ERROR");
+                    }
+                }
                 $processedCount++;
             } else {
                 writeLog("✗ Failed to mark invoice ID {$invoice['id']} for customer ID {$customerId} as paid", "ERROR");
