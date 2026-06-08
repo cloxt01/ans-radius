@@ -163,7 +163,7 @@ function generateDynamicRadiusInvoices($pdo) {
                 ':status'         => $status,
                 ':due_date'       => $dueMeiObj->format('Y-m-d'),
                 ':paid_at'        => $paidMeiFinal ? $paidMeiFinal->format('Y-m-d H:i:s') : null,
-                ':payment_method' => $status === 'paid' ? 'manual_admin' : null,
+                ':payment_method' => null,
             ]);
             $meiGenerated++;
         }

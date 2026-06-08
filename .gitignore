@@ -1,3 +1,4 @@
 includes/config.php
 logs/*.log
 README.md
+backups/*.sql
