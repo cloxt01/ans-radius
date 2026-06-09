@@ -23,4 +23,4 @@ jobs:
             git config --global --add safe.directory ${{vars.WORKDIR}}
             cd ${{vars.WORKDIR}}
             git fetch origin ans
-            git reset --hard origin ans
+            git reset --hard origin/ans
