@@ -16,7 +16,7 @@ Aplikasi manajemen pelanggan ISP/RT-RW Net berbasis PHP, dengan dukungan modul M
 ### Langkah Cepat
 1. Clone atau download source code.
 ```bash
-git clone https://github.com/Adzka-Team/ans-radius.git
+git clone https://github.com/cloxt01/ans-radius.git
 ```
 2. Upload ke folder web server.
 - aaPanel: `www/wwwroot/nama-domain/`
@@ -93,12 +93,12 @@ Untuk fitur otomatis (isolir, reminder, billing task), jalankan scheduler berkal
 */5 * * * * /usr/bin/php /path/to/ans-radius/cron/scheduler.php
 ```
 
-
+### VPN Setup
 ```
 chmod +x vpnsetup.sh
 sudo bash vpnsetup.sh
-
 ```
+
 ### Windows Task Scheduler
 1. Buat task baru.
 2. Program: `php.exe`
