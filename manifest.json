@@ -1,6 +1,6 @@
 ﻿{
   "name": "ANS Radius Management",
-  "short_name": "Gembok ISP",
+  "short_name": "ANS",
   "description": "Aplikasi manajemen ISP lengkap untuk pelanggan, admin, agen, dan teknisi",
   "start_url": "./",
   "display": "standalone",
