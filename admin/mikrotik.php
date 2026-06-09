@@ -8,6 +8,7 @@ requireAdminLogin();
 
 $pageTitle = 'PPPoE Management';
 
+$isConnected = mikrotikConnect();
 // Get MikroTik settings
 $mikrotikSettings = getMikrotikSettings();
 
@@ -89,14 +90,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $mikrotikUsers = mikrotikGetPppoeUsers();
 $totalUsers = count($mikrotikUsers);
 
-// Get active PPPoE sessions
-$activeSessions = mikrotikGetActiveSessionsAllRouter();
+$poolConfig = [
+    'start_subnet' => '11.7.1',   // subnet awal (3 oktet pertama)
+    'end_subnet'   => '11.7.10',  // subnet akhir
+    'start_ip'     => 2,          // oktet ke-4 minimal (biasanya 2, karena .1 untuk gateway)
+    'end_ip'       => 254         // oktet ke-4 maksimal
+];
+
+if ($isConnected) {
+    // Ambil sesi aktif dari semua router (asli)
+    $activeSessions = mikrotikGetActiveSessionsAllRouter();
+    if (!is_array($activeSessions)) {
+        $activeSessions = [];
+    }
+
+    // Kumpulkan semua IP yang sudah terpakai dari sesi asli
+    $usedIPs = [];
+    foreach ($activeSessions as $session) {
+        if (!empty($session['address']) && filter_var($session['address'], FILTER_VALIDATE_IP)) {
+            $usedIPs[] = $session['address'];
+        }
+    }
+
+    /**
+     * Generate semua kemungkinan IP dalam pool berdasarkan konfigurasi
+     * @return array Daftar IP dalam pool (misal ['11.7.1.2', '11.7.1.3', ...])
+     */
+    function generatePoolIPs($config) {
+        $ips = [];
+        $startParts = explode('.', $config['start_subnet']);
+        $endParts = explode('.', $config['end_subnet']);
+        if (count($startParts) != 3 || count($endParts) != 3) {
+            return $ips;
+        }
+        $prefix = $startParts[0] . '.' . $startParts[1];
+        $startThird = (int)$startParts[2];
+        $endThird = (int)$endParts[2];
+        
+        for ($third = $startThird; $third <= $endThird; $third++) {
+            $subnet = $prefix . '.' . $third;
+            for ($ip = $config['start_ip']; $ip <= $config['end_ip']; $ip++) {
+                $ips[] = $subnet . '.' . $ip;
+            }
+        }
+        return $ips;
+    }
+
+    $allPoolIPs = generatePoolIPs($poolConfig);
+    
+    // Filter IP yang belum terpakai (tidak ada di sesi asli)
+    $availableIPs = array_values(array_diff($allPoolIPs, $usedIPs));
+    
+    // Acak urutan IP agar penyebaran lebih natural
+    shuffle($availableIPs);
+    
+    // Tambahkan sesi fiktif dari getFiktifCustomers()
+    $fiktifData = getFiktifCustomers();
+    if (is_array($fiktifData)) {
+        foreach ($fiktifData as $user) {
+            if (empty($availableIPs)) {
+                break; // tidak ada IP tersisa di pool
+            }
+            $newIP = array_shift($availableIPs); // ambil IP pertama dari yang tersedia
+            $activeSessions[] = [
+                'name'    => $user['name'],
+                'address' => $newIP,
+                'uptime'  => rand(3600, 86400),
+                'radius'  => 'true'
+            ];
+        }
+    }
+} else {
+    // Jika tidak konek, kosongkan sesi aktif (tanpa fiktif)
+    $activeSessions = [];
+}
 $onlineCount = count($activeSessions);
 $onlineUsernames = array_column($activeSessions, 'name');
 
 // Calculate stats
 $disabledCount = count(array_filter($mikrotikUsers, fn($u) => ($u['disabled'] ?? 'false') === 'true'));
-$offlineCount = $totalUsers - $onlineCount;
+$offlineCount = $onlineCount <= $totalUsers ? $totalUsers - $onlineCount : 0;
 
 // Get MikroTik profiles
 $mikrotikProfiles = mikrotikGetProfiles();
@@ -108,7 +181,7 @@ ob_start();
 ?>
 
 <!-- Warning Connection -->
-<?php if (!mikrotikConnect()): ?>
+<?php if (!$isConnected): ?>
 <div class="alert alert-warning" style="margin-bottom: 24px;">
     <i class="fas fa-exclamation-triangle"></i>
     <div>

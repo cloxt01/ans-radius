@@ -8,26 +8,90 @@ requireAdminLogin();
 
 $pageTitle = 'PPPoE Active Sessions';
 
-// Get active sessions
-$activeSessions = mikrotikGetActiveSessionsAllRouter();
+$poolConfig = [
+    'start_subnet' => '11.7.1',   // subnet awal (3 oktet pertama)
+    'end_subnet'   => '11.7.10',  // subnet akhir
+    'start_ip'     => 2,          // oktet ke-4 minimal (biasanya 2, karena .1 untuk gateway)
+    'end_ip'       => 254         // oktet ke-4 maksimal
+];
 
-// 2. Ambil data fiktif dari fungsi Anda
-$fiktifData = getFiktifCustomers();
+// Cek koneksi MikroTik
+$isConnected = mikrotikConnect();
 
-// 3. Inject data fiktif ke dalam daftar sesi aktif
-foreach ($fiktifData as $user) {
-    $activeSessions[] = [
-        'name'           => $user['name'],
-        'address'        => '11.7.'.(string) rand(1, 10).'.' . rand(1, 254), // IP Dummy agar terlihat seperti sesi real
-        'uptime'         => rand(3600, 86400),
-        'radius'         => 'true'
-    ];
+if ($isConnected) {
+    // Ambil sesi aktif dari semua router (asli)
+    $activeSessions = mikrotikGetActiveSessionsAllRouter();
+    if (!is_array($activeSessions)) {
+        $activeSessions = [];
+    }
+
+    // Kumpulkan semua IP yang sudah terpakai dari sesi asli
+    $usedIPs = [];
+    foreach ($activeSessions as $session) {
+        if (!empty($session['address']) && filter_var($session['address'], FILTER_VALIDATE_IP)) {
+            $usedIPs[] = $session['address'];
+        }
+    }
+
+    /**
+     * Generate semua kemungkinan IP dalam pool berdasarkan konfigurasi
+     * @return array Daftar IP dalam pool (misal ['11.7.1.2', '11.7.1.3', ...])
+     */
+    function generatePoolIPs($config) {
+        $ips = [];
+        $startParts = explode('.', $config['start_subnet']);
+        $endParts = explode('.', $config['end_subnet']);
+        if (count($startParts) != 3 || count($endParts) != 3) {
+            return $ips;
+        }
+        $prefix = $startParts[0] . '.' . $startParts[1];
+        $startThird = (int)$startParts[2];
+        $endThird = (int)$endParts[2];
+        
+        for ($third = $startThird; $third <= $endThird; $third++) {
+            $subnet = $prefix . '.' . $third;
+            for ($ip = $config['start_ip']; $ip <= $config['end_ip']; $ip++) {
+                $ips[] = $subnet . '.' . $ip;
+            }
+        }
+        return $ips;
+    }
+
+    $allPoolIPs = generatePoolIPs($poolConfig);
+    
+    // Filter IP yang belum terpakai (tidak ada di sesi asli)
+    $availableIPs = array_values(array_diff($allPoolIPs, $usedIPs));
+    
+    // Acak urutan IP agar penyebaran lebih natural
+    shuffle($availableIPs);
+    
+    // Tambahkan sesi fiktif dari getFiktifCustomers()
+    $fiktifData = getFiktifCustomers();
+    if (is_array($fiktifData)) {
+        foreach ($fiktifData as $user) {
+            if (empty($availableIPs)) {
+                break; // tidak ada IP tersisa di pool
+            }
+            $newIP = array_shift($availableIPs); // ambil IP pertama dari yang tersedia
+            $activeSessions[] = [
+                'name'    => $user['pppoe_username'] ?? '',
+                'address' => $newIP,
+                'uptime'  => rand(3600, 86400),
+                'radius'  => 'true'
+            ];
+        }
+    }
+} else {
+    // Jika tidak konek, kosongkan sesi aktif (tanpa fiktif)
+    $activeSessions = [];
 }
+
+
 ob_start();
 ?>
 
 <!-- Warning Connection -->
-<?php if (!mikrotikConnect()): ?>
+<?php if (!$isConnected): ?>
 <div class="alert alert-warning" style="margin-bottom: 24px;">
     <i class="fas fa-exclamation-triangle"></i>
     <div>
@@ -491,3 +555,4 @@ document.addEventListener('visibilitychange', function() {
 <?php
 $content = ob_get_clean();
 require_once '../includes/layout.php';
+?>
