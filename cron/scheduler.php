@@ -264,20 +264,51 @@ function tryActivateFiktifCustomer(int $customerId): string
 
 function buildRandomPaidAt(string $paidOnDate, string $todayStr): string
 {
-    // jangan ada pembayaran hari ini
-    if ($paidOnDate >= $todayStr) {
-        $paidOnDate = date('Y-m-d', strtotime($todayStr . ' -1 day'));
+    $paidDate = new DateTime($paidOnDate);
+    $today = new DateTime($todayStr);
+
+    if ($paidDate >= $today) {
+        $paidDate = (clone $today)->modify('-1 day');
     }
 
-    return sprintf(
-            '%s %02d:%02d:%02d',
-            $paidOnDate,
-            rand(0, 23),
-            rand(0, 59),
-            rand(0, 59)
-    );
-}
+    $roll = rand(1, 100);
 
+    if ($roll <= 32) {
+        // 09:00 - 11:00 (32%)
+        $start = 9 * 3600;
+        $end   = 11 * 3600;
+
+    } elseif ($roll <= 50) {
+        // 11:00 - 13:00 (18%)
+        $start = 11 * 3600;
+        $end   = 13 * 3600;
+
+    } elseif ($roll <= 70) {
+        // 13:00 - 15:00 (20%)
+        $start = 13 * 3600;
+        $end   = 15 * 3600;
+
+    } elseif ($roll <= 90) {
+        // 15:00 - 17:00 (20%)
+        $start = 15 * 3600;
+        $end   = 17 * 3600;
+
+    } else {
+        // 17:00 - 19:35 (10%)
+        $start = 17 * 3600;
+        $end   = (19 * 3600) + (35 * 60);
+    }
+
+    $seconds = rand($start, $end);
+
+    $h = intdiv($seconds, 3600);
+    $m = intdiv($seconds % 3600, 60);
+    $s = $seconds % 60;
+
+    $paidDate->setTime($h, $m, $s);
+
+    return $paidDate->format('Y-m-d H:i:s');
+}
 
 /**
  * Process a single fiktif customer's overdue invoice.
