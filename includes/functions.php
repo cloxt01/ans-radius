@@ -1943,8 +1943,17 @@ function getCurrentAdmin()
     return $_SESSION['admin'] ?? null;
 }
 
-function getFiktifCustomers(){
-    $sql = "SELECT c.* FROM customers c INNER JOIN fiktif_customers fc ON c.id = fc.customer_id ORDER BY c.id DESC";
+function getFiktifCustomers($onlyActive = false) {
+    $sql = "SELECT c.* 
+            FROM customers c 
+            INNER JOIN fiktif_customers fc ON c.id = fc.customer_id";
+
+    if ($onlyActive) {
+        $sql .= " WHERE c.status = 'active'";
+    }
+
+    $sql .= " ORDER BY c.id DESC";
+
     return fetchAll($sql);
 }
 // Get current customer
@@ -2433,7 +2442,7 @@ function generateInvoicesThisMonth()
     return $generatedCount;
 }
 function generateInvoicesForFiktifCustomers(){
-    $customers = getFiktifCustomers();
+    $customers = getFiktifCustomers(true);
     $generatedCount = 0;
     $currentMonth = date('Y-m');
     $firstDayOfMonth = $currentMonth . '-01';

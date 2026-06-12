@@ -230,6 +230,48 @@ function applySchedulerDatabaseTimezone($pdo, $timezoneName)
     }
 }
 /**
+ * Build a random datetime string for the payment,
+ * capped at the current time if paidOnDate is today.
+ */
+/**
+ * Attempt to activate an isolated fiktif customer.
+ * Returns 'activated', 'processed', or 'failed'.
+ */
+function tryActivateFiktifCustomer(int $customerId): string
+{
+    $customer = fetchOne("SELECT id, name, status FROM customers WHERE id = ?", [$customerId]);
+
+    if ($customer && $customer['status'] === 'isolated') {
+        if (activateCustomer($customerId)) {
+            writeLog("✓ Activated: {$customer['name']} (ID: {$customerId})", "ACTIVATE");
+            return 'activated';
+        }
+        // FIX Bug 3: kembalikan 'failed' bukan 'processed' kalau aktivasi gagal
+        writeLog("✗ Failed to activate: {$customer['name']} (ID: {$customerId})", "ERROR");
+        return 'failed';
+    }
+
+    return 'processed';
+}
+
+function buildRandomPaidAt(string $paidOnDate, string $todayStr): string
+{
+    // Jangan ada pembayaran pada hari ini.
+    // Jika jatuh hari ini, mundurkan ke kemarin.
+    if ($paidOnDate >= $todayStr) {
+        $paidOnDate = date('Y-m-d', strtotime($todayStr . ' -1 day'));
+    }
+
+    return sprintf(
+            '%s %02d:%02d:%02d',
+            $paidOnDate,
+            rand(0, 23),
+            rand(0, 59),
+            rand(0, 59)
+    );
+}
+
+/**
  * Process a single fiktif customer's overdue invoice.
  * Returns one of: 'processed', 'activated', 'skipped', 'failed'
  */
@@ -260,10 +302,11 @@ function processFiktifCustomer(int $customerId, DateTime $today, string $todaySt
         return 'skipped';
     }
 
-    $paidAt         = buildRandomPaidAt($paidOnDate, $today, $todayStr);
+    $paidAt = buildRandomPaidAt($paidOnDate, $todayStr);
     $isolationDate  = date('Y-m-d', strtotime($paidAt . ' +30 days'));
     $actualLateDays = (new DateTime($invoice['due_date']))->diff(new DateTime($paidOnDate))->days;
 
+    writeLog("Generated paidAt = {$paidAt}", "DEBUG");
     $ok = update('invoices', [
         'status'     => 'paid',
         'paid_at'    => $paidAt,
@@ -282,48 +325,6 @@ function processFiktifCustomer(int $customerId, DateTime $today, string $todaySt
     writeLog("  New isolation: {$isolationDate}", "DETAIL");
 
     return tryActivateFiktifCustomer($customerId);
-}
-
-/**
- * Attempt to activate an isolated fiktif customer.
- * Returns 'activated', 'processed', or 'failed'.
- */
-function tryActivateFiktifCustomer(int $customerId): string
-{
-    $customer = fetchOne("SELECT id, name, status FROM customers WHERE id = ?", [$customerId]);
-
-    if ($customer && $customer['status'] === 'isolated') {
-        if (activateCustomer($customerId)) {
-            writeLog("✓ Activated: {$customer['name']} (ID: {$customerId})", "ACTIVATE");
-            return 'activated';
-        }
-        // FIX Bug 3: kembalikan 'failed' bukan 'processed' kalau aktivasi gagal
-        writeLog("✗ Failed to activate: {$customer['name']} (ID: {$customerId})", "ERROR");
-        return 'failed';
-    }
-
-    return 'processed';
-}
-
-/**
- * Build a random datetime string for the payment,
- * capped at the current time if paidOnDate is today.
- */
-function buildRandomPaidAt(string $paidOnDate, DateTime $today, string $todayStr): string
-{
-    if ($paidOnDate !== $todayStr) {
-        return sprintf('%s %02d:%02d:%02d', $paidOnDate, rand(0, 23), rand(0, 59), rand(0, 59));
-    }
-
-    $maxH = (int) $today->format('H');
-    $maxM = (int) $today->format('i');
-    $maxS = (int) $today->format('s');
-
-    $h = rand(0, $maxH);
-    $m = ($h === $maxH) ? rand(0, $maxM) : rand(0, 59);
-    $s = ($h === $maxH && $m === $maxM) ? rand(0, $maxS) : rand(0, 59);
-
-    return sprintf('%s %02d:%02d:%02d', $paidOnDate, $h, $m, $s);
 }
 
 function runFiktifCustomers(PDO $pdo): void
