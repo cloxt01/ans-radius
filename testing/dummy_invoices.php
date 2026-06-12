@@ -71,8 +71,8 @@ function getInvoiceStatus($month = null) {
     $chance = rand(1, 100);
     
     $config = [
-        4 => ['on_time' => 85, 'late' => 99],   // April: 85% on time, 14% late, 1% unpaid
-        5 => ['on_time' => 88, 'late' => 98],   // Mei: 88% on time, 10% late, 2% unpaid
+        4 => ['on_time' => 85, 'late' => 97],   // April: 85% on time, 14% late, 1% unpaid
+        5 => ['on_time' => 88, 'late' => 99],   // Mei: 88% on time, 10% late, 2% unpaid
     ];
     
     $default = ['on_time' => 88, 'late' => 95];
