@@ -2441,40 +2441,87 @@ function generateInvoicesThisMonth()
     }
     return $generatedCount;
 }
-function generateInvoicesForFiktifCustomers(){
-    $customers = getFiktifCustomers(true);
-    $generatedCount = 0;
-    $currentMonth = date('Y-m');
-    $firstDayOfMonth = $currentMonth . '-01';
-    $lastDayOfMonth = date('Y-m-t', strtotime($firstDayOfMonth));
+function generateInvoicesForFiktifCustomers()
+{
+    $customers=getFiktifCustomers(true);
+    $generatedCount=0;
+
+    $currentMonth=date('Y-m');
+    $firstDayOfMonth=$currentMonth.'-01';
+    $lastDayOfMonth=date('Y-m-t',strtotime($firstDayOfMonth));
+
     foreach ($customers as $customer) {
-        $existingInvoice = fetchOne(
-            "SELECT id FROM invoices 
-            WHERE customer_id = ? 
+
+        $existingInvoice=fetchOne(
+            "SELECT id
+            FROM invoices
+            WHERE customer_id=?
             AND due_date BETWEEN ? AND ?
-            AND status != 'cancelled'",
-            [$customer['id'], $firstDayOfMonth, $lastDayOfMonth]
+            AND status!='cancelled'",
+            [$customer['id'],$firstDayOfMonth,$lastDayOfMonth]
         );
-        
-        if (!$existingInvoice) {
-            $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
-            
-            if ($package) {
-                $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
-                $invoiceData = [
-                    'invoice_number' => generateInvoiceNumber(),
-                    'customer_id' => $customer['id'],
-                    'amount' => $package['price'],
-                    'status' => 'unpaid',
-                    'due_date' => $dueDate,
-                    'created_at' => date('Y-m-d H:i:s')
-                ];
-                
-                insert('invoices', $invoiceData);
-                $generatedCount++;
-            }
+
+        if ($existingInvoice) {
+            continue;
         }
+
+        $package=fetchOne(
+            "SELECT *
+            FROM packages
+            WHERE id=?",
+            [$customer['package_id']]
+        );
+
+        if (!$package) {
+            continue;
+        }
+
+        $dueDate=getCustomerDueDate($customer,$firstDayOfMonth);
+
+        $invoiceId=insert(
+            'invoices',
+            [
+                'invoice_number'=>generateInvoiceNumber(),
+                'customer_id'=>$customer['id'],
+                'amount'=>$package['price'],
+                'status'=>'unpaid',
+                'due_date'=>$dueDate,
+                'created_at'=>date('Y-m-d H:i:s')
+            ]
+        );
+
+        if (!$invoiceId) {
+            continue;
+        }
+
+        $lateDays=rand(1,10);
+
+        $scheduledPaidDate=date(
+            'Y-m-d',
+            strtotime($dueDate." +{$lateDays} days")
+        );
+
+        $ok=insert(
+            'fiktif_invoices',
+            [
+                'invoice_id'=>$invoiceId,
+                'late_days'=>$lateDays,
+                'scheduled_paid_date'=>$scheduledPaidDate,
+                'status'=>'unpaid'
+            ]
+        );
+
+        if (!$ok) {
+            writeLog(
+                "Failed creating fiktif_invoices for invoice #{$invoiceId}",
+                "ERROR"
+            );
+            continue;
+        }
+
+        $generatedCount++;
     }
+
     return $generatedCount;
 }
 function generatePublicVoucherOrderNumber()

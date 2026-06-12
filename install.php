@@ -528,6 +528,21 @@ function createDatabaseTables() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    
+    CREATE TABLE fiktif_invoices (
+        invoice_id int(11) NOT NULL,
+        late_days int(11) NOT NULL,
+        scheduled_paid_date date NOT NULL,
+        status enum('unpaid','paid') NOT NULL DEFAULT 'unpaid',
+        created_at timestamp NOT NULL DEFAULT current_timestamp(),
+    
+        PRIMARY KEY (invoice_id),
+    
+        CONSTRAINT fk_fiktif_invoice
+            FOREIGN KEY (invoice_id)
+            REFERENCES invoices(id)
+            ON DELETE CASCADE
+    );
 
     CREATE TABLE IF NOT EXISTS payment_redirects (
         id INT AUTO_INCREMENT PRIMARY KEY,
