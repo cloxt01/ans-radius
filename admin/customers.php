@@ -1094,8 +1094,8 @@ ob_start();
                 <th>PPPoE</th>
                 <th>Tgl Isolir</th>
                 <th>Register Date</th>
-                <th>IP Address</th>
-                <th>MAC Address</th>
+<!--                <th>IP Address</th>-->
+<!--                <th>MAC Address</th>-->
                 <th>Aksi</th>
             </tr>
         </thead>
@@ -1172,12 +1172,12 @@ ob_start();
                     <td data-label="Register Date">
                         <?php echo date('d M Y', strtotime($c['created_at'])); ?>
                     </td>
-                    <td data-label="IP Address">
-                        <?php echo htmlspecialchars($c['ip_address'] ?? 'N/A'); ?>
-                    </td>
-                    <td data-label="MAC Address">
-                        <?php echo htmlspecialchars($c['mac_address'] ?? 'N/A'); ?>
-                    </td>
+<!--                    <td data-label="IP Address">-->
+<!--                        --><?php //echo htmlspecialchars($c['ip_address'] ?? 'N/A'); ?>
+<!--                    </td>-->
+<!--                    <td data-label="MAC Address">-->
+<!--                        --><?php //echo htmlspecialchars($c['mac_address'] ?? 'N/A'); ?>
+<!--                    </td>-->
                     <td data-label="Aksi">
                         <div class="customer-action-group">
                         <a href="pay_process.php?id=<?php echo $c['id']; ?>" class="btn btn-success btn-sm" title="Bayar Tagihan">
