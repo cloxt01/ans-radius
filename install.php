@@ -530,19 +530,21 @@ function createDatabaseTables() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     
     CREATE TABLE fiktif_invoices (
-        invoice_id int(11) NOT NULL,
-        late_days int(11) NOT NULL,
-        scheduled_paid_date date NOT NULL,
-        status enum('unpaid','paid') NOT NULL DEFAULT 'unpaid',
-        created_at timestamp NOT NULL DEFAULT current_timestamp(),
+        id INT(11) NOT NULL AUTO_INCREMENT,
+        invoice_id INT(11) NOT NULL,
+        late_days INT(11) NOT NULL,
+        scheduled_paid_date DATE NOT NULL,
+        status ENUM('unpaid','paid') NOT NULL DEFAULT 'unpaid',
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
-        PRIMARY KEY (invoice_id),
+        PRIMARY KEY (id),
+        UNIQUE KEY uk_invoice_id (invoice_id),
     
         CONSTRAINT fk_fiktif_invoice
             FOREIGN KEY (invoice_id)
             REFERENCES invoices(id)
             ON DELETE CASCADE
-    );
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
     CREATE TABLE IF NOT EXISTS payment_redirects (
         id INT AUTO_INCREMENT PRIMARY KEY,

@@ -5,27 +5,30 @@ INSERT INTO fiktif_invoices (
     status
 )
 SELECT
-    i.id,
+    t.id,
+    t.late_days,
     CASE
-        WHEN i.status = 'paid'
-            THEN DATEDIFF(DATE(i.paid_at), i.due_date)
-        ELSE FLOOR(RAND() * 10) + 1
-        END AS late_days,
-
-    CASE
-        WHEN i.status = 'paid'
-            THEN DATE(i.paid_at)
-    ELSE DATE_ADD(
-    i.due_date,
-    INTERVAL FLOOR(RAND() * 10) + 1 DAY
-    )
-END AS scheduled_paid_date,
-
-    i.status
-FROM invoices i
-INNER JOIN fiktif_customers fc
-    ON fc.customer_id = i.customer_id
-LEFT JOIN fiktif_invoices fi
-    ON fi.invoice_id = i.id
-WHERE fi.invoice_id IS NULL
-  AND i.status IN ('unpaid', 'paid');
+        WHEN t.status = 'paid'
+            THEN DATE(t.paid_at)
+    ELSE DATE_ADD(t.due_date, INTERVAL t.late_days DAY)
+END,
+    t.status
+FROM (
+    SELECT
+        i.id,
+        i.due_date,
+        i.paid_at,
+        i.status,
+        CASE
+            WHEN i.status = 'paid'
+                THEN DATEDIFF(DATE(i.paid_at), i.due_date)
+            ELSE FLOOR(RAND() * 10) + 1
+        END AS late_days
+    FROM invoices i
+    INNER JOIN fiktif_customers fc
+        ON fc.customer_id = i.customer_id
+    LEFT JOIN fiktif_invoices fi
+        ON fi.invoice_id = i.id
+    WHERE fi.invoice_id IS NULL
+      AND i.status IN ('unpaid','paid')
+) t;
