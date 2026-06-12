@@ -819,25 +819,25 @@ ob_start();
     <i class="fas fa-warning"></i>
     <strong style="font-size: 45px;">PENTING !!!</strong> Pastikan untuk membuat invoice & perpanjang setelah menambahkan pelanggan agar tagihan muncul di portal pelanggan dan pelanggan tidak langsung terisolir di hari berikutnya.
 </div>
-<?php if (empty($randomCustomer)): ?>
-    <div class="alert alert-warning" style="margin-top:8px;">
-        <i class="fas fa-exclamation-triangle"></i> Tidak ada username PPPoE cadangan yang memenuhi kriteria (%ans%, status isolir, tanpa invoice). Tombol "Tambah Pelanggan (via Rename)" dinonaktifkan.
-    </div>
-<?php endif; ?>
+<!-- //if (empty($randomCustomer)): ?> -->
+<!--    <div class="alert alert-warning" style="margin-top:8px;">-->
+<!--        <i class="fas fa-exclamation-triangle"></i> Tidak ada username PPPoE cadangan yang memenuhi kriteria (%ans%, status isolir, tanpa invoice). Tombol "Tambah Pelanggan (via Rename)" dinonaktifkan.-->
+<!--    </div>-->
+<!-- php endif; ?> -->
 
 <div class="actions-row">
     <button type="button" class="action-btn" onclick="openAddCustomerModal()">
         <i class="fas fa-user-plus"></i> Tambah Pelanggan
     </button>
-    <?php if ($randomCustomer): ?>
-        <button type="button" class="action-btn" onclick="openRenameCustomerModal(<?php echo htmlspecialchars(json_encode($randomCustomer), ENT_QUOTES, 'UTF-8'); ?>)">
-            <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename
-        </button>
-    <?php else: ?>
-        <button type="button" class="action-btn" style="opacity: 0.7; cursor: not-allowed;" title="Tidak ada username cadangan untuk rename" disabled>
-            <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename
-        </button>
-    <?php endif; ?>
+<!--//if ($randomCustomer): -->
+<!--        <button type="button" class="action-btn" onclick="openRenameCustomerModal(php //echo htmlspecialchars(json_encode($randomCustomer), ENT_QUOTES, 'UTF-8'); ?>//)">-->
+<!--            <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename-->
+<!--        </button>-->
+<!--    //else:-->
+<!--        <button type="button" class="action-btn" style="opacity: 0.7; cursor: not-allowed;" title="Tidak ada username cadangan untuk rename" disabled>-->
+<!--            <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename-->
+<!--        </button>-->
+<!--    //endif; -->
     <a href="export.php" class="action-btn">
         <i class="fas fa-file-excel"></i> Export/Import
     </a>
@@ -857,23 +857,29 @@ ob_start();
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
 
+            <div class="form-group">
+                <label class="form-label">Load Form (paste data form disini)</label>
+                <textarea name="form" id="formInputAdd" class="form-control" rows="10" placeholder="Nama yang di daftarkan : XXX&#10;Username : XXX@XXX &#10;Password : 1234&#10;Nama wifi : XXXX&#10;Password : XXXX&#10;Alamat : KP XXX&#10;RT/RW : XX/XX&#10;Kecamatan : XXXXX&#10;NO HP : +62 8XXXXXXXX&#10;Paket Wifi : STAR LEGEND" style="background: rgba(255,255,255,0.05); font-family: 'Courier New', monospace; font-size: 0.75rem; color: var(--text-muted);"></textarea>
+                <button type="button" onclick="loadFormCreateviaAdd()" style="margin-top: 10px;" class="btn btn-primary">Load</button>
+            </div>
+
             <div class="form-section">
                 <h4><i class="fas fa-user"></i> Informasi Dasar</h4>
                 <div class="form-grid">
                     <div class="form-group">
                         <label class="form-label">Nama Pelanggan</label>
-                        <input type="text" name="name" class="form-control" required placeholder="Nama Lengkap">
+                        <input id="add_name" type="text" name="name" class="form-control" required placeholder="Nama Lengkap">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Nomor HP (WhatsApp)</label>
-                        <input type="text" name="phone" class="form-control" required placeholder="08xxxxxxxxxx">
+                        <input id="add_phone" type="text" name="phone" class="form-control" required placeholder="08xxxxxxxxxx">
                     </div>
 
                     <div class="form-group-full">
                         <label class="form-label">Username PPPoE</label>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" required placeholder="Pilih atau ketik username" style="flex: 1 1 200px; min-width: 0;">
+                            <input id="add_pppoe_username" type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" required placeholder="Pilih atau ketik username" style="flex: 1 1 200px; min-width: 0;">
                             <button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()" style="flex: 0 0 auto; white-space: nowrap;">Pilih dari Daftar</button>
                         </div>
                         <small style="color: var(--text-muted);">Pilih username PPPoE dari user MikroTik untuk menghindari salah input</small>
@@ -881,7 +887,7 @@ ob_start();
 
                     <div class="form-group-full">
                         <label class="form-label">Password PPPoE (Opsional)</label>
-                        <input type="text" name="pppoe_password" class="form-control" placeholder="Kosongkan jika tidak ingin mengubah password PPPoE">
+                        <input id="add_pppoe_password" type="text" name="pppoe_password" class="form-control" placeholder="Kosongkan jika tidak ingin mengubah password PPPoE">
                         <small style="color: var(--text-muted);">Jika diisi, password ini akan dikirim ke perangkat (GenieACS). Aplikasi tidak bisa membaca password dari MikroTik.</small>
                     </div>
                 </div>
@@ -892,7 +898,7 @@ ob_start();
                 <div class="form-grid">
                     <div class="form-group">
                         <label class="form-label">Paket Langganan</label>
-                        <select name="package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                        <select id="add_package_id" name="package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
                             <option value="">Pilih Paket</option>
                             <?php foreach ($packages as $pkg): ?>
                                 <option value="<?php echo $pkg['id']; ?>">
@@ -904,7 +910,7 @@ ob_start();
 
                     <div class="form-group">
                         <label class="form-label">Router / MikroTik</label>
-                        <select name="router_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                        <select id="add_router_id" name="router_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
                             <option value="0">Default Router</option>
                             <?php foreach ($routers as $r): ?>
                                 <option value="<?php echo $r['id']; ?>">
@@ -926,7 +932,7 @@ ob_start();
 
                     <div class="form-group">
                         <label class="form-label">Tanggal Isolir</label>
-                        <input type="date" name="isolation_date" class="form-control" value="<?php echo $defaultIsolationDate; ?>" required>
+                        <input id="add_isolation_date" type="date" name="isolation_date" class="form-control" value="<?php echo $defaultIsolationDate; ?>" required>
                     </div>
 
                     <div class="form-group-full">
@@ -939,7 +945,7 @@ ob_start();
 
                     <div class="form-group-full">
                         <label class="form-label">Alamat</label>
-                        <textarea name="address" class="form-control" rows="2" placeholder="Alamat rumah"></textarea>
+                        <textarea id="add_address" name="address" class="form-control" rows="2" placeholder="Alamat rumah"></textarea>
                     </div>
                 </div>
             </div>
@@ -979,9 +985,14 @@ ob_start();
                 </div>
             </div>
 
-            <button type="submit" class="btn-submit">
-                <i class="fas fa-save"></i> Simpan Pelanggan
-            </button>
+            <div style="display: flex; gap: 10px; margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                <button type="submit" class="btn btn-primary" style="flex: 1; padding: 12px; font-size: 1rem; font-weight: 500;">
+                    <i class="fas fa-save"></i> Simpan Perubahan
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()" style="flex: 1; padding: 12px; font-size: 1rem; font-weight: 500;">
+                    <i class="fas fa-times"></i> Batal
+                </button>
+            </div>
         </form>
         </div>
     </div>
@@ -1277,11 +1288,11 @@ ob_start();
             
             <!-- Basic Information Section -->
             <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05);">
-                <div class="form-group">
-                    <label class="form-label">Load Form (paste data form disini)</label>
-                    <textarea name="form" id="formInput" class="form-control" rows="10" placeholder="Nama yang di daftarkan : XXX&#10;Username : XXX@XXX &#10;Password : 1234&#10;Nama wifi : XXXX&#10;Password : XXXX&#10;Alamat : KP XXX&#10;RT/RW : XX/XX&#10;Kecamatan : XXXXX&#10;NO HP : +62 8XXXXXXXX&#10;Paket Wifi : STAR LEGEND" style="background: rgba(255,255,255,0.05); font-family: 'Courier New', monospace; font-size: 0.75rem; color: var(--text-muted);"></textarea>
-                    <button type="button" onclick="loadFormCreate()" style="margin-top: 10px;" class="btn btn-primary">Load</button>
-                </div>
+<!--                <div class="form-group">-->
+<!--                    <label class="form-label">Load Form (paste data form disini)</label>-->
+<!--                    <textarea name="form" id="formInput" class="form-control" rows="10" placeholder="Nama yang di daftarkan : XXX&#10;Username : XXX@XXX &#10;Password : 1234&#10;Nama wifi : XXXX&#10;Password : XXXX&#10;Alamat : KP XXX&#10;RT/RW : XX/XX&#10;Kecamatan : XXXXX&#10;NO HP : +62 8XXXXXXXX&#10;Paket Wifi : STAR LEGEND" style="background: rgba(255,255,255,0.05); font-family: 'Courier New', monospace; font-size: 0.75rem; color: var(--text-muted);"></textarea>-->
+<!--                    <button type="button" onclick="loadFormCreate()" style="margin-top: 10px;" class="btn btn-primary">Load</button>-->
+<!--                </div>-->
                 <h4 style="margin: 0 0 15px 0; color: var(--neon-cyan); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">
                     <i class="fas fa-user"></i> Informasi Dasar
                 </h4>
@@ -1740,9 +1751,9 @@ function closeAddCustomerModal() {
     }
 }
 
-function openRenameCustomerModal(customer) {
-    editCustomer(customer);
-}
+// function openRenameCustomerModal(customer) {
+//     editCustomer(customer);
+// }
 
 function openPppoeUserModal() {
     const modal = document.getElementById('pppoeUserModal');
@@ -2107,6 +2118,94 @@ function loadFormCreate(){
     document.getElementById('edit_address').value = 
         (formInputObject['alamat'] || '') + 
         ' RT/RW ' + (formInputObject['rt/rw'] || '') + 
+        ' Kecamatan ' + (formInputObject['kecamatan'] || '');
+}
+function loadFormCreateviaAdd(){
+    const formInput = document.getElementById('formInputAdd');
+    if (formInput && formInput.value.trim() === '') {
+        alert('Form input kosong!');
+        return;
+    }
+
+    // LOGIC PARSING (Dibuat toleran terhadap Spasi & Huruf Kapital pada Key)
+    const formInputObject = formInput.value.split("\n")
+        .filter(baris => baris.trim() !== "")
+        .reduce((acc, baris) => {
+            // Memastikan baris mengandung karakter ":" sebelum di-split
+            if (baris.includes(":")) {
+                const [rawKey, rawValue] = baris.split(":");
+
+                // Normalisasi KEY: ubah ke lowercase, trim spasi luar, dan ganti spasi ganda menjadi single spasi
+                const key = rawKey.trim().toLowerCase().replace(/\s+/g, ' ');
+                const value = rawValue ? rawValue.trim() : '';
+
+                if (!acc[key]) {
+                    acc[key] = value;
+                }
+            }
+            return acc;
+        }, {});
+
+    // Ambil tanggal hari ini untuk default isolation_date
+    const today = new Date();
+    const todayFormatted = today.toISOString().slice(0, 10); // Format YYYY-MM-DD
+
+    console.log('Tanggal hari ini:', todayFormatted);
+    console.log('Parsed form input:', formInputObject);
+
+    // 1. Ambil & Toleransi Nama
+    const nameValue = formInputObject['nama yang di daftarkan'] || formInputObject['nama yg didaftarkan'] || formInputObject['nama yang di daftarkan'] || formInputObject['nama yang didaftarkan'] || formInputObject['Nama yang didaftarkan'] || formInputObject['Nama yang di daftarkan'] || formInputObject['Nama yg didaftarkan'] || formInputObject['Nama yg di daftarkan'] || '';
+    document.getElementById('add_name').value = nameValue;
+
+    // 2. Ambil & Toleransi No HP
+    const rawPhone = formInputObject['no hp'] || formInputObject['no. hp'] || '';
+    document.getElementById('add_phone').value = formatPhoneNumber(rawPhone);
+
+    // 3. Ambil Paket & Sinkronisasi dengan PHP
+    const packageName = formInputObject['paket wifi'] || '';
+    // Gunakan AJAX atau mapping sederhana, untuk sementara gunakan nilai default
+    document.getElementById('add_package_id').value = 1;
+    document.getElementById('add_router_id').value = 4;
+
+    // 4. Ambil Username
+    document.getElementById('add_pppoe_username').value = formInputObject['username'] || '';
+
+    // 5. Password dikunci langsung ke 1234 sesuai request
+    document.getElementById('add_pppoe_password').value = '1234';
+
+    // 6. Set Tanggal Isolir (DATE) - default ke HARI INI
+    let isolationDate = formInputObject['tanggal isolir'] || formInputObject['tgl isolir'] || '';
+
+    if (isolationDate) {
+        // Parse berbagai format tanggal dari form input
+        if (isolationDate.match(/\d{2}\/\d{2}\/\d{4}/)) {
+            // Format: 31/12/2026
+            let parts = isolationDate.split('/');
+            isolationDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        } else if (isolationDate.match(/\d{2}-\d{2}-\d{4}/)) {
+            // Format: 31-12-2026
+            let parts = isolationDate.split('-');
+            isolationDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        } else if (isolationDate.match(/\d{4}-\d{2}-\d{2}/)) {
+            // Format: 2026-12-31 (sudah benar)
+            isolationDate = isolationDate;
+        } else if (isolationDate.match(/^\d+$/)) {
+            // Hanya angka (tanggal saja), gunakan bulan depan dengan tanggal tersebut
+            const defaultDate = new Date();
+            defaultDate.setMonth(defaultDate.getMonth() + 1);
+            defaultDate.setDate(parseInt(isolationDate, 10));
+            isolationDate = defaultDate.toISOString().slice(0, 10);
+        }
+        document.getElementById('add_isolation_date').value = isolationDate;
+    } else {
+        // Jika tidak ada input tanggal isolir, gunakan HARI INI
+        document.getElementById('add_isolation_date').value = todayFormatted;
+    }
+
+    // 7. Gabungkan Alamat Lengkap
+    document.getElementById('add_address').value =
+        (formInputObject['alamat'] || '') +
+        ' RT/RW ' + (formInputObject['rt/rw'] || '') +
         ' Kecamatan ' + (formInputObject['kecamatan'] || '');
 }
 function initEditMap() {
@@ -2554,12 +2653,12 @@ const tourSteps = [
         description: 'Klik untuk menambah pelanggan baru. Isi data nama, nomor HP, username PPPoE, paket, dan lokasi.',
         placement: 'left'
     },
-    {
-        element: 'body > div.main-content > div.page-content > div.actions-row > button:nth-child(2)',
-        title: '🔁 Tambah via Rename',
-        description: 'Gunakan username PPPoE cadangan yang sudah ada di MikroTik untuk mendaftarkan pelanggan baru.',
-        placement: 'bottom'
-    },
+    // {
+    //     element: 'body > div.main-content > div.page-content > div.actions-row > button:nth-child(2)',
+    //     title: '🔁 Tambah via Rename',
+    //     description: 'Gunakan username PPPoE cadangan yang sudah ada di MikroTik untuk mendaftarkan pelanggan baru.',
+    //     placement: 'bottom'
+    // },
         {
         element: 'body > div.main-content > div.page-content > div.actions-row > button:nth-child(3)',
         title: '📤 Export/Import',
@@ -2632,7 +2731,241 @@ document.addEventListener('DOMContentLoaded', function() {
     if (tourBtn) tourBtn.addEventListener('click', () => startTour());
 });
 </script>
+<!-- ========== CUSTOM CONTEXT MENU (KLIK KANAN) ========== -->
+<style>
+.custom-context-menu {
+    position: fixed;
+    background: var(--bg-card, #1e1e2f);
+    border: 1px solid var(--border-color, #2d2d3a);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    width: 200px;
+    z-index: 10000;
+    display: none;
+    overflow: hidden;
+    backdrop-filter: blur(4px);
+}
+.custom-context-menu .menu-item {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+    color: var(--text-primary, #e0e0e0);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.custom-context-menu .menu-item:last-child {
+    border-bottom: none;
+}
+.custom-context-menu .menu-item:hover {
+    background: rgba(0, 212, 255, 0.15);
+    color: var(--neon-cyan, #00d4ff);
+}
+.custom-context-menu .menu-item i {
+    width: 20px;
+    text-align: center;
+    font-size: 0.9rem;
+}
+.custom-context-menu .menu-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+    margin: 5px 0;
+}
+</style>
 
+<div id="customContextMenu" class="custom-context-menu">
+    <div class="menu-item" data-action="pay">
+        <i class="fas fa-cash-register"></i> Bayar (Perpanjang)
+    </div>
+    <div class="menu-item" data-action="edit">
+        <i class="fas fa-edit"></i> Edit Pelanggan
+    </div>
+    <div class="menu-item" data-action="reset_password">
+        <i class="fas fa-key"></i> Reset Password Portal
+    </div>
+    <div class="menu-item" data-action="toggle_isolate">
+        <i class="fas fa-lock" id="toggleIsolateIcon"></i> <span id="toggleIsolateText">Isolir</span>
+    </div>
+    <div class="menu-divider"></div>
+    <div class="menu-item" data-action="delete">
+        <i class="fas fa-trash-alt"></i> Hapus Pelanggan
+    </div>
+</div>
+
+<script>
+(function() {
+    // ========================
+    // Custom Context Menu (Klik Kanan)
+    // ========================
+    const contextMenu = document.getElementById('customContextMenu');
+    let currentRow = null;
+    let currentCustomerData = null;
+
+    function hideContextMenu() {
+        if (contextMenu) contextMenu.style.display = 'none';
+    }
+
+function showContextMenu(x, y) {
+    if (!contextMenu) return;
+    contextMenu.style.display = 'block';
+    
+    // Tentukan posisi awal: di kanan kursor dengan jarak 10px
+    let left = x + 10;
+    let top = y;
+    
+    const rect = contextMenu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Jika melebihi batas kanan layar, tampilkan di kiri kursor
+    if (left + rect.width > viewportWidth) {
+        left = x - rect.width - 5;
+    }
+    // Jika melebihi batas bawah layar, geser ke atas
+    if (top + rect.height > viewportHeight) {
+        top = y - rect.height;
+    }
+    // Pastikan tidak negatif
+    left = Math.max(5, left);
+    top = Math.max(5, top);
+    
+    contextMenu.style.left = left + 'px';
+    contextMenu.style.top = top + 'px';
+}
+    function getCustomerDataFromRow(row) {
+        if (!row) return null;
+        const dataAttr = row.getAttribute('data-customer');
+        if (dataAttr) {
+            try {
+                return JSON.parse(dataAttr);
+            } catch(e) {
+                console.warn('Gagal parse data-customer', e);
+            }
+        }
+        // Fallback: ambil dari tombol edit di dalam baris
+        const editBtn = row.querySelector('.btn-secondary[onclick*="editCustomer"]');
+        if (editBtn && editBtn.getAttribute('onclick')) {
+            const match = editBtn.getAttribute('onclick').match(/editCustomer\(({.*?})\)/);
+            if (match && match[1]) {
+                try {
+                    return JSON.parse(match[1]);
+                } catch(e) {}
+            }
+        }
+        return null;
+    }
+
+    function updateToggleIsolateMenu(customer) {
+        const toggleText = document.getElementById('toggleIsolateText');
+        const toggleIcon = document.getElementById('toggleIsolateIcon');
+        if (!toggleText || !toggleIcon) return;
+        if (customer && customer.status === 'isolated') {
+            toggleText.innerText = 'Buka Isolir';
+            toggleIcon.className = 'fas fa-unlock-alt';
+        } else {
+            toggleText.innerText = 'Isolir';
+            toggleIcon.className = 'fas fa-lock';
+        }
+    }
+
+    const table = document.querySelector('#customerTable');
+    if (table) {
+        table.addEventListener('contextmenu', function(e) {
+        let targetRow = e.target.closest('tr');
+        if (!targetRow) return;
+        if (targetRow.closest('thead')) return;
+
+        const customer = getCustomerDataFromRow(targetRow);
+        if (!customer) return;
+
+        e.preventDefault();
+        currentRow = targetRow;
+        currentCustomerData = customer;
+
+        updateToggleIsolateMenu(customer);
+        showContextMenu(e.clientX, e.clientY); // <-- ganti pageX/pageY jadi clientX/clientY
+    });
+    }
+
+    window.addEventListener('click', hideContextMenu);
+    window.addEventListener('scroll', hideContextMenu);
+    window.addEventListener('resize', hideContextMenu);
+
+    if (contextMenu) {
+        contextMenu.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    }
+
+    document.querySelectorAll('.menu-item[data-action]').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const action = this.getAttribute('data-action');
+            if (!currentCustomerData) return;
+
+            switch(action) {
+                case 'pay':
+                    window.location.href = 'pay_process.php?id=' + currentCustomerData.id;
+                    break;
+                case 'edit':
+                    if (typeof editCustomer === 'function') {
+                        editCustomer(currentCustomerData);
+                    } else {
+                        console.warn('editCustomer tidak ditemukan');
+                    }
+                    break;
+                case 'reset_password':
+                    if (confirm(`Reset password portal pelanggan "${currentCustomerData.name}" menjadi 1234?`)) {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = 'customers.php';
+                        form.innerHTML = `
+                            <input type="hidden" name="action" value="reset_portal_password">
+                            <input type="hidden" name="customer_id" value="${currentCustomerData.id}">
+                            <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
+                        `;
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
+                    break;
+                case 'toggle_isolate':
+                    const newStatus = (currentCustomerData.status === 'isolated') ? 'unisolate' : 'isolate';
+                    if (confirm(`Apakah Anda yakin ingin ${newStatus === 'isolate' ? 'mengisolir' : 'membuka isolir'} pelanggan "${currentCustomerData.name}"?`)) {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = 'customers.php';
+                        form.innerHTML = `
+                            <input type="hidden" name="action" value="${newStatus}">
+                            <input type="hidden" name="customer_id" value="${currentCustomerData.id}">
+                            <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
+                        `;
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
+                    break;
+                case 'delete':
+                    if (confirm(`Hapus pelanggan "${currentCustomerData.name}" secara permanen? Data tidak dapat dikembalikan.`)) {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = 'customers.php';
+                        form.innerHTML = `
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="customer_id" value="${currentCustomerData.id}">
+                            <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
+                        `;
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
+                    break;
+                default: break;
+            }
+            hideContextMenu();
+        });
+    });
+})();
+</script>
 <?php
 $content = ob_get_clean();
 require_once '../includes/layout.php';
