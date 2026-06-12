@@ -1139,10 +1139,6 @@ if (isset($_GET['switch_router'])) {
                             <i class="ti ti-user"></i>
                             <span>PPPoE User</span>
                         </a>
-                        <a href="<?php echo APP_URL; ?>/admin/pppoe-active.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-active.php' ? 'active' : ''; ?>">
-                            <i class="ti ti-plug"></i>
-                            <span>Active Sessions</span>
-                        </a>
                         <a href="<?php echo APP_URL; ?>/admin/pppoe-profile.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php' ? 'active' : ''; ?>">
                             <i class="ti ti-speedometer"></i>
                             <span>Profiles</span>
