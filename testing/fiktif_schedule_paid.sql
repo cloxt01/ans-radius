@@ -9,7 +9,7 @@ SELECT
     CASE
         WHEN i.status = 'paid'
             THEN DATEDIFF(DATE(i.paid_at), i.due_date)
-        ELSE FLOOR(RAND() * 10) + 1
+        ELSE FLOOR(RAND() * 5) + 1
         END AS late_days
 FROM invoices i
          INNER JOIN fiktif_customers fc
