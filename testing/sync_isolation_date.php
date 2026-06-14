@@ -3,10 +3,10 @@
 // =====================
 // DB CONFIG
 // =====================
-$host = 'localhost';
-$db   = 'ans_radius';
-$user = 'root';
-$pass = '';
+$host    = 'localhost';
+$db      = 'ans_radius';
+$user    = 'root';
+$pass    = '';
 $charset = 'utf8mb4';
 
 date_default_timezone_set('Asia/Jakarta');
@@ -21,110 +21,186 @@ $options = [
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
 } catch (PDOException $e) {
-    die("Koneksi gagal: " . $e->getMessage());
+    die("Koneksi gagal: " . $e->getMessage() . "\n");
 }
 
 // =====================
-// GET FIKTIF CUSTOMERS
+// MODE: dry-run (default) vs apply
+//   php update_isolation_date.php           -> dry-run
+//   php update_isolation_date.php --apply    -> eksekusi update sungguhan
 // =====================
-$fiktifIds = $pdo->query("SELECT customer_id FROM fiktif_customers")
-    ->fetchAll(PDO::FETCH_COLUMN);
+$apply = in_array('--apply', $argv);
 
-if (!$fiktifIds) {
-    die("Tidak ada customer fiktif.\n");
-}
-
-echo "Fiktif ditemukan: " . count($fiktifIds) . "\n";
+echo $apply
+    ? "Mode: APPLY (data akan diupdate)\n\n"
+    : "Mode: DRY-RUN (tidak ada perubahan ke database)\n\n";
 
 // =====================
-// AMBIL INVOICE TERAKHIR (BATCH, NO N+1)
+// AMBIL INVOICE TERAKHIR SETIAP CUSTOMER
+// (tie-breaker: kalau due_date sama, ambil id terbesar/terbaru)
+// HANYA status paid & unpaid, cancelled di-exclude
 // =====================
-$placeholders = implode(',', array_fill(0, count($fiktifIds), '?'));
-
 $sqlInvoices = "
-    SELECT i.*
+    SELECT 
+        i.id,
+        i.customer_id,
+        i.status,
+        i.due_date,
+        i.paid_at,
+        c.pppoe_username,
+        c.isolation_date AS old_isolation_date
     FROM invoices i
     INNER JOIN (
-        SELECT customer_id, MAX(due_date) AS max_due
+        SELECT 
+            customer_id,
+            MAX(due_date) AS max_due
         FROM invoices
-        WHERE customer_id IN ($placeholders)
+        WHERE status IN ('paid','unpaid')
         GROUP BY customer_id
     ) latest
-    ON i.customer_id = latest.customer_id
-    AND i.due_date = latest.max_due
+        ON i.customer_id = latest.customer_id
+       AND i.due_date = latest.max_due
+    INNER JOIN customers c ON c.id = i.customer_id
+    WHERE i.status IN ('paid','unpaid')
+    ORDER BY i.customer_id, i.id DESC
 ";
 
-$stmtInv = $pdo->prepare($sqlInvoices);
-$stmtInv->execute($fiktifIds);
-$invoices = $stmtInv->fetchAll();
+$invoices = $pdo->query($sqlInvoices)->fetchAll();
 
-// index by customer_id biar gampang lookup
-$invoiceMap = [];
-foreach ($invoices as $inv) {
-    $invoiceMap[$inv['customer_id']] = $inv;
+if (!$invoices) {
+    die("Tidak ada invoice ditemukan.\n");
 }
 
 // =====================
-// UPDATE ISOLATION DATE
+// DEDUPLIKASI: kalau due_date sama (tie), ambil row pertama
+// per customer_id (sudah ORDER BY id DESC, jadi id terbesar menang)
+// =====================
+$latestPerCustomer = [];
+foreach ($invoices as $row) {
+    $cid = $row['customer_id'];
+    if (!isset($latestPerCustomer[$cid])) {
+        $latestPerCustomer[$cid] = $row;
+    }
+}
+
+// =====================
+// PREPARE UPDATE
 // =====================
 $updateStmt = $pdo->prepare("
-    UPDATE customers 
-    SET isolation_date = ? 
+    UPDATE customers
+    SET isolation_date = ?
     WHERE id = ?
 ");
 
 // =====================
-// TRANSACTION (BIAR GA SETENGAH MATI)
+// PROSES
 // =====================
-$pdo->beginTransaction();
-
 $updated = 0;
-$noInvoice = 0;
+$skipped = 0;
+$logLines = [];
 
-foreach ($fiktifIds as $cid) {
-
-    if (!isset($invoiceMap[$cid])) {
-        $noInvoice++;
-        echo "Customer $cid: tidak ada invoice\n";
-        continue;
-    }
-
-    $invoice = $invoiceMap[$cid];
-
-    $isolation = null;
-    $reason = '';
-
-    // =====================
-    // BUSINESS RULE
-    // =====================
-    if ($invoice['status'] === 'paid' && !empty($invoice['paid_at'])) {
-
-        $date = new DateTime($invoice['paid_at']);
-        $date->modify('+30 days');
-
-        $isolation = $date->format('Y-m-d');
-        $reason = "paid_at + 30 hari";
-
-    } else {
-
-        $date = new DateTime($invoice['due_date']);
-        $isolation = $date->format('Y-m-d');
-        $reason = "due_date fallback";
-    }
-
-    $updateStmt->execute([$isolation, $cid]);
-
-    $updated++;
-    echo "Customer $cid -> $isolation ($reason)\n";
+if ($apply) {
+    $pdo->beginTransaction();
 }
 
-$pdo->commit();
+try {
+
+    foreach ($latestPerCustomer as $cid => $invoice) {
+
+        $username = $invoice['pppoe_username'];
+
+        // =====================
+        // VALIDASI TANGGAL
+        // =====================
+        try {
+            if (
+                strtolower($invoice['status']) === 'paid'
+                && !empty($invoice['paid_at'])
+            ) {
+                $date = new DateTime($invoice['paid_at']);
+                $date->modify('+30 days');
+                $reason = 'paid_at + 30 hari';
+            } else {
+                if (empty($invoice['due_date'])) {
+                    throw new Exception("due_date kosong");
+                }
+                $date = new DateTime($invoice['due_date']);
+                $reason = 'due_date fallback';
+            }
+        } catch (Exception $e) {
+            $skipped++;
+            $logLines[] = sprintf(
+                "[SKIP]   %-20s (customer_id=%d) -> error: %s",
+                $username,
+                $cid,
+                $e->getMessage()
+            );
+            continue;
+        }
+
+        $isolation = $date->format('Y-m-d');
+        $oldIsolation = $invoice['old_isolation_date'] ?? 'NULL';
+
+        // skip kalau tidak ada perubahan
+        if ($oldIsolation === $isolation) {
+            $logLines[] = sprintf(
+                "[SAME]   %-20s (customer_id=%d) -> %s (%s, tidak berubah)",
+                $username,
+                $cid,
+                $isolation,
+                $reason
+            );
+            continue;
+        }
+
+        if ($apply) {
+            $updateStmt->execute([$isolation, $cid]);
+        }
+
+        $updated++;
+
+        $logLines[] = sprintf(
+            "[UPDATE] %-20s (customer_id=%d) -> %s -> %s (%s)",
+            $username,
+            $cid,
+            $oldIsolation,
+            $isolation,
+            $reason
+        );
+    }
+
+    if ($apply) {
+        $pdo->commit();
+    }
+
+} catch (Exception $e) {
+    if ($apply) {
+        $pdo->rollBack();
+    }
+    die("ERROR: " . $e->getMessage() . "\n");
+}
 
 // =====================
-// SUMMARY
+// OUTPUT LOG
 // =====================
-echo "\nSELESAI\n";
-echo "Updated: $updated\n";
-echo "Tanpa invoice: $noInvoice\n";
+foreach ($logLines as $line) {
+    echo $line . "\n";
+}
 
-?>
+echo "\n====================\n";
+echo "SELESAI\n";
+echo "Total invoice diproses : " . count($latestPerCustomer) . "\n";
+echo "Total diupdate         : {$updated}\n";
+echo "Total dilewati (skip)  : {$skipped}\n";
+echo "Total tidak berubah    : " . (count($latestPerCustomer) - $updated - $skipped) . "\n";
+
+if (!$apply) {
+    echo "\n(Dry-run) Tidak ada perubahan dilakukan. Jalankan dengan --apply untuk eksekusi.\n";
+}
+
+// =====================
+// WRITE LOG FILE
+// =====================
+$logFile = __DIR__ . '/log_isolation_date_' . date('Ymd_His') . '.txt';
+file_put_contents($logFile, implode("\n", $logLines) . "\n");
+echo "\nLog disimpan ke: {$logFile}\n";
