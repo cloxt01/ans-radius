@@ -5,8 +5,8 @@
 // =====================
 $host    = 'localhost';
 $db      = 'ans_radius';
-$user    = 'root';
-$pass    = '';
+$user    = 'ans_radius';
+$pass    = '95b3783482dc8';
 $charset = 'utf8mb4';
 
 date_default_timezone_set('Asia/Jakarta');
@@ -36,7 +36,8 @@ echo $apply
     : "Mode: DRY-RUN (tidak ada perubahan ke database)\n\n";
 
 // =====================
-// 1. Ambil semua invoice yang termasuk grup duplikat (customer_id + due_date)
+// 1. Ambil semua invoice yang termasuk grup duplikat
+//    Duplikat ditentukan dari: customer_id + bulan&tahun due_date (YYYY-MM)
 // =====================
 $sqlDuplicates = "
     SELECT 
@@ -45,18 +46,19 @@ $sqlDuplicates = "
         i.customer_id,
         c.pppoe_username,
         i.due_date,
+        DATE_FORMAT(i.due_date, '%Y-%m') AS due_month,
         i.status,
         i.paid_at,
         i.amount
     FROM invoices i
     JOIN customers c ON c.id = i.customer_id
-    WHERE (i.customer_id, i.due_date) IN (
-        SELECT customer_id, due_date
+    WHERE (i.customer_id, DATE_FORMAT(i.due_date, '%Y-%m')) IN (
+        SELECT customer_id, DATE_FORMAT(due_date, '%Y-%m')
         FROM invoices
-        GROUP BY customer_id, due_date
+        GROUP BY customer_id, DATE_FORMAT(due_date, '%Y-%m')
         HAVING COUNT(*) > 1
     )
-    ORDER BY i.customer_id, i.due_date, i.id
+    ORDER BY i.customer_id, due_month, i.due_date, i.id
 ";
 
 $rows = $pdo->query($sqlDuplicates)->fetchAll();
@@ -66,15 +68,15 @@ if (!$rows) {
 }
 
 // =====================
-// 2. Group by customer_id + due_date
+// 2. Group by customer_id + due_month (YYYY-MM)
 // =====================
 $groups = [];
 foreach ($rows as $row) {
-    $key = $row['customer_id'] . '|' . $row['due_date'];
+    $key = $row['customer_id'] . '|' . $row['due_month'];
     $groups[$key][] = $row;
 }
 
-echo "Total grup duplikat: " . count($groups) . "\n\n";
+echo "Total grup duplikat (per customer + bulan due_date): " . count($groups) . "\n\n";
 
 // =====================
 // 3. Proses tiap grup
@@ -111,11 +113,12 @@ foreach ($groups as $key => $invs) {
 echo "=== Invoice yang akan DI-KEEP ===\n";
 foreach ($keepInfo as $r) {
     printf(
-        "[KEEP]   %-20s id=%-6d %s due=%s status=%s paid_at=%s\n",
+        "[KEEP]   %-20s id=%-6d %s due=%s (%s) status=%s paid_at=%s\n",
         $r['pppoe_username'],
         $r['id'],
         $r['invoice_number'],
         $r['due_date'],
+        $r['due_month'],
         $r['status'],
         $r['paid_at'] ?? 'NULL'
     );
@@ -124,11 +127,12 @@ foreach ($keepInfo as $r) {
 echo "\n=== Invoice yang akan DIHAPUS ===\n";
 foreach ($toDelete as $r) {
     printf(
-        "[DELETE] %-20s id=%-6d %s due=%s status=%s paid_at=%s\n",
+        "[DELETE] %-20s id=%-6d %s due=%s (%s) status=%s paid_at=%s\n",
         $r['pppoe_username'],
         $r['id'],
         $r['invoice_number'],
         $r['due_date'],
+        $r['due_month'],
         $r['status'],
         $r['paid_at'] ?? 'NULL'
     );
@@ -140,15 +144,16 @@ foreach ($toDelete as $r) {
 if (!empty($needsReview)) {
     echo "\n=== Grup BUTUH REVIEW MANUAL (dilewati) ===\n";
     foreach ($needsReview as $key => $invs) {
-        [$cid, $dueDate] = explode('|', $key);
+        [$cid, $dueMonth] = explode('|', $key);
         $username = $invs[0]['pppoe_username'];
 
-        printf("Customer %-20s (id=%s) due_date=%s:\n", $username, $cid, $dueDate);
+        printf("Customer %-20s (id=%s) due_month=%s:\n", $username, $cid, $dueMonth);
         foreach ($invs as $r) {
             printf(
-                "    id=%-6d %s status=%s paid_at=%s\n",
+                "    id=%-6d %s due=%s status=%s paid_at=%s\n",
                 $r['id'],
                 $r['invoice_number'],
+                $r['due_date'],
                 $r['status'],
                 $r['paid_at'] ?? 'NULL'
             );
