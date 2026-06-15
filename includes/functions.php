@@ -432,6 +432,37 @@ function logError($message)
 }
 
 // Log activity
+function getUserIP()
+{
+    // Daftar header yang biasa disisipkan oleh Proxy, Load Balancer, atau CDN (seperti Cloudflare)
+    $headers = [
+        'HTTP_CF_CONNECTING_IP',  // Khusus jika menggunakan Cloudflare
+        'HTTP_CLIENT_IP',
+        'HTTP_X_FORWARDED_FOR',   // Paling umum digunakan oleh Reverse Proxy
+        'HTTP_X_FORWARDED',
+        'HTTP_X_CLUSTER_CLIENT_IP',
+        'HTTP_FORWARDED_FOR',
+        'HTTP_FORWARDED',
+        'REMOTE_ADDR'             // Fallback terakhir (Default)
+    ];
+
+    foreach ($headers as $header) {
+        if (!empty($_SERVER[$header])) {
+            // Header X-Forwarded-For bisa berisi beberapa IP yang dipisah koma (Client IP, Proxy1, Proxy2, dst)
+            // Kita ambil IP yang paling awal (IP asli client)
+            $ipList = explode(',', $_SERVER[$header]);
+            $ip = trim($ipList[0]);
+
+            // Validasi apakah format IP tersebut valid
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+    }
+
+    return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+}
+
 function logActivity($action, $details = '')
 {
     $logFile = __DIR__ . '/../logs/activity.log';
@@ -443,13 +474,14 @@ function logActivity($action, $details = '')
 
     $timestamp = date('Y-m-d H:i:s');
     $user = $_SESSION['admin']['username'] ?? 'guest';
-    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+
+    // Gunakan fungsi getUserIP() di sini, bukan langsung $_SERVER['REMOTE_ADDR']
+    $ip = getUserIP();
 
     $logMessage = "[{$timestamp}] [{$user}] [{$ip}] {$action} - {$details}\n";
 
     file_put_contents($logFile, $logMessage, FILE_APPEND);
 }
-
 // Redirect
 function redirect($url)
 {
