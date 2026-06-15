@@ -60,24 +60,18 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     if (($handle = fopen($fixCsvFile, "r")) !== FALSE) {
-
         $headers = fgetcsv($handle);
         $usernameIdx = array_search('username', $headers);
         $expiredAtIdx = array_search('expired_at', $headers);
 
-        if ($usernameIdx === false || $expiredAtIdx === false) {
-            die("Error: Kolom 'username' atau 'expired_at' tidak ditemukan di $fixCsvFile\n");
-        }
-
         // --- PREPARE STATEMENTS ---
-        // ID IN (...) di sini sudah diganti dengan string dari file fix_id.csv
-        $stmtGetCustomer = $pdo->prepare("SELECT id FROM customers WHERE pppoe_username = :pppoe_username AND id IN ($allowedIds)");
+        // Tambahkan query SELECT untuk ambil data lama
+        $stmtGetCustomer = $pdo->prepare("SELECT id, isolation_date FROM customers WHERE pppoe_username = :pppoe_username AND id IN ($allowedIds)");
+        $stmtGetInvoice   = $pdo->prepare("SELECT id, status FROM invoices WHERE customer_id = :customer_id ORDER BY id DESC LIMIT 1");
 
         $stmtUpdateCustomer = $pdo->prepare("UPDATE customers SET isolation_date = :isolation_date WHERE id = :id");
+        $stmtUpdateInvoice  = $pdo->prepare("UPDATE invoices SET status = 'unpaid' WHERE id = :invoice_id");
 
-        $stmtUpdateInvoice = $pdo->prepare("UPDATE invoices SET status = 'unpaid' WHERE customer_id = :customer_id ORDER BY id DESC LIMIT 1");
-
-        // Memulai Transaksi
         $pdo->beginTransaction();
         $customerUpdatedCount = 0;
         $invoiceUpdatedCount = 0;
@@ -87,34 +81,34 @@ try {
             $csvExpiredAt = $row[$expiredAtIdx] ?? '';
 
             if (!empty($csvUsername) && !empty($csvExpiredAt)) {
-                $isolationDate = substr($csvExpiredAt, 0, 10);
+                $newIsolationDate = substr($csvExpiredAt, 0, 10);
 
                 $stmtGetCustomer->execute([':pppoe_username' => $csvUsername]);
                 $customer = $stmtGetCustomer->fetch(PDO::FETCH_ASSOC);
 
                 if ($customer) {
                     $customerId = $customer['id'];
+                    $oldDate = $customer['isolation_date'];
 
-                    $stmtUpdateCustomer->execute([
-                        ':isolation_date' => $isolationDate,
-                        ':id' => $customerId
-                    ]);
-
-                    if ($stmtUpdateCustomer->rowCount() > 0) {
+                    // Log Perubahan Isolasi
+                    if ($oldDate !== $newIsolationDate) {
+                        echo "[ISOLASI] User: $csvUsername | Before: $oldDate | After: $newIsolationDate\n";
+                        $stmtUpdateCustomer->execute([':isolation_date' => $newIsolationDate, ':id' => $customerId]);
                         $customerUpdatedCount++;
                     }
 
-                    $stmtUpdateInvoice->execute([
-                        ':customer_id' => $customerId
-                    ]);
+                    // Log Perubahan Invoice
+                    $stmtGetInvoice->execute([':customer_id' => $customerId]);
+                    $invoice = $stmtGetInvoice->fetch(PDO::FETCH_ASSOC);
 
-                    if ($stmtUpdateInvoice->rowCount() > 0) {
+                    if ($invoice && $invoice['status'] !== 'unpaid') {
+                        echo "[INVOICE] User: $csvUsername | Invoice ID: {$invoice['id']} | Status: {$invoice['status']} -> unpaid\n";
+                        $stmtUpdateInvoice->execute([':invoice_id' => $invoice['id']]);
                         $invoiceUpdatedCount++;
                     }
                 }
             }
         }
-
         fclose($handle);
 
         if ($isDryRun) {
