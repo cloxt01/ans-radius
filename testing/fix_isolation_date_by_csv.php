@@ -23,8 +23,8 @@ if ($isDryRun) {
 // ==========================================
 $host     = DB_HOST;
 $dbname   = DB_NAME;    // Sesuaikan nama database
-$username = DB_USER;             // Sesuaikan username
-$password = DB_PASS;         // Sesuaikan password
+$username = DB_USER;    // Sesuaikan username
+$password = DB_PASS;    // Sesuaikan password
 
 $fixCsvFile = 'fix.csv';
 
@@ -48,12 +48,21 @@ try {
             die("Error: Kolom 'username' atau 'expired_at' tidak ditemukan di $fixCsvFile\n");
         }
 
-        $sql = "UPDATE customers SET isolation_date = :isolation_date WHERE pppoe_username = :pppoe_username AND id IN ($allowedIds)";
-        $stmt = $pdo->prepare($sql);
+        // --- PREPARE STATEMENTS ---
+        // 1. Ambil ID Customer
+        $stmtGetCustomer = $pdo->prepare("SELECT id FROM customers WHERE pppoe_username = :pppoe_username AND id IN ($allowedIds)");
+
+        // 2. Update Customer
+        $stmtUpdateCustomer = $pdo->prepare("UPDATE customers SET isolation_date = :isolation_date WHERE id = :id");
+
+        // 3. Update Invoice Terakhir
+        // Asumsi: Tabel bernama 'invoices', direlasikan dengan 'customer_id', dan statusnya menggunakan string 'unpaid'
+        $stmtUpdateInvoice = $pdo->prepare("UPDATE invoices SET status = 'unpaid' WHERE customer_id = :customer_id ORDER BY id DESC LIMIT 1");
 
         // Memulai Transaksi
         $pdo->beginTransaction();
-        $updatedCount = 0;
+        $customerUpdatedCount = 0;
+        $invoiceUpdatedCount = 0;
 
         while (($row = fgetcsv($handle)) !== FALSE) {
             $csvUsername = $row[$usernameIdx];
@@ -62,13 +71,31 @@ try {
             if (!empty($csvUsername) && !empty($csvExpiredAt)) {
                 $isolationDate = substr($csvExpiredAt, 0, 10);
 
-                $stmt->execute([
-                    ':isolation_date' => $isolationDate,
-                    ':pppoe_username' => $csvUsername
-                ]);
+                // Cek apakah user ada di database dan masuk dalam list allowedIds
+                $stmtGetCustomer->execute([':pppoe_username' => $csvUsername]);
+                $customer = $stmtGetCustomer->fetch(PDO::FETCH_ASSOC);
 
-                if ($stmt->rowCount() > 0) {
-                    $updatedCount++;
+                if ($customer) {
+                    $customerId = $customer['id'];
+
+                    // A. Update tabel customers
+                    $stmtUpdateCustomer->execute([
+                        ':isolation_date' => $isolationDate,
+                        ':id' => $customerId
+                    ]);
+
+                    if ($stmtUpdateCustomer->rowCount() > 0) {
+                        $customerUpdatedCount++;
+                    }
+
+                    // B. Update tabel invoices (Invoice terakhir saja)
+                    $stmtUpdateInvoice->execute([
+                        ':customer_id' => $customerId
+                    ]);
+
+                    if ($stmtUpdateInvoice->rowCount() > 0) {
+                        $invoiceUpdatedCount++;
+                    }
                 }
             }
         }
@@ -81,12 +108,15 @@ try {
         if ($isDryRun) {
             $pdo->rollBack(); // Membatalkan semua perubahan simulasi
             echo "-> Simulasi Selesai.\n";
-            echo "-> Jika --apply digunakan, ada TOTAL $updatedCount pelanggan yang AKAN diupdate.\n";
+            echo "-> Jika --apply digunakan, maka:\n";
+            echo "   - $customerUpdatedCount data 'isolation_date' AKAN diupdate.\n";
+            echo "   - $invoiceUpdatedCount data 'invoice terakhir' AKAN diubah menjadi unpaid.\n";
             echo "-> STATUS: Data database TIDAK berubah.\n";
         } else {
             $pdo->commit(); // Menyimpan perubahan permanen
             echo "-> Proses Eksekusi Selesai.\n";
-            echo "-> TOTAL $updatedCount pelanggan BERHASIL diperbarui.\n";
+            echo "   - TOTAL $customerUpdatedCount pelanggan BERHASIL diperbarui.\n";
+            echo "   - TOTAL $invoiceUpdatedCount invoice terakhir BERHASIL diset menjadi unpaid.\n";
         }
 
     } else {
