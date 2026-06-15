@@ -16,7 +16,6 @@ $poolNama = array_map('trim', $poolNama);
 $poolNama = array_map('strtoupper', $poolNama);
 
 $poolDomain = array_map('trim', $poolDomain);
-$poolDomain = array_map('strtoupper', $poolDomain);
 
 // Pastikan file tidak kosong
 if (empty($poolNama) || empty($poolDomain)) {
@@ -24,14 +23,14 @@ if (empty($poolNama) || empty($poolDomain)) {
 }
 
 $totalDataGenerate = 1215; // Ubah sesuai jumlah data yang ingin dibuat (misal: 1500)
-$namaFile = 'username_baru_fiktif.csv';
+$namaFile = 'fiktif_username.csv';
 
 // Array memori untuk melacak username yang sudah dipakai
 $usernameTerpakai = [];
 
 // Buka file stream untuk menulis CSV
 $file = fopen($namaFile, 'w');
-fputcsv($file, ['id', 'pppoe_username'], ';');
+fputcsv($file, ['id', 'pppoe_username'], ',');
 
 for ($i = 1; $i <= $totalDataGenerate; $i++) {
     // 3. Ambil acak nama dan domain dari data TXT yang sudah dibaca
@@ -54,7 +53,7 @@ for ($i = 1; $i <= $totalDataGenerate; $i++) {
     $usernameTerpakai[$usernameFinal] = true;
 
     // 7. Tulis ke CSV
-    fputcsv($file, [$i, $usernameFinal], ';');
+    fputcsv($file, [$i, $usernameFinal], ',');
 }
 
 fclose($file);
