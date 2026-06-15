@@ -22,7 +22,7 @@ if (empty($poolNama) || empty($poolDomain)) {
     die("Error: File nama.txt atau domain.txt kosong!\n");
 }
 
-$totalDataGenerate = 1215; // Ubah sesuai jumlah data yang ingin dibuat (misal: 1500)
+$totalDataGenerate = 1388; // Ubah sesuai jumlah data yang ingin dibuat (misal: 1500)
 $namaFile = 'fiktif_username.csv';
 
 // Array memori untuk melacak username yang sudah dipakai

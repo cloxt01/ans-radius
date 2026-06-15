@@ -81,7 +81,7 @@ try {
 
                 // 1. Cek duplikat internal di dalam file CSV
                 if (in_array($newUsername, $seenUsernames)) {
-                    echo "   [SKIP] CSV Duplikat: '$newUsername' (ID: $customerId) sudah ada di baris CSV sebelumnya.\n";
+                    echo "   [SKIP] CSV Duplikat: '$newUsername' (ID: $customerId) \n";
                     $skippedCount++;
                     continue;
                 }
@@ -95,7 +95,7 @@ try {
                     // Jika username sudah ada di tabel customers
                     // Dan ID yang punya username itu BEDA dengan ID yang lagi mau kita update
                     if ($existingUser['id'] != $customerId) {
-                        echo "   [SKIP] DB Duplikat : '$newUsername' gagal diupdate untuk ID $customerId karena sudah dipakai oleh ID " . $existingUser['id'] . ".\n";
+                        echo "   [SKIP] DB Duplikat : '$newUsername' -> CUSTOMER_ID $customerId "."\n";
                         $skippedCount++;
                         continue; // Lewati, jangan di-update
                     }
