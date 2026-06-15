@@ -21,7 +21,7 @@ try {
 
         $count = 0;
         while (($rowU = fgetcsv($hUser)) !== FALSE && ($rowI = fgetcsv($hId)) !== FALSE) {
-            $fullUser = $rowU[0] ?? ''; // [NAMA]@[DOMAIN]
+            $fullUser = $rowU[1] ?? ''; // [NAMA]@[DOMAIN]
             $id       = $rowI[0] ?? '';
 
             // Ambil NAMA saja
