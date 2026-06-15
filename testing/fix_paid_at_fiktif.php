@@ -1,6 +1,11 @@
 <?php
-
-$pdo = new PDO("mysql:host=localhost;dbname=ans_radius", "root", "", [
+include '../includes/config.php';
+// ====== KONFIGURASI DB ======
+$DB_HOST = DB_HOST;
+$DB_USER = DB_USER;
+$DB_PASS = DB_PASS; // sesuaika
+$DB_NAME = DB_NAME;
+$pdo = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME", $DB_USER, $DB_PASS, [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
 ]);
 

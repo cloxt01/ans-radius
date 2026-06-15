@@ -15,11 +15,13 @@
  */
 
 // ====== KONFIGURASI DB ======
-$DB_HOST = '127.0.0.1';
-$DB_USER = 'ans_radius';
-$DB_PASS = '95b3783482dc8'; // sesuaikan password
-$DB_ANS_RADIUS = 'ans_radius';
-$DB_RADIUS     = 'radius_db';
+include '../includes/config.php';
+// ====== KONFIGURASI DB ======
+$DB_HOST = DB_HOST;
+$DB_USER = DB_USER;
+$DB_PASS = DB_PASS; // sesuaika sesuaikan password
+$DB_ANS_RADIUS = DB_NAME;
+$DB_RADIUS     = RADIUS_DB_NAME;
 
 $DEFAULT_PASSWORD = '1234';
 // =============================

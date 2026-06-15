@@ -1,11 +1,13 @@
 <?php
 // --- Konfigurasi Koneksi ---
+include '../includes/config.php';
+
 $db_config = [
-    'host' => 'localhost',
-    'user' => 'ans_radius',
-    'pass' => '95b3783482dc8', 
-    'ans_radius' => 'ans_radius',
-    'radius_db'  => 'radius_db'
+    'host' => DB_HOST,
+    'user' => DB_USER,
+    'pass' => DB_PASS,
+    'ans_radius' => DB_NAME,
+    'radius_db'  => RADIUS_DB_NAME
 ];
 
 try {

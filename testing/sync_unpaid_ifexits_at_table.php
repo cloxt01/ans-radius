@@ -1,9 +1,11 @@
 <?php
 // 1. Pengaturan Database
-$host = 'localhost';
-$db   = 'ans_radius';
-$user = 'ans_radius';
-$pass = '95b3783482dc8';
+include '../includes/config.php';
+// ====== KONFIGURASI DB ======
+$host = DB_HOST;
+$db   = DB_NAME;
+$user = DB_USER;
+$pass = DB_PASS;
 $charset = 'utf8mb4';
 
 

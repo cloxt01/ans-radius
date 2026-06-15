@@ -4,20 +4,22 @@
  * DB 1: ans_radius (Utama) <--> DB 2: radius_db (RADIUS)
  */
 
+include '../includes/config.php';
+
 // --- 1. Konfigurasi Database Utama ---
 $db_main_config = [
-    'host' => 'localhost',
-    'user' => 'root',
-    'pass' => '', 
-    'dbname' => 'ans_radius'
+    'host' => DB_HOST,
+    'user' => DB_USER,
+    'pass' => DB_PASS,
+    'dbname' => DB_NAME,
 ];
 
 // --- 2. Konfigurasi Database FreeRADIUS ---
 $db_radius_config = [
-    'host' => 'localhost',
-    'user' => 'root', 
-    'pass' => '', 
-    'dbname' => 'radius_db'
+    'host' => RADIUS_DB_HOST,
+    'user' => RADIUS_DB_USER,
+    'pass' => RADIUS_DB_PASS,
+    'dbname' => RADIUS_DB_NAME,
 ];
 
 try {

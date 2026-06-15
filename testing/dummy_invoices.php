@@ -1,8 +1,10 @@
 <?php
-$host = 'localhost';
-$db   = 'ans_radius'; 
-$user = 'root';
-$pass = '';     
+include '../includes/config.php';
+$host     = DB_HOST;
+$db  = DB_NAME;    // Sesuaikan nama database
+$user = DB_USER;    // Sesuaikan username
+$pass = DB_PASS;
+
 $charset = 'utf8mb4';
 
 define('INVOICE_PREFIX', 'INV'); 

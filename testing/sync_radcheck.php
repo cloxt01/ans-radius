@@ -4,11 +4,13 @@
  */
 
 // --- 1. KONFIGURASI DATABASE RADIUS ---
+include '../includes/config.php';
+
 $db_config = [
-    'host' => 'localhost',
-    'user' => 'ans_radius',
-    'pass' => '95b3783482dc8', 
-    'radius_db'  => 'radius_db'
+    'host' => DB_HOST,
+    'user' => DB_USER,
+    'pass' => DB_PASS,
+    'radius_db'  => RADIUS_DB_NAME
 ];
 
 try {

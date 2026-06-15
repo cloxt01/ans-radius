@@ -29,10 +29,13 @@
 // =====================
 // DB CONFIG
 // =====================
-$host    = 'localhost';
-$db      = 'ans_radius';
-$user    = 'ans_radius';
-$pass    = '95b3783482dc8';
+include '../includes/config.php';
+// ====== KONFIGURASI DB ======
+
+$host    = DB_HOST;
+$db      = DB_NAME;    // Sesuaikan nama database
+$user    = DB_USER;    // Sesuaikan username
+$pass    = DB_PASS;
 $charset = 'utf8mb4';
 
 date_default_timezone_set('Asia/Jakarta');

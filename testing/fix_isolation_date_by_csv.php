@@ -21,6 +21,7 @@ if ($isDryRun) {
 // ==========================================
 // 2. KONFIGURASI DATABASE & FILE
 // ==========================================
+include '../includes/config.php';
 $host     = DB_HOST;
 $dbname   = DB_NAME;    // Sesuaikan nama database
 $username = DB_USER;    // Sesuaikan username

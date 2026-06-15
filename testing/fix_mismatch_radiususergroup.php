@@ -20,14 +20,16 @@
  *   php sync_radusergroup.php --apply     -> eksekusi update/insert sungguhan
  *   php sync_radusergroup.php --apply --no-backup  -> apply tanpa backup tabel
  */
-
+include '../includes/config.php';
 // ====== KONFIGURASI DB ======
-$DB_HOST = '127.0.0.1';
-$DB_USER = 'root';
-$DB_PASS = ''; // sesuaikan password
+$DB_HOST = DB_HOST;
+$DB_USER = DB_USER;
+$DB_PASS = DB_PASS; // sesuaikan password
+
+
 // Nama database
-$DB_ANS_RADIUS = 'ans_radius';
-$DB_RADIUS     = 'radius_db';
+$DB_ANS_RADIUS = DB_NAME;
+$DB_RADIUS     = RADIUS_DB_NAME;
 // =============================
 
 $apply     = in_array('--apply', $argv);

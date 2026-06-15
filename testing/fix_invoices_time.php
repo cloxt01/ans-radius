@@ -1,9 +1,11 @@
 <?php
 
-$db_host = "localhost";
-$db_name = "ans_radius";
-$db_user = "root";
-$db_pass = "";
+include '../includes/config.php';
+$db_host     = DB_HOST;
+$db_name  = DB_NAME;    // Sesuaikan nama database
+$db_user = DB_USER;    // Sesuaikan username
+$db_pass = DB_PASS;
+
 
 try {
     $pdo = new PDO(
