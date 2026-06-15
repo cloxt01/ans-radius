@@ -21,17 +21,37 @@ if ($isDryRun) {
 // ==========================================
 // 2. KONFIGURASI DATABASE & FILE
 // ==========================================
-include '../includes/config.php';
 $host     = DB_HOST;
-$dbname   = DB_NAME;    // Sesuaikan nama database
-$username = DB_USER;    // Sesuaikan username
-$password = DB_PASS;    // Sesuaikan password
+$dbname   = DB_NAME;
+$username = DB_USER;
+$password = DB_PASS;
 
 $fixCsvFile = 'fix.csv';
+$fixIdFile  = 'fix_id.csv';
 
-// Daftar ID yang diizinkan untuk diupdate (128 ID)
-$allowedIds = "3, 40, 77, 96, 109, 113, 114, 156, 299, 309, 311, 313, 316, 317, 318, 320, 321, 322, 323, 327, 329, 332, 333, 335, 346, 348, 356, 357, 373, 374, 393, 534, 545, 551, 557, 623, 624, 626, 627, 628, 629, 630, 631, 632, 633, 634, 635, 636, 637, 638, 639, 640, 641, 642, 643, 644, 645, 646, 647, 648, 649, 650, 651, 652, 653, 654, 655, 656, 657, 658, 659, 660, 661, 662, 663, 664, 665, 666, 667, 668, 669, 670, 671, 672, 673, 674, 675, 676, 677, 678, 679, 680, 681, 682, 683, 684, 685, 686, 687, 688, 689, 690, 691, 692, 693, 694, 695, 696, 697, 698, 699, 700, 701, 702, 703, 704, 705, 706, 707, 708, 709, 710, 711, 712, 713, 3443, 3448, 3471";
+// BACA ID DARI FILE fix_id.csv DINAMIS
+if (!file_exists($fixIdFile)) {
+    die("Error: File $fixIdFile tidak ditemukan!\n");
+}
 
+// Membaca file baris per baris
+$rows = file($fixIdFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+// Hapus header baris pertama ("id")
+array_shift($rows);
+
+// Bersihkan tanda kutip dan pastikan hanya angka yang masuk ke query
+$cleanIds = array_map(function($line) {
+    // Hapus tanda kutip ganda dan spasi
+    return intval(str_replace('"', '', trim($line)));
+}, $rows);
+
+// Filter agar tidak ada angka 0 (akibat gagal parsing) dan gabungkan
+$allowedIds = implode(',', array_filter($cleanIds));
+
+if (empty($allowedIds)) {
+    die("Error: File $fixIdFile kosong atau tidak berisi ID yang valid!\n");
+}
 // ==========================================
 // 3. PROSES DATABASE
 // ==========================================
@@ -50,14 +70,11 @@ try {
         }
 
         // --- PREPARE STATEMENTS ---
-        // 1. Ambil ID Customer
+        // ID IN (...) di sini sudah diganti dengan string dari file fix_id.csv
         $stmtGetCustomer = $pdo->prepare("SELECT id FROM customers WHERE pppoe_username = :pppoe_username AND id IN ($allowedIds)");
 
-        // 2. Update Customer
         $stmtUpdateCustomer = $pdo->prepare("UPDATE customers SET isolation_date = :isolation_date WHERE id = :id");
 
-        // 3. Update Invoice Terakhir
-        // Asumsi: Tabel bernama 'invoices', direlasikan dengan 'customer_id', dan statusnya menggunakan string 'unpaid'
         $stmtUpdateInvoice = $pdo->prepare("UPDATE invoices SET status = 'unpaid' WHERE customer_id = :customer_id ORDER BY id DESC LIMIT 1");
 
         // Memulai Transaksi
@@ -66,20 +83,18 @@ try {
         $invoiceUpdatedCount = 0;
 
         while (($row = fgetcsv($handle)) !== FALSE) {
-            $csvUsername = $row[$usernameIdx];
-            $csvExpiredAt = $row[$expiredAtIdx];
+            $csvUsername = $row[$usernameIdx] ?? '';
+            $csvExpiredAt = $row[$expiredAtIdx] ?? '';
 
             if (!empty($csvUsername) && !empty($csvExpiredAt)) {
                 $isolationDate = substr($csvExpiredAt, 0, 10);
 
-                // Cek apakah user ada di database dan masuk dalam list allowedIds
                 $stmtGetCustomer->execute([':pppoe_username' => $csvUsername]);
                 $customer = $stmtGetCustomer->fetch(PDO::FETCH_ASSOC);
 
                 if ($customer) {
                     $customerId = $customer['id'];
 
-                    // A. Update tabel customers
                     $stmtUpdateCustomer->execute([
                         ':isolation_date' => $isolationDate,
                         ':id' => $customerId
@@ -89,7 +104,6 @@ try {
                         $customerUpdatedCount++;
                     }
 
-                    // B. Update tabel invoices (Invoice terakhir saja)
                     $stmtUpdateInvoice->execute([
                         ':customer_id' => $customerId
                     ]);
@@ -103,21 +117,14 @@ try {
 
         fclose($handle);
 
-        // ==========================================
-        // 4. COMMIT ATAU ROLLBACK BERDASARKAN MODE
-        // ==========================================
         if ($isDryRun) {
-            $pdo->rollBack(); // Membatalkan semua perubahan simulasi
+            $pdo->rollBack();
             echo "-> Simulasi Selesai.\n";
-            echo "-> Jika --apply digunakan, maka:\n";
-            echo "   - $customerUpdatedCount data 'isolation_date' AKAN diupdate.\n";
-            echo "   - $invoiceUpdatedCount data 'invoice terakhir' AKAN diubah menjadi unpaid.\n";
-            echo "-> STATUS: Data database TIDAK berubah.\n";
+            echo "-> Jika --apply digunakan: $customerUpdatedCount update isolasi, $invoiceUpdatedCount update invoice.\n";
         } else {
-            $pdo->commit(); // Menyimpan perubahan permanen
+            $pdo->commit();
             echo "-> Proses Eksekusi Selesai.\n";
-            echo "   - TOTAL $customerUpdatedCount pelanggan BERHASIL diperbarui.\n";
-            echo "   - TOTAL $invoiceUpdatedCount invoice terakhir BERHASIL diset menjadi unpaid.\n";
+            echo "-> TOTAL $customerUpdatedCount pelanggan diperbarui, $invoiceUpdatedCount invoice di-unpaid.\n";
         }
 
     } else {
@@ -130,5 +137,4 @@ try {
     }
     die("\nDatabase Error: " . $e->getMessage() . "\n");
 }
-
 ?>
