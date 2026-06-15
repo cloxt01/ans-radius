@@ -52,11 +52,12 @@ try {
         readCsvLine($handleUpdate);
         readCsvLine($handleId);
 
-        // Siapkan 2 Query: 1 untuk ngecek, 1 untuk update
+        // Siapkan 2 Query
         $sqlCheck = "SELECT id FROM customers WHERE pppoe_username = :pppoe_username LIMIT 1";
         $stmtCheck = $pdo->prepare($sqlCheck);
 
-        $sqlUpdate = "UPDATE customers SET pppoe_username = :pppoe_username, address = :address WHERE id = :id";
+        // Update name, pppoe_username, dan address sekaligus
+        $sqlUpdate = "UPDATE customers SET name = :name, pppoe_username = :pppoe_username, address = :address WHERE id = :id";
         $stmtUpdate = $pdo->prepare($sqlUpdate);
 
         $pdo->beginTransaction();
@@ -65,7 +66,7 @@ try {
         $skippedCount = 0;
         $totalBaris   = 0;
 
-        $seenUsernames = []; // Melacak duplikat dari CSV itu sendiri
+        $seenUsernames = [];
 
         while (($rowUpdate = readCsvLine($handleUpdate)) !== FALSE && ($rowId = readCsvLine($handleId)) !== FALSE) {
 
@@ -79,7 +80,11 @@ try {
 
             if (!empty($customerId) && is_numeric($customerId) && !empty($newUsername)) {
 
-                // 1. Cek duplikat internal di dalam file CSV
+                // Parsing [NAMA]@[DOMAIN]
+                $parts = explode('@', $newUsername);
+                $newName = $parts[0] ?? ''; // [NAMA]
+
+                // 1. Cek duplikat internal CSV
                 if (in_array($newUsername, $seenUsernames)) {
                     echo "   [SKIP] CSV Duplikat: '$newUsername' (ID: $customerId) \n";
                     $skippedCount++;
@@ -87,28 +92,25 @@ try {
                 }
                 $seenUsernames[] = $newUsername;
 
-                // 2. Cek duplikat ke Database (Apakah username sudah dipakai orang lain?)
+                // 2. Cek duplikat ke Database
                 $stmtCheck->execute([':pppoe_username' => $newUsername]);
                 $existingUser = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
-                if ($existingUser) {
-                    // Jika username sudah ada di tabel customers
-                    // Dan ID yang punya username itu BEDA dengan ID yang lagi mau kita update
-                    if ($existingUser['id'] != $customerId) {
-                        echo "   [SKIP] DB Duplikat : '$newUsername' -> CUSTOMER_ID $customerId "."\n";
-                        $skippedCount++;
-                        continue; // Lewati, jangan di-update
-                    }
+                if ($existingUser && $existingUser['id'] != $customerId) {
+                    echo "   [SKIP] DB Duplikat : '$newUsername' -> CUSTOMER_ID $customerId "."\n";
+                    $skippedCount++;
+                    continue;
                 }
 
-                // 3. Jika aman dari duplikat, lakukan UPDATE
+                // 3. Eksekusi Update
                 $stmtUpdate->execute([
+                    ':name'           => $newName,
                     ':pppoe_username' => $newUsername,
-                    ':address'  => $newAddress,
-                    ':id'       => $customerId
+                    ':address'        => $newAddress,
+                    ':id'             => $customerId
                 ]);
 
-                if ($stmtUpdate->rowCount() > 0) {
+                if ($stmtUpdate->rowCount() >= 0) { // Gunakan >= 0 karena kalau data sama, rowCount bisa 0
                     $updatedCount++;
                 }
             }
@@ -117,22 +119,15 @@ try {
         fclose($handleUpdate);
         fclose($handleId);
 
-        // ==========================================
-        // 4. COMMIT ATAU ROLLBACK BERDASARKAN MODE
-        // ==========================================
         echo "\n----------------------------------------------------\n";
         if ($isDryRun) {
             $pdo->rollBack();
-            echo "-> Simulasi Selesai. Total $totalBaris pasang baris dibaca.\n";
-            echo "-> Jika --apply digunakan:\n";
-            echo "   - $updatedCount data AKAN diupdate.\n";
-            echo "   - $skippedCount data AKAN dilewati (karena duplikat).\n";
-            echo "-> STATUS: Data database TIDAK berubah.\n";
+            echo "-> Simulasi Selesai. Total $totalBaris baris dibaca.\n";
+            echo "-> Jika --apply digunakan: $updatedCount data AKAN diupdate, $skippedCount dilewati.\n";
         } else {
             $pdo->commit();
-            echo "-> Proses Eksekusi Selesai. Total $totalBaris baris diproses.\n";
-            echo "   - $updatedCount pelanggan BERHASIL diperbarui.\n";
-            echo "   - $skippedCount pelanggan DILEWATI karena duplikat.\n";
+            echo "-> Proses Eksekusi Selesai. Total $totalBaris diproses.\n";
+            echo "-> TOTAL $updatedCount pelanggan BERHASIL diperbarui (Name, Username, Address).\n";
         }
         echo "----------------------------------------------------\n";
 
