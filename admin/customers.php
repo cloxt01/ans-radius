@@ -1569,8 +1569,6 @@ function renderFetchedCustomers(customers) {
                 </td>
                 <td data-label="Tgl Isolir">${renderIsolationBadge(customer.isolation_date)}</td>
                 <td data-label="Register Date">${formatDateLabel(customer.created_at)}</td>
-                <td data-label="IP Address">${escapeHtml(customer.ip_address || 'N/A')}</td>
-                <td data-label="MAC Address">${escapeHtml(customer.mac_address || 'N/A')}</td>
                 <td data-label="Aksi">
                     <div class="customer-action-group">
                     <a href="pay_process.php?id=${encodeURIComponent(customer.id)}" class="btn btn-success btn-sm" title="Bayar Tagihan">
