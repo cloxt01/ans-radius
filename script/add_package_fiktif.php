@@ -41,10 +41,10 @@ echo $apply
 // =====================
 // ID Paket => Persentase Probabilitas (Total HARUS 100)
 $packageDistribution = [
-    1 => 910, // Request lu 80%, gua tambahin sisa 5% ke sini biar totalnya pas 100%
+    1 => 918, // Request lu 80%, gua tambahin sisa 5% ke sini biar totalnya pas 100%
     3 => 50,
     4 => 16,
-    5 => 20,
+    5 => 12,
     6 => 4
 ];
 
@@ -89,7 +89,7 @@ try {
         $cid = $target['id'];
 
         // LOGIKA PENENTUAN PAKET BERDASARKAN PERSENTASE (CUMULATIVE PROBABILITY)
-        $roll = mt_rand(1, 100);
+        $roll = mt_rand(1, 1000);
         $cumulative = 0;
         $selectedPackageId = 1; // Default fallback
 
