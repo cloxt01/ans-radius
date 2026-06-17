@@ -817,7 +817,7 @@ ob_start();
 
 <div class="alert alert-warning">
     <i class="fas fa-warning"></i>
-    <strong style="font-size: 45px;">PENTING !!!</strong> Pastikan untuk membuat invoice & perpanjang setelah menambahkan pelanggan agar tagihan muncul di portal pelanggan dan pelanggan tidak langsung terisolir di hari berikutnya.
+    <strong style="font-size: 45px;">PENTING !!!</strong><br> Pastikan untuk membuat invoice & perpanjang setelah menambahkan pelanggan agar tagihan muncul di portal pelanggan dan pelanggan tidak langsung terisolir di hari berikutnya.
 </div>
 <!-- //if (empty($randomCustomer)): ?> -->
 <!--    <div class="alert alert-warning" style="margin-top:8px;">-->
@@ -1089,9 +1089,9 @@ ob_start();
                 <th>ID</th>
                 <th>Nama & Kontak</th>
                 <th>Paket & Router</th>
-                <th>Last Paid</th>
                 <th>Status</th>
                 <th>PPPoE</th>
+                <th>Last Paid</th>
                 <th>Tgl Isolir</th>
                 <th>Register Date</th>
 <!--                <th>IP Address</th>-->
@@ -1120,16 +1120,6 @@ ob_start();
                             <i class="fas fa-server"></i> <?php echo htmlspecialchars($c['router_name'] ?? 'Default Router'); ?>
                         </small>
                     </td>
-                    <td>
-                        <?php
-                        $lastInvoice = fetchOne("SELECT paid_at FROM invoices WHERE customer_id = ? AND status = 'paid' ORDER BY due_date DESC LIMIT 1", [$c['id']]);
-                        if ($lastInvoice && isset($lastInvoice['paid_at'])) {
-                            echo date('d M Y H:i:s', strtotime($lastInvoice['paid_at']));
-                        } else {
-                            echo '<span style="color: var(--text-muted);">Belum ada pembayaran</span>';
-                        }
-                        ?>
-                    </td>
                     <td data-label="Status">
                         <?php if ($c['status'] === 'active'): ?>
                             <span class="badge badge-success">Aktif</span>
@@ -1157,6 +1147,16 @@ ob_start();
                                 </span>
                             <?php endif; ?>
                         <?php endif; ?>
+                    </td>
+                    <td>
+                        <?php
+                        $lastInvoice = fetchOne("SELECT paid_at FROM invoices WHERE customer_id = ? AND status = 'paid' ORDER BY due_date DESC LIMIT 1", [$c['id']]);
+                        if ($lastInvoice && isset($lastInvoice['paid_at'])) {
+                            echo date('d M Y H:i:s', strtotime($lastInvoice['paid_at']));
+                        } else {
+                            echo '<span style="color: var(--text-muted);">Belum ada pembayaran</span>';
+                        }
+                        ?>
                     </td>
                     <td data-label="Tgl Isolir">
                         <?php 
@@ -1554,9 +1554,6 @@ function renderFetchedCustomers(customers) {
                         <i class="fas fa-server"></i> ${escapeHtml(customer.router_name || 'Default Router')}
                     </small>
                 </td>
-                <td>
-                    ${customer.last_paid ? formatDateLabel(customer.last_paid) : '<span style="color: var(--text-muted);">Belum ada pembayaran</span>'}
-                </td>
                 <td data-label="Status">${statusBadge}</td>
                 <td data-label="PPPoE">
                     <div style="display: flex; align-items: center; gap: 6px;">
@@ -1566,6 +1563,9 @@ function renderFetchedCustomers(customers) {
                         </button>
                     </div>
                     ${radiusBadge}
+                </td>
+                <td>
+                    ${customer.last_paid ? formatDateLabel(customer.last_paid) : '<span style="color: var(--text-muted);">Belum ada pembayaran</span>'}
                 </td>
                 <td data-label="Tgl Isolir">${renderIsolationBadge(customer.isolation_date)}</td>
                 <td data-label="Register Date">${formatDateLabel(customer.created_at)}</td>

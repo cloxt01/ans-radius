@@ -72,30 +72,30 @@ try {
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // Download backup
-    if (isset($_GET['download_backup'])) {
-        // Validasi CSRF untuk GET request
-        if (!isset($_GET['csrf_token']) || !verifyCsrfToken($_GET['csrf_token'])) {
-            setFlash('error', 'Invalid CSRF token');
-            redirect('settings.php');
-        }
-        
-        $backupFile = sanitizeBackupFilename($_GET['download_backup'] ?? '');
-        if ($backupFile === '') {
-            setFlash('error', 'Nama file backup tidak valid');
-            redirect('settings.php');
-        }
-        $fullPath = getBackupDirectory() . $backupFile;
-        if (!is_file($fullPath)) {
-            setFlash('error', 'File backup tidak ditemukan');
-            redirect('settings.php');
-        }
-        header('Content-Type: application/sql');
-        header('Content-Disposition: attachment; filename="' . $backupFile . '"');
-        header('Content-Length: ' . filesize($fullPath));
-        header('Cache-Control: private, max-age=0, must-revalidate');
-        readfile($fullPath);
-        exit;
-    }
+//    if (isset($_GET['download_backup'])) {
+//        // Validasi CSRF untuk GET request
+//        if (!isset($_GET['csrf_token']) || !verifyCsrfToken($_GET['csrf_token'])) {
+//            setFlash('error', 'Invalid CSRF token');
+//            redirect('settings.php');
+//        }
+//
+//        $backupFile = sanitizeBackupFilename($_GET['download_backup'] ?? '');
+//        if ($backupFile === '') {
+//            setFlash('error', 'Nama file backup tidak valid');
+//            redirect('settings.php');
+//        }
+//        $fullPath = getBackupDirectory() . $backupFile;
+//        if (!is_file($fullPath)) {
+//            setFlash('error', 'File backup tidak ditemukan');
+//            redirect('settings.php');
+//        }
+//        header('Content-Type: application/sql');
+//        header('Content-Disposition: attachment; filename="' . $backupFile . '"');
+//        header('Content-Length: ' . filesize($fullPath));
+//        header('Cache-Control: private, max-age=0, must-revalidate');
+//        readfile($fullPath);
+//        exit;
+//    }
     
     // Get NAS data untuk edit (AJAX)
     if (isset($_GET['get_nas']) && isset($_GET['id'])) {
@@ -1851,118 +1851,118 @@ ob_start();
     </div>
 </div>
 
- Backup & Restore
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title">
-            <i class="fas fa-database"></i> Backup & Restore
-        </h3>
-    </div>
-    <div class="card-body">
-        <form method="POST">
-            <input type="hidden" name="action" value="save_backup_settings">
-            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Retensi Backup (hari)</label>
-                    <input type="number" name="backup_retention_days" class="form-control"
-                           min="1" max="365" value="<?php echo $backupRetentionDays; ?>">
-                    <small class="form-hint">Backup lebih lama dari ini akan dihapus otomatis saat backup berikutnya</small>
-                </div>
-                <div class="form-group" style="display: flex; align-items: flex-end;">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Simpan Retensi
-                    </button>
-                </div>
-            </div>
-        </form>
-
-        <div class="form-actions" style="justify-content: flex-start;">
-            <form method="POST" onsubmit="return confirm('Buat backup database sekarang?');">
-                <input type="hidden" name="action" value="backup_now">
-                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                <button type="submit" class="btn btn-success">
-                    <i class="fas fa-download"></i> Backup Sekarang
-                </button>
-            </form>
-        </div>
-
-        <h4 class="section-subtitle">Daftar Backup</h4>
-        <?php if (empty($backupFiles)): ?>
-            <div class="empty-state">
-                <i class="fas fa-inbox"></i>
-                <p>Belum ada file backup</p>
-            </div>
-        <?php else: ?>
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Nama File</th>
-                            <th>Ukuran</th>
-                            <th>Tanggal</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($backupFiles as $file): ?>
-                        <tr>
-                            <td data-label="Nama File"><?php echo htmlspecialchars($file['name'], ENT_QUOTES, 'UTF-8'); ?></td>
-                            <td data-label="Ukuran"><?php echo htmlspecialchars(formatBytes($file['size'] ?? 0), ENT_QUOTES, 'UTF-8'); ?></td>
-                            <td data-label="Tanggal"><?php echo htmlspecialchars($file['modified_at'] ?? '-', ENT_QUOTES, 'UTF-8'); ?></td>
-                            <td data-label="Aksi">
-                                <a class="btn-icon" href="settings.php?download_backup=<?php echo urlencode($file['name']); ?>&csrf_token=<?php echo urlencode(generateCsrfToken()); ?>" title="Download">
-                                    <i class="fas fa-download"></i>
-                                </a>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-
-        <!-- Restore Form -->
-        <div class="restore-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-light);">
-            <h4 class="section-subtitle">Restore Database</h4>
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle"></i>
-                <div><strong>Peringatan!</strong> Restore akan menimpa data database saat ini. Pastikan Anda telah melakukan backup terlebih dahulu.</div>
-            </div>
-
-            <form method="POST" onsubmit="return confirmRestore();">
-                <input type="hidden" name="action" value="restore_backup">
-                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-
-                <div class="form-row">
-                    <div class="form-group" style="flex: 2;">
-                        <label class="form-label">Pilih File Backup</label>
-                        <select name="backup_file" class="form-control" required>
-                            <option value="">-- Pilih file backup --</option>
-                            <?php foreach ($backupFiles as $file): ?>
-                                <option value="<?php echo htmlspecialchars($file['name'], ENT_QUOTES, 'UTF-8'); ?>">
-                                    <?php echo htmlspecialchars($file['name'], ENT_QUOTES, 'UTF-8'); ?>
-                                    (<?php echo formatBytes($file['size'] ?? 0); ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex: 1;">
-                        <label class="form-label">Ketik <strong class="text-danger">RESTORE</strong> untuk konfirmasi</label>
-                        <input type="text" name="confirm_restore" class="form-control" placeholder="RESTORE" required>
-                    </div>
-                </div>
-
-                <div class="form-actions" style="justify-content: flex-start;">
-                    <button type="submit" class="btn btn-danger">
-                        <i class="fas fa-upload"></i> Restore Backup
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<!-- Backup & Restore-->
+<!--<div class="card">-->
+<!--    <div class="card-header">-->
+<!--        <h3 class="card-title">-->
+<!--            <i class="fas fa-database"></i> Backup & Restore-->
+<!--        </h3>-->
+<!--    </div>-->
+<!--    <div class="card-body">-->
+<!--        <form method="POST">-->
+<!--            <input type="hidden" name="action" value="save_backup_settings">-->
+<!--            <input type="hidden" name="csrf_token" value="--><?php //echo generateCsrfToken(); ?><!--">-->
+<!---->
+<!--            <div class="form-row">-->
+<!--                <div class="form-group">-->
+<!--                    <label class="form-label">Retensi Backup (hari)</label>-->
+<!--                    <input type="number" name="backup_retention_days" class="form-control"-->
+<!--                           min="1" max="365" value="--><?php //echo $backupRetentionDays; ?><!--">-->
+<!--                    <small class="form-hint">Backup lebih lama dari ini akan dihapus otomatis saat backup berikutnya</small>-->
+<!--                </div>-->
+<!--                <div class="form-group" style="display: flex; align-items: flex-end;">-->
+<!--                    <button type="submit" class="btn btn-primary">-->
+<!--                        <i class="fas fa-save"></i> Simpan Retensi-->
+<!--                    </button>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </form>-->
+<!---->
+<!--        <div class="form-actions" style="justify-content: flex-start;">-->
+<!--            <form method="POST" onsubmit="return confirm('Buat backup database sekarang?');">-->
+<!--                <input type="hidden" name="action" value="backup_now">-->
+<!--                <input type="hidden" name="csrf_token" value="--><?php //echo generateCsrfToken(); ?><!--">-->
+<!--                <button type="submit" class="btn btn-success">-->
+<!--                    <i class="fas fa-download"></i> Backup Sekarang-->
+<!--                </button>-->
+<!--            </form>-->
+<!--        </div>-->
+<!---->
+<!--        <h4 class="section-subtitle">Daftar Backup</h4>-->
+<!--        --><?php //if (empty($backupFiles)): ?>
+<!--            <div class="empty-state">-->
+<!--                <i class="fas fa-inbox"></i>-->
+<!--                <p>Belum ada file backup</p>-->
+<!--            </div>-->
+<!--        --><?php //else: ?>
+<!--            <div class="table-responsive">-->
+<!--                <table class="data-table">-->
+<!--                    <thead>-->
+<!--                        <tr>-->
+<!--                            <th>Nama File</th>-->
+<!--                            <th>Ukuran</th>-->
+<!--                            <th>Tanggal</th>-->
+<!--                            <th>Aksi</th>-->
+<!--                        </tr>-->
+<!--                    </thead>-->
+<!--                    <tbody>-->
+<!--                        --><?php //foreach ($backupFiles as $file): ?>
+<!--                        <tr>-->
+<!--                            <td data-label="Nama File">--><?php //echo htmlspecialchars($file['name'], ENT_QUOTES, 'UTF-8'); ?><!--</td>-->
+<!--                            <td data-label="Ukuran">--><?php //echo htmlspecialchars(formatBytes($file['size'] ?? 0), ENT_QUOTES, 'UTF-8'); ?><!--</td>-->
+<!--                            <td data-label="Tanggal">--><?php //echo htmlspecialchars($file['modified_at'] ?? '-', ENT_QUOTES, 'UTF-8'); ?><!--</td>-->
+<!--                            <td data-label="Aksi">-->
+<!--                                <a class="btn-icon" href="settings.php?download_backup=--><?php //echo urlencode($file['name']); ?><!--&csrf_token=--><?php //echo urlencode(generateCsrfToken()); ?><!--" title="Download">-->
+<!--                                    <i class="fas fa-download"></i>-->
+<!--                                </a>-->
+<!--                            </td>-->
+<!--                        </tr>-->
+<!--                        --><?php //endforeach; ?>
+<!--                    </tbody>-->
+<!--                </table>-->
+<!--            </div>-->
+<!--        --><?php //endif; ?>
+<!---->
+<!--        <!-- Restore Form -->-->
+<!--        <div class="restore-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-light);">-->
+<!--            <h4 class="section-subtitle">Restore Database</h4>-->
+<!--            <div class="alert alert-danger">-->
+<!--                <i class="fas fa-exclamation-triangle"></i>-->
+<!--                <div><strong>Peringatan!</strong> Restore akan menimpa data database saat ini. Pastikan Anda telah melakukan backup terlebih dahulu.</div>-->
+<!--            </div>-->
+<!---->
+<!--            <form method="POST" onsubmit="return confirmRestore();">-->
+<!--                <input type="hidden" name="action" value="restore_backup">-->
+<!--                <input type="hidden" name="csrf_token" value="--><?php //echo generateCsrfToken(); ?><!--">-->
+<!---->
+<!--                <div class="form-row">-->
+<!--                    <div class="form-group" style="flex: 2;">-->
+<!--                        <label class="form-label">Pilih File Backup</label>-->
+<!--                        <select name="backup_file" class="form-control" required>-->
+<!--                            <option value="">-- Pilih file backup --</option>-->
+<!--                            --><?php //foreach ($backupFiles as $file): ?>
+<!--                                <option value="--><?php //echo htmlspecialchars($file['name'], ENT_QUOTES, 'UTF-8'); ?><!--">-->
+<!--                                    --><?php //echo htmlspecialchars($file['name'], ENT_QUOTES, 'UTF-8'); ?>
+<!--                                    (--><?php //echo formatBytes($file['size'] ?? 0); ?><!--)-->
+<!--                                </option>-->
+<!--                            --><?php //endforeach; ?>
+<!--                        </select>-->
+<!--                    </div>-->
+<!--                    <div class="form-group" style="flex: 1;">-->
+<!--                        <label class="form-label">Ketik <strong class="text-danger">RESTORE</strong> untuk konfirmasi</label>-->
+<!--                        <input type="text" name="confirm_restore" class="form-control" placeholder="RESTORE" required>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!---->
+<!--                <div class="form-actions" style="justify-content: flex-start;">-->
+<!--                    <button type="submit" class="btn btn-danger">-->
+<!--                        <i class="fas fa-upload"></i> Restore Backup-->
+<!--                    </button>-->
+<!--                </div>-->
+<!--            </form>-->
+<!--        </div>-->
+<!--    </div>-->
+<!--</div>-->
 
 <!-- Change Password -->
 <div class="card">
