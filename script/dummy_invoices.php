@@ -2,13 +2,13 @@
 
 include '../includes/config.php';
 $host = DB_HOST;
-$db   = DB_NAME; 
+$db   = DB_NAME;
 $user = DB_USER;
-$pass = DB_PASS;     
+$pass = DB_PASS;
 $charset = 'utf8mb4';
 
-define('INVOICE_PREFIX', 'INV'); 
-set_time_limit(0); 
+define('INVOICE_PREFIX', 'INV');
+set_time_limit(0);
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
 $options = [
@@ -74,7 +74,7 @@ function updateIsolationDate($pdo, $customerId) {
     ");
     $stmt->execute([$customerId]);
     $lastInvoice = $stmt->fetch();
-    
+
     if ($lastInvoice) {
         if ($lastInvoice['status'] === 'paid' && !empty($lastInvoice['paid_at'])) {
             $paidDate = new DateTime($lastInvoice['paid_at']);
@@ -83,7 +83,7 @@ function updateIsolationDate($pdo, $customerId) {
         } else {
             $newIsolationDate = $lastInvoice['due_date'];
         }
-        
+
         $stmtUpdate = $pdo->prepare("UPDATE customers SET status = 'active', isolation_date = ? WHERE id = ?");
         $stmtUpdate->execute([$newIsolationDate, $customerId]);
         return $newIsolationDate;
@@ -194,24 +194,24 @@ function generateDynamicRadiusInvoices($pdo) {
             $juneDueDate = new DateTime($juneInvoice['due_date']);
             $paidMeiObj = clone $juneDueDate;
             $paidMeiObj->modify('-30 days');
-            
+
             $statusInfo = getInvoiceStatus(5);
             $status = $statusInfo['status'];
             $lateDays = $statusInfo['late_days'];
-            
+
             $dueMeiObj = clone $paidMeiObj;
             if ($lateDays !== null) $dueMeiObj->modify("-{$lateDays} days");
-            
+
             if ((int)$dueMeiObj->format('m') != 5) {
                 $dueMeiObj->setDate(2026, 5, rand(10, 25));
             }
-            
+
             $paidMeiFinal = null;
             if ($status === 'paid') {
                 $paidMeiFinal = clone $paidMeiObj;
                 $paidMeiFinal->setTime(rand(8,20), rand(0,59), rand(0,59));
             }
-            
+
             $stmtInsert->execute([
                 ':invoice_number' => generateInvoiceNumberCustom($dueMeiObj->format('Y-m-d'), $customerId),
                 ':customer_id'    => $customerId,
@@ -242,24 +242,24 @@ function generateDynamicRadiusInvoices($pdo) {
             $meiDueDate = new DateTime($meiInvoice['due_date']);
             $paidAprilObj = clone $meiDueDate;
             $paidAprilObj->modify('-30 days');
-            
+
             $statusInfo = getInvoiceStatus(4);
             $status = $statusInfo['status'];
             $lateDays = $statusInfo['late_days'];
-            
+
             $dueAprilObj = clone $paidAprilObj;
             if ($lateDays !== null) $dueAprilObj->modify("-{$lateDays} days");
-            
+
             if ((int)$dueAprilObj->format('m') != 4) {
                 $dueAprilObj->setDate(2026, 4, rand(10, 25));
             }
-            
+
             $paidAprilFinal = null;
             if ($status === 'paid') {
                 $paidAprilFinal = clone $paidAprilObj;
                 $paidAprilFinal->setTime(rand(8,20), rand(0,59), rand(0,59));
             }
-            
+
             $stmtInsert->execute([
                 ':invoice_number' => generateInvoiceNumberCustom($dueAprilObj->format('Y-m-d'), $customerId),
                 ':customer_id'    => $customerId,
@@ -296,7 +296,7 @@ function generateDynamicRadiusInvoices($pdo) {
             GROUP BY bulan_invoice
             ORDER BY bulan_invoice ASC
         ");
-        
+
         echo "\n=== HASIL INVOICE ===\n";
         while ($row = $stmtVerifikasi->fetch()) {
             $persenPaid = $row['total_invoice'] > 0 ? round(($row['paid'] / $row['total_invoice']) * 100, 2) : 0;
@@ -334,4 +334,3 @@ echo "Data lama telah dihapus.\n\n";
 
 generateDynamicRadiusInvoices($pdo);
 ?>
-
