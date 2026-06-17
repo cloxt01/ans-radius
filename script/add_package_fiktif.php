@@ -41,16 +41,16 @@ echo $apply
 // =====================
 // ID Paket => Persentase Probabilitas (Total HARUS 100)
 $packageDistribution = [
-    1 => 85, // Request lu 80%, gua tambahin sisa 5% ke sini biar totalnya pas 100%
-    3 => 10, // 10%
-    4 => 2,  // 2%
-    5 => 2,  // 2%
-    6 => 1   // 1%
+    1 => 910, // Request lu 80%, gua tambahin sisa 5% ke sini biar totalnya pas 100%
+    3 => 50,
+    4 => 16,
+    5 => 20,
+    6 => 4
 ];
 
 // Validasi total persentase
 $totalPercent = array_sum($packageDistribution);
-if ($totalPercent !== 100) {
+if ($totalPercent !== 1000) {
     die("❌ ERROR: Total persentase config lu saat ini {$totalPercent}%. Total harus pas 100%.\n");
 }
 
