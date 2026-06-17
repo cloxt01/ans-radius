@@ -1,9 +1,10 @@
 <?php
 
-$host = 'localhost';
-$db   = 'ans_radius';
-$user = 'root';
-$pass = '';
+include '../include/config.php';
+$host = DB_HOST;
+$db   = DB_NAME;
+$user = DB_USER;
+$pass = DB_PASS;
 $charset = 'utf8mb4';
 
 date_default_timezone_set('Asia/Jakarta');
@@ -17,6 +18,9 @@ $options = [
 
 $pdo = new PDO($dsn, $user, $pass, $options);
 
+if($pdo === false){
+    die("DB connection failed\n");
+}
 /**
  * =========================
  * CONFIG DISTRIBUSI LATE DAYS
@@ -45,18 +49,28 @@ function generateLateDays(): int
     return mt_rand(11, 20);
 }
 
-// =========================
-// HAPUS TEMP DATA LAMA
-// =========================
-$pdo->exec("DELETE FROM fiktif_invoices");
+// Tambahan: Fungsi untuk waktu acak
+function getRandomTime(): string {
+    return sprintf("%02d:%02d:%02d", mt_rand(8, 19), mt_rand(0, 59), mt_rand(0, 59));
+}
 
 // =========================
-// AMBIL DATA INVOICE FIKTIF
+// HAPUS TEMP DATA LAMA (KHUSUS JUNI)
+// =========================
+$pdo->exec("
+    DELETE fi FROM fiktif_invoices fi
+    INNER JOIN invoices i ON fi.invoice_id = i.id
+    WHERE DATE_FORMAT(i.due_date, '%Y-%m') = '2026-06'
+");
+
+// =========================
+// AMBIL DATA INVOICE FIKTIF (KHUSUS JUNI)
 // =========================
 $sql = "
     SELECT i.id AS invoice_id, i.due_date, i.paid_at, i.status
     FROM invoices i
     INNER JOIN fiktif_customers fc ON fc.customer_id = i.customer_id
+    WHERE DATE_FORMAT(i.due_date, '%Y-%m') = '2026-06'
 ";
 
 $invoices = $pdo->query($sql)->fetchAll();
@@ -76,10 +90,12 @@ foreach ($invoices as $inv) {
             0,
             (strtotime($inv['paid_at']) - strtotime($inv['due_date'])) / 86400
         );
-        $scheduled = date('Y-m-d', strtotime($inv['paid_at']));
+        // Menggunakan format Y-m-d H:i:s
+        $scheduled = date('Y-m-d H:i:s', strtotime($inv['paid_at']));
     } else {
         $lateDays = generateLateDays();
-        $scheduled = date('Y-m-d', strtotime($inv['due_date'] . " +$lateDays days"));
+        // Menggunakan format Y-m-d + jam acak
+        $scheduled = date('Y-m-d', strtotime($inv['due_date'] . " +$lateDays days")) . ' ' . getRandomTime();
     }
 
     $insert->execute([
@@ -92,4 +108,5 @@ foreach ($invoices as $inv) {
 
 $pdo->commit();
 
-echo "Selesai generate fiktif invoices.\n";
+echo "Selesai generate fiktif invoices untuk bulan Juni.\n";
+?>

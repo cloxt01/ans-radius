@@ -1,10 +1,10 @@
 <?php
-include '../includes/config.php';
-$host     = DB_HOST;
-$db  = DB_NAME;    // Sesuaikan nama database
-$user = DB_USER;    // Sesuaikan username
-$pass = DB_PASS;
 
+include '../include/config.php';
+$host = DB_HOST;
+$db   = DB_NAME; 
+$user = DB_USER;
+$pass = DB_PASS;     
 $charset = 'utf8mb4';
 
 define('INVOICE_PREFIX', 'INV'); 
@@ -62,19 +62,25 @@ function updateIsolationDate($pdo, $customerId) {
             $newIsolationDate = $lastInvoice['due_date'];
         }
         
-        $stmtUpdate = $pdo->prepare("UPDATE customers SET isolation_date = ? WHERE id = ?");
+        $stmtUpdate = $pdo->prepare("UPDATE customers SET status = 'active', isolation_date = ? WHERE id = ?");
         $stmtUpdate->execute([$newIsolationDate, $customerId]);
         return $newIsolationDate;
     }
     return null;
+}
+function updateStatus($pdo, $customerId): bool{
+    $stmt = $pdo->prepare("
+    UPDATE customers SET status = 'active' WHERE id = ?");
+    $success = $stmt->execute([$customerId]);
+    return $success ? true : false;
 }
 
 function getInvoiceStatus($month = null) {
     $chance = rand(1, 100);
     
     $config = [
-        4 => ['on_time' => 85, 'late' => 97],   // April: 85% on time, 14% late, 1% unpaid
-        5 => ['on_time' => 88, 'late' => 99],   // Mei: 88% on time, 10% late, 2% unpaid
+        4 => ['on_time' => 80, 'late' => 44.6],
+        5 => ['on_time' => 84, 'late' => 46.2],   // Mei: 88% on time, 10% late, 2% unpaid
     ];
     
     $default = ['on_time' => 88, 'late' => 95];
@@ -92,9 +98,6 @@ function getInvoiceStatus($month = null) {
 function generateDynamicRadiusInvoices($pdo) {
     try {
         $pdo->beginTransaction();
-        $meiPercentage = rand(990, 995) / 10;
-        $aprilPercentage = rand(990, 995) / 10;
-
         echo "Tahap 1: Mengambil customer dengan invoice Juni...\n";
         $stmtJuniCustomers = $pdo->query(
             "SELECT DISTINCT customer_id 
@@ -104,6 +107,17 @@ function generateDynamicRadiusInvoices($pdo) {
         );
         $juniCustomers = $stmtJuniCustomers->fetchAll(PDO::FETCH_COLUMN);
         $totalJuniCustomers = count($juniCustomers);
+        echo "✓ Ditemukan {$totalJuniCustomers} customer dengan invoice Juni (100%)\n\n";
+
+        // =========================================================================
+        // SETTING TARGET PELANGGAN BARU OTOMATIS (50 sampai 80 pelanggan)
+        // =========================================================================
+        $targetBaruMei = rand(50, 80);
+        $targetBaruApril = rand(50, 80);
+
+        // Rumus mengubah target jumlah orang menjadi persentase probabilitas
+        $meiPercentage = (($totalJuniCustomers - $targetBaruMei) / $totalJuniCustomers) * 100;
+        $aprilPercentage = (($totalJuniCustomers - $targetBaruApril) / $totalJuniCustomers) * 100;
         echo "✓ Ditemukan {$totalJuniCustomers} customer dengan invoice Juni (100%)\n\n";
 
         // ========== Tentukan amount per customer secara acak (konsisten untuk April & Mei) ==========
@@ -220,10 +234,10 @@ function generateDynamicRadiusInvoices($pdo) {
         echo "✓ Selesai generate April: {$aprilGenerated} invoice (customer baru Mei: {$pelangganBaruMei})\n\n";
 
         // ==================== UPDATE ISOLATION DATE FIKTIF ====================
-        echo "Tahap 4: Update isolation_date untuk customer fiktif...\n";
+        echo "Tahap 4: Update status & isolation_date untuk customer fiktif...\n";
         $updatedCount = 0;
         foreach ($fiktifIds as $customerId) {
-            if (updateIsolationDate($pdo, $customerId)) $updatedCount++;
+            if (updateIsolationDate($pdo, $customerId) && updateStatus($pdo, $customerId)) $updatedCount++;
         }
         echo "✓ Selesai update isolation_date untuk {$updatedCount} customer fiktif\n\n";
 
@@ -274,8 +288,10 @@ $line = trim(fgets($handle));
 if ($line !== 'yes') exit("Script dihentikan.\n");
 
 echo "Menghapus invoice April dan Mei yang sudah ada...\n";
-$pdo->exec("DELETE FROM invoices WHERE DATE_FORMAT(due_date, '%Y-%m') IN ('2026-04', '2026-05')");
+
+$pdo->exec("DELETE FROM invoices WHERE DATE_FORMAT(due_date, '%Y-%m') IN ('2026-04', '2026-05') AND customer_id IN (SELECT customer_id FROM fiktif_customers)");
 echo "Data lama telah dihapus.\n\n";
 
 generateDynamicRadiusInvoices($pdo);
 ?>
+

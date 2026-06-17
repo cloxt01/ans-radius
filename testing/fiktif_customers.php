@@ -10,12 +10,12 @@
 // =====================================================
 // KONFIGURASI DATABASE
 // =====================================================
-
 include '../includes/config.php';
-$db_host     = DB_HOST;
-$db_name   = DB_NAME;    // Sesuaikan nama database
-$db_user = DB_USER;    // Sesuaikan username
+
+$db_host = DB_HOST;
+$db_user = DB_USER;
 $db_pass = DB_PASS;
+$db_name = DB_NAME;
 function logMessage($message) {
     echo date('Y-m-d H:i:s') . " - " . $message . PHP_EOL;
 }
