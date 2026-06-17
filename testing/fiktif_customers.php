@@ -10,7 +10,7 @@
 // =====================================================
 // KONFIGURASI DATABASE
 // =====================================================
-$db_host = 'localhost';
+  $db_host = 'localhost';
 $db_name = 'ans_radius';
 $db_user = 'root';
 $db_pass = '';
