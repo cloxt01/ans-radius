@@ -2679,7 +2679,7 @@ function mikrotikRemoveActiveSessionByName($username) {
     
     $allWords = [];
     $done = false;
-    $timeout = time() + 10;
+    $timeout = time() + 3;
     
     while (!$done && time() < $timeout) {
         $words = mikrotikReadSentence($socket);

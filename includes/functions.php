@@ -770,6 +770,55 @@ function unisolateCustomer($customerId, $options = [])
 
     return true;
 }
+function unisolateFiktifCustomer($customerId, $options = [])
+{
+    $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
+    if (!$customer) {
+        return false;
+    }
+
+    if (($customer['status'] ?? '') !== 'isolated') {
+        return true;
+    }
+
+    update('customers', ['status' => 'active'], 'id = ?', [$customerId]);
+
+    $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
+    if ($package && !empty($customer['pppoe_username'])) {
+        mikrotikSetProfile($customer['pppoe_username'], $package['profile_normal'], $customer['router_id']);
+        radiusUpdateUserProfile($customer['pppoe_username'], $package['profile_normal']);
+        if (function_exists('radiusSetSessionTimeoutFromIsolationDate') && radiusUserProvisioningReady()) {
+            radiusSetSessionTimeoutFromIsolationDate($customer['pppoe_username']);
+        }
+    }
+
+    logActivity('UNISOLATE_FIKTIF_CUSTOMER', "Customer ID: {$customerId}");
+
+    return true;
+}
+
+function generateLateDays(): int
+{
+    $roll = mt_rand(1, 100);
+
+    // 60% cepat bayar
+    if ($roll <= 60) {
+        return mt_rand(0, 1);
+    }
+
+    // 25% telat ringan
+    if ($roll <= 85) {
+        return mt_rand(2, 5);
+    }
+
+    // 10% telat sedang
+    if ($roll <= 95) {
+        return mt_rand(6, 10);
+    }
+
+    // 5% telat berat
+    return mt_rand(11, 20);
+}
 
 function updateCustomerWithRadiusSync($customerId, $updateData = [])
 {

@@ -291,7 +291,7 @@ function processFiktifCustomer(int $customerId): string
     }
 
     writeLog("[RENEW][F] - Invoice #{$invoice['id']} — customer #{$customerId}", "PAYMENT");
-    return unisolateCustomer($customerId, ['send_whatsapp' => false]);
+    return unisolateFiktifCustomer($customerId) ? 'activated' : 'failed';
 }
 
 /**
