@@ -21,6 +21,16 @@ $pdo = new PDO($dsn, $user, $pass, $options);
 if($pdo === false){
     die("DB connection failed\n");
 }
+echo "⚠️  Peringatan: Script akan menghapus seluruh data fiktif_invoces yang sudah ada?\n";
+echo "Ketik 'yes' untuk lanjut: ";
+$handle = fopen("php://stdin", "r");
+$line = trim(fgets($handle));
+if ($line !== 'yes') exit("Script dihentikan.\n");
+
+echo "Menghapus invoice April dan Mei yang sudah ada...\n";
+
+$pdo->exec("DELETE FROM fiktif_invoices");
+echo "Data lama telah dihapus.\n\n";
 /**
  * =========================
  * CONFIG DISTRIBUSI LATE DAYS

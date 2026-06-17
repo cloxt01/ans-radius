@@ -41,6 +41,28 @@ function checkInvoiceExists($pdo, $customerId, $yearMonth) {
     $stmt->execute([$customerId, $yearMonth]);
     return $stmt->fetch() !== false;
 }
+function generateLateDays(): int
+{
+    $roll = mt_rand(1, 100);
+
+    // 60% cepat bayar
+    if ($roll <= 60) {
+        return mt_rand(0, 1);
+    }
+
+    // 25% telat ringan
+    if ($roll <= 85) {
+        return mt_rand(2, 5);
+    }
+
+    // 10% telat sedang
+    if ($roll <= 95) {
+        return mt_rand(6, 10);
+    }
+
+    // 5% telat berat
+    return mt_rand(11, 20);
+}
 
 function updateIsolationDate($pdo, $customerId) {
     $stmt = $pdo->prepare("
@@ -76,20 +98,31 @@ function updateStatus($pdo, $customerId): bool{
 }
 
 function getInvoiceStatus($month = null) {
-    $chance = rand(1, 100);
-    
+    $chance = mt_rand(1, 100);
+
+    // Perbaikan array config menggunakan logika batas atas (kumulatif)
     $config = [
-        4 => ['on_time' => 80, 'late' => 44.6],
-        5 => ['on_time' => 84, 'late' => 46.2],   // Mei: 88% on time, 10% late, 2% unpaid
+        // Bulan 4: 80% on time, 15% late (batas 95), 5% unpaid (sisa 100)
+        4 => ['on_time' => 80, 'late' => 95],
+
+        // Bulan 5 (Sesuai komentar lu): 88% on time, 10% late (batas 98), 2% unpaid (sisa 100)
+        5 => ['on_time' => 85, 'late' => 98],
     ];
-    
+
     $default = ['on_time' => 88, 'late' => 95];
     $cfg = $config[$month] ?? $default;
-    
+
+    // SKENARIO 1: Tepat Waktu (0 hari telat)
     if ($chance <= $cfg['on_time']) {
         return ['status' => 'paid', 'late_days' => 0];
+
+        // SKENARIO 2: Telat (Hari bervariasi)
     } elseif ($chance <= $cfg['late']) {
-        return ['status' => 'paid', 'late_days' => rand(1, 7)];
+
+        $late_days = generateLateDays();
+        return ['status' => 'paid', 'late_days' => $late_days];
+
+        // SKENARIO 3: Gagal Bayar
     } else {
         return ['status' => 'unpaid', 'late_days' => null];
     }
@@ -98,12 +131,20 @@ function getInvoiceStatus($month = null) {
 function generateDynamicRadiusInvoices($pdo) {
     try {
         $pdo->beginTransaction();
-        echo "Tahap 1: Mengambil customer dengan invoice Juni...\n";
+        echo "Tahap 1: Mengambil customer fiktif dengan invoice Juni...\n";
+
+        // ==========================================
+        // DI SINI TEMPAT LU NGATUR JUMLAHNYA!
+        // ==========================================
+        $targetAktif = 1800; // <--- Ganti angka ini untuk menentukan jumlah pelanggan fiktif aktif
+
         $stmtJuniCustomers = $pdo->query(
-            "SELECT DISTINCT customer_id 
-            FROM invoices 
-            WHERE DATE_FORMAT(due_date, '%Y-%m') = '2026-06'
-            ORDER BY customer_id"
+            "SELECT DISTINCT i.customer_id 
+            FROM invoices i
+            INNER JOIN fiktif_customers fc ON i.customer_id = fc.customer_id
+            WHERE DATE_FORMAT(i.due_date, '%Y-%m') = '2026-06'
+            ORDER BY i.customer_id ASC
+            LIMIT $targetAktif"
         );
         $juniCustomers = $stmtJuniCustomers->fetchAll(PDO::FETCH_COLUMN);
         $totalJuniCustomers = count($juniCustomers);
@@ -128,9 +169,8 @@ function generateDynamicRadiusInvoices($pdo) {
         }
         echo "✓ Amount per customer telah ditentukan (100k,125k,150k) secara acak.\n\n";
 
-        $stmtFiktif = $pdo->query("SELECT customer_id FROM fiktif_customers");
-        $fiktifIds = $stmtFiktif->fetchAll(PDO::FETCH_COLUMN);
-        echo "✓ Ditemukan " . count($fiktifIds) . " customer fiktif\n\n";
+        $fiktifIds = $juniCustomers;
+        echo "✓ Ditemukan " . count($fiktifIds) . " customer fiktif yang akan diaktifkan\n\n";
 
         // Query INSERT tanpa created_at dan updated_at (biarkan default database)
         $sqlInsert = "INSERT INTO invoices (invoice_number, customer_id, amount, status, due_date, paid_at, payment_method) 
