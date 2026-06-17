@@ -227,30 +227,6 @@ function applySchedulerDatabaseTimezone($pdo, $timezoneName)
 }
 
 /**
- * Coba aktifkan fiktif customer jika statusnya isolated.
- * Returns: activated | failed | processed
- */
-function tryActivateFiktifCustomer(int $customerId): string
-{
-    $customer = fetchOne(
-            "SELECT id, name, status FROM customers WHERE id = ?",
-            [$customerId]
-    );
-
-    if ($customer && $customer['status'] === 'isolated') {
-        if (activateCustomer($customerId)) {
-            writeLog("✓ Activated: {$customer['name']} (ID: {$customerId})", "ACTIVATE");
-            return 'activated';
-        }
-
-        writeLog("✗ Failed to activate: {$customer['name']} (ID: {$customerId})", "ERROR");
-        return 'failed';
-    }
-
-    return 'processed';
-}
-
-/**
  * Process a single fiktif customer's overdue invoice.
  * paid_at diambil langsung dari fiktif_invoices.scheduled_paid_date (DATETIME).
  * Returns: processed | activated | skipped | failed
@@ -292,33 +268,30 @@ function processFiktifCustomer(int $customerId): string
                 'updated_at' => date('Y-m-d H:i:s')
         ], 'id = ?', [$invoice['id']]);
 
-        if (!$ok) throw new Exception('Failed updating invoice');
+        if (!$ok) throw new Exception('Gagal memperbarui `invoices` -> '.$invoice['id']);
 
         $ok = update('fiktif_invoices', [
                 'status' => 'paid'
         ], 'invoice_id = ?', [$invoice['id']]);
 
-        if (!$ok) throw new Exception('Failed updating fiktif invoice');
+        if (!$ok) throw new Exception('Gagal memperbarui `fiktif_invoice` -> '.$invoice['id']);
 
         $ok = update('customers', [
                 'isolation_date' => $isolationDate
         ], 'id = ?', [$customerId]);
 
-        if (!$ok) throw new Exception('Failed updating customer');
+        if (!$ok) throw new Exception('Gagal memperbarui `customers` -> '.$customerId);
 
         $pdo->commit();
 
     } catch (Exception $e) {
         $pdo->rollBack();
-        writeLog("✗ Failed processing invoice #{$invoice['id']} (customer #{$customerId}) : " . $e->getMessage(), "ERROR");
+        writeLog("✗ Gagal memproses `fiktif_customer` #{$invoice['id']} (customer #{$customerId}) : " . $e->getMessage(), "ERROR");
         return 'failed';
     }
 
-    writeLog("✓ Invoice #{$invoice['id']} — customer #{$customerId} marked paid", "PAYMENT");
-    writeLog("Due: {$invoice['due_date']} → Paid: {$paidAt} (telat {$invoice['late_days']} hari)", "DETAIL");
-    writeLog("New isolation: {$isolationDate}", "DETAIL");
-
-    return tryActivateFiktifCustomer($customerId);
+    writeLog("[RENEW][F] - Invoice #{$invoice['id']} — customer #{$customerId}", "PAYMENT");
+    return unisolateCustomer($customerId, ['send_whatsapp' => false]);
 }
 
 /**

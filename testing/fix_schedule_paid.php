@@ -80,6 +80,7 @@ function getRandomTime(): string {
 
     return sprintf("%02d:%02d:%02d", $hour, $minute, $second);
 }
+
 // =========================
 // HAPUS TEMP DATA LAMA (KHUSUS JUNI)
 // =========================
@@ -90,10 +91,10 @@ $pdo->exec("
 ");
 
 // =========================
-// AMBIL DATA INVOICE FIKTIF (KHUSUS JUNI)
+// AMBIL DATA INVOICE FIKTIF (KHUSUS JUNI) - DITAMBAH DISTINCT
 // =========================
 $sql = "
-    SELECT i.id AS invoice_id, i.due_date, i.paid_at, i.status
+    SELECT DISTINCT i.id AS invoice_id, i.due_date, i.paid_at, i.status
     FROM invoices i
     INNER JOIN fiktif_customers fc ON fc.customer_id = i.customer_id
     WHERE DATE_FORMAT(i.due_date, '%Y-%m') = '2026-06'
@@ -101,10 +102,16 @@ $sql = "
 
 $invoices = $pdo->query($sql)->fetchAll();
 
+// =========================
+// QUERY INSERT ANTI ERROR (ON DUPLICATE KEY UPDATE)
+// =========================
 $insert = $pdo->prepare("
-    INSERT INTO fiktif_invoices
-    (invoice_id, late_days, scheduled_paid_date, status)
+    INSERT INTO fiktif_invoices (invoice_id, late_days, scheduled_paid_date, status)
     VALUES (?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+        late_days = VALUES(late_days),
+        scheduled_paid_date = VALUES(scheduled_paid_date),
+        status = VALUES(status)
 ");
 
 $pdo->beginTransaction();
@@ -116,11 +123,9 @@ foreach ($invoices as $inv) {
             0,
             (strtotime($inv['paid_at']) - strtotime($inv['due_date'])) / 86400
         );
-        // Menggunakan format Y-m-d H:i:s
         $scheduled = date('Y-m-d H:i:s', strtotime($inv['paid_at']));
     } else {
         $lateDays = generateLateDays();
-        // Menggunakan format Y-m-d + jam acak
         $scheduled = date('Y-m-d', strtotime($inv['due_date'] . " +$lateDays days")) . ' ' . getRandomTime();
     }
 
