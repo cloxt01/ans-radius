@@ -70,8 +70,11 @@ try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Prepare statement untuk insert ke fiktif_customers
-    $stmtInsert = $pdo->prepare("INSERT INTO fiktif_customers (customer_id) VALUES (:customer_id)");
+    $stmtInsert = $pdo->prepare("
+        INSERT INTO fiktif_customers (customer_id) 
+        VALUES (:customer_id) 
+        ON DUPLICATE KEY UPDATE customer_id = VALUES(customer_id)
+    ");
 
     $pdo->beginTransaction();
     $insertCount = 0;
