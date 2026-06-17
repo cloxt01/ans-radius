@@ -1,4 +1,3 @@
-#!/usr/bin/php
 <?php
 /**
  * Cron Job Scheduler
@@ -15,7 +14,7 @@ require_once __DIR__ . '/../includes/functions.php';
 // KONFIGURASI LOGGING
 // =====================================================
 define('LOG_FILE', __DIR__ . '/../logs/cron.log');
-define('LOG_MAX_SIZE', 10485760); // 10MB max file size
+define('LOG_MAX_SIZE', 20485760); // 20MB max file size
 
 /**
  * Fungsi untuk menulis log ke file
@@ -26,18 +25,18 @@ function writeLog($message, $type = 'INFO')
     if (!is_dir($logDir)) {
         mkdir($logDir, 0755, true);
     }
-    
+
     // Rotate log jika file terlalu besar
     if (file_exists(LOG_FILE) && filesize(LOG_FILE) > LOG_MAX_SIZE) {
         $backupFile = LOG_FILE . '.' . date('Y-m-d-His') . '.bak';
         rename(LOG_FILE, $backupFile);
     }
-    
+
     $timestamp = date('Y-m-d H:i:s');
     $logMessage = "[{$timestamp}] [{$type}] {$message}" . PHP_EOL;
-    
+
     file_put_contents(LOG_FILE, $logMessage, FILE_APPEND | LOCK_EX);
-    
+
     // Tetap tampilkan di console juga (untuk debugging)
     echo $logMessage;
 }
@@ -61,7 +60,8 @@ if (php_sapi_name() === 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIP
 /**
  * Main function to run the scheduler
  */
-function runScheduler() {
+function runScheduler()
+{
     global $schedulerTimezone;
 
     writeLog("=== CRON SCHEDULER STARTED ===", "START");
@@ -90,8 +90,7 @@ function runScheduler() {
             writeLog("--- Running schedule: {$schedule['name']} ---", "TASK");
 
             $startTime = microtime(true);
-            $status = 'started';
-            $outputMessage = '';
+            $status    = 'started';
 
             // Mulai output buffering untuk menangkap semua output
             ob_start();
@@ -126,11 +125,10 @@ function runScheduler() {
             } catch (Exception $e) {
                 echo "Error: " . $e->getMessage() . "\n";
                 $status = 'failed';
-                $outputMessage = $e->getMessage();
             }
 
             // Tangkap semua output
-            $output = ob_get_clean();
+            $output        = ob_get_clean();
             $executionTime = round(microtime(true) - $startTime, 2);
 
             // Tulis output ke log
@@ -140,14 +138,14 @@ function runScheduler() {
 
             // Update schedule
             update('cron_schedules', [
-                'last_run' => date('Y-m-d H:i:s'),
-                'last_status' => $status,
-                'next_run' => calculateNextRun($schedule)
+                    'last_run'    => date('Y-m-d H:i:s'),
+                    'last_status' => $status,
+                    'next_run'    => calculateNextRun($schedule)
             ], 'id = ?', [$schedule['id']]);
 
             // Log execution ke database
             $pdo->prepare("INSERT INTO cron_logs (schedule_id, status, execution_time, created_at) VALUES (?, ?, ?, NOW())")
-                ->execute([$schedule['id'], $status, $executionTime]);
+                    ->execute([$schedule['id'], $status, $executionTime]);
 
             writeLog("Status: {$status}, Execution time: {$executionTime}s", "RESULT");
         }
@@ -161,13 +159,19 @@ function runScheduler() {
 }
 
 /**
- * Calculate next run time based on schedule
+ * Calculate next run time based on schedule.
+ * fiktif_customers berjalan setiap menit.
  */
 function calculateNextRun($schedule)
 {
+    // Fiktif customers: jalan setiap menit
+    if ($schedule['task_type'] === 'fiktif_customers') {
+        return date('Y-m-d H:i:s', strtotime('+1 minute'));
+    }
+
     $scheduleTime = explode(':', $schedule['schedule_time']);
-    $hour = (int) $scheduleTime[0];
-    $minute = (int) $scheduleTime[1];
+    $hour         = (int) $scheduleTime[0];
+    $minute       = (int) $scheduleTime[1];
 
     $scheduleDays = $schedule['schedule_days'];
 
@@ -178,18 +182,10 @@ function calculateNextRun($schedule)
     if (strtotime($nextRun) < time()) {
         $nextRun = date('Y-m-d', strtotime('+1 day')) . ' ' . sprintf('%02d:%02d:00', $hour, $minute);
 
-        // Find the next valid day
-        $daysMap = [
-            'daily' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
-            'weekly' => [$scheduleDays],
-            'monthly' => null
-        ];
-
         if ($scheduleDays === 'daily') {
             // Already handled above
         } elseif (in_array($scheduleDays, ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])) {
-            // Specific day of week
-            $dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            $dayNames  = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
             $targetDay = array_search($scheduleDays, $dayNames);
 
             while (date('w', strtotime($nextRun)) != $targetDay) {
@@ -216,13 +212,13 @@ function applySchedulerDatabaseTimezone($pdo, $timezoneName)
     }
 
     try {
-        $timezone = new DateTimeZone($timezoneName);
-        $now = new DateTimeImmutable('now', $timezone);
+        $timezone      = new DateTimeZone($timezoneName);
+        $now           = new DateTimeImmutable('now', $timezone);
         $offsetSeconds = $timezone->getOffset($now);
-        $sign = $offsetSeconds >= 0 ? '+' : '-';
+        $sign          = $offsetSeconds >= 0 ? '+' : '-';
         $offsetSeconds = abs($offsetSeconds);
-        $hours = floor($offsetSeconds / 3600);
-        $minutes = floor(($offsetSeconds % 3600) / 60);
+        $hours         = floor($offsetSeconds / 3600);
+        $minutes       = floor(($offsetSeconds % 3600) / 60);
         $mysqlTimezone = sprintf('%s%02d:%02d', $sign, $hours, $minutes);
         $pdo->exec("SET time_zone = " . $pdo->quote($mysqlTimezone));
     } catch (Exception $e) {
@@ -230,96 +226,36 @@ function applySchedulerDatabaseTimezone($pdo, $timezoneName)
     }
 }
 
+/**
+ * Coba aktifkan fiktif customer jika statusnya isolated.
+ * Returns: activated | failed | processed
+ */
 function tryActivateFiktifCustomer(int $customerId): string
 {
     $customer = fetchOne(
-            "SELECT id, name, status
-         FROM customers
-         WHERE id = ?",
+            "SELECT id, name, status FROM customers WHERE id = ?",
             [$customerId]
     );
 
     if ($customer && $customer['status'] === 'isolated') {
-
         if (activateCustomer($customerId)) {
-            writeLog(
-                    "✓ Activated: {$customer['name']} (ID: {$customerId})",
-                    "ACTIVATE"
-            );
-
+            writeLog("✓ Activated: {$customer['name']} (ID: {$customerId})", "ACTIVATE");
             return 'activated';
         }
 
-        writeLog(
-                "✗ Failed to activate: {$customer['name']} (ID: {$customerId})",
-                "ERROR"
-        );
-
+        writeLog("✗ Failed to activate: {$customer['name']} (ID: {$customerId})", "ERROR");
         return 'failed';
     }
 
     return 'processed';
 }
 
-
-function buildRandomPaidAt(string $paidOnDate, string $todayStr): string
-{
-    $paidDate = new DateTime($paidOnDate);
-    $today = new DateTime($todayStr);
-
-    if ($paidDate >= $today) {
-        $paidDate = (clone $today)->modify('-1 day');
-    }
-
-    $roll = rand(1, 100);
-
-    if ($roll <= 32) {
-        // 09:00 - 11:00 (32%)
-        $start = 9 * 3600;
-        $end   = 11 * 3600;
-
-    } elseif ($roll <= 50) {
-        // 11:00 - 13:00 (18%)
-        $start = 11 * 3600;
-        $end   = 13 * 3600;
-
-    } elseif ($roll <= 70) {
-        // 13:00 - 15:00 (20%)
-        $start = 13 * 3600;
-        $end   = 15 * 3600;
-
-    } elseif ($roll <= 90) {
-        // 15:00 - 17:00 (20%)
-        $start = 15 * 3600;
-        $end   = 17 * 3600;
-
-    } else {
-        // 17:00 - 19:35 (10%)
-        $start = 17 * 3600;
-        $end   = (19 * 3600) + (35 * 60);
-    }
-
-    $seconds = rand($start, $end);
-
-    $h = intdiv($seconds, 3600);
-    $m = intdiv($seconds % 3600, 60);
-    $s = $seconds % 60;
-
-    $paidDate->setTime($h, $m, $s);
-
-    return $paidDate->format('Y-m-d H:i:s');
-}
-
 /**
  * Process a single fiktif customer's overdue invoice.
- * Returns one of:
- * processed | activated | skipped | failed
+ * paid_at diambil langsung dari fiktif_invoices.scheduled_paid_date (DATETIME).
+ * Returns: processed | activated | skipped | failed
  */
-function processFiktifCustomer(
-        int $customerId,
-        DateTime $today,
-        string $todayStr
-): string
+function processFiktifCustomer(int $customerId): string
 {
     $invoice = fetchOne(
             "SELECT
@@ -332,8 +268,8 @@ function processFiktifCustomer(
         WHERE i.customer_id = ?
           AND i.status = 'unpaid'
           AND fi.status = 'unpaid'
-          AND fi.scheduled_paid_date <= CURDATE()
-        ORDER BY fi.scheduled_paid_date ASC,i.due_date ASC
+          AND fi.scheduled_paid_date <= NOW()
+        ORDER BY fi.scheduled_paid_date ASC, i.due_date ASC
         LIMIT 1",
             [$customerId]
     );
@@ -342,130 +278,78 @@ function processFiktifCustomer(
         return 'skipped';
     }
 
-    $lateDays=(int)$invoice['late_days'];
-    $paidOnDate=$invoice['scheduled_paid_date'];
-    $paidAt=buildRandomPaidAt($paidOnDate,$todayStr);
-    $isolationDate=date('Y-m-d',strtotime($paidAt.' +30 days'));
+    $paidAt        = $invoice['scheduled_paid_date'];
+    $isolationDate = date('Y-m-d', strtotime($paidAt . ' +30 days'));
 
-    $pdo=getDB();
+    $pdo = getDB();
 
     try {
         $pdo->beginTransaction();
 
-        $ok=update(
-                'invoices',
-                [
-                        'status'=>'paid',
-                        'paid_at'=>$paidAt,
-                        'updated_at'=>date('Y-m-d H:i:s')
-                ],
-                'id = ?',
-                [$invoice['id']]
-        );
+        $ok = update('invoices', [
+                'status'     => 'paid',
+                'paid_at'    => $paidAt,
+                'updated_at' => date('Y-m-d H:i:s')
+        ], 'id = ?', [$invoice['id']]);
 
-        if (!$ok) {
-            throw new Exception('Failed updating invoice');
-        }
+        if (!$ok) throw new Exception('Failed updating invoice');
 
-        $ok=update(
-                'fiktif_invoices',
-                [
-                        'status'=>'paid'
-                ],
-                'invoice_id = ?',
-                [$invoice['id']]
-        );
+        $ok = update('fiktif_invoices', [
+                'status' => 'paid'
+        ], 'invoice_id = ?', [$invoice['id']]);
 
-        if (!$ok) {
-            throw new Exception('Failed updating fiktif invoice');
-        }
+        if (!$ok) throw new Exception('Failed updating fiktif invoice');
 
-        $ok=update(
-                'customers',
-                [
-                        'isolation_date'=>$isolationDate
-                ],
-                'id = ?',
-                [$customerId]
-        );
+        $ok = update('customers', [
+                'isolation_date' => $isolationDate
+        ], 'id = ?', [$customerId]);
 
-        if (!$ok) {
-            throw new Exception('Failed updating customer');
-        }
+        if (!$ok) throw new Exception('Failed updating customer');
 
         $pdo->commit();
 
     } catch (Exception $e) {
-
         $pdo->rollBack();
-
-        writeLog(
-                "✗ Failed processing invoice #{$invoice['id']} (customer #{$customerId}) : ".$e->getMessage(),
-                "ERROR"
-        );
-
+        writeLog("✗ Failed processing invoice #{$invoice['id']} (customer #{$customerId}) : " . $e->getMessage(), "ERROR");
         return 'failed';
     }
 
-    writeLog(
-            "✓ Invoice #{$invoice['id']} — customer #{$customerId} marked paid",
-            "PAYMENT"
-    );
-
-    writeLog(
-            "Due: {$invoice['due_date']} → Paid: {$paidAt} (telat {$lateDays} hari)",
-            "DETAIL"
-    );
-
-    writeLog(
-            "New isolation: {$isolationDate}",
-            "DETAIL"
-    );
+    writeLog("✓ Invoice #{$invoice['id']} — customer #{$customerId} marked paid", "PAYMENT");
+    writeLog("Due: {$invoice['due_date']} → Paid: {$paidAt} (telat {$invoice['late_days']} hari)", "DETAIL");
+    writeLog("New isolation: {$isolationDate}", "DETAIL");
 
     return tryActivateFiktifCustomer($customerId);
 }
 
-
+/**
+ * Jalankan pembayaran fiktif customers.
+ * Dipanggil setiap menit; hanya proses invoice yang scheduled_paid_date <= NOW().
+ */
 function runFiktifCustomers(PDO $pdo): void
 {
-    writeLog("Running fiktif customers scheduler...","INFO");
+    writeLog("Running fiktif customers scheduler...", "INFO");
 
-    $fiktifCustomers=fetchAll(
-            "SELECT customer_id
-        FROM fiktif_customers"
-    );
+    $fiktifCustomers = fetchAll("SELECT customer_id FROM fiktif_customers");
 
     if (empty($fiktifCustomers)) {
-        writeLog("No fiktif customers found. Aborting.","INFO");
+        writeLog("No fiktif customers found. Aborting.", "INFO");
         return;
     }
 
-    $today=new DateTime();
-    $todayStr=$today->format('Y-m-d');
+    $generatedCount = generateInvoicesForFiktifCustomers();
+    writeLog("Generated {$generatedCount} invoices for fiktif customers.", "INFO");
 
-    $generatedCount=generateInvoicesForFiktifCustomers();
-
-    writeLog(
-            "Generated {$generatedCount} invoices for fiktif customers.",
-            "INFO"
-    );
-
-    $stats=[
-            'processed'=>0,
-            'activated'=>0,
-            'skipped'=>0,
-            'failed'=>0
+    $stats = [
+            'processed' => 0,
+            'activated' => 0,
+            'skipped'   => 0,
+            'failed'    => 0,
     ];
 
     foreach ($fiktifCustomers as $fiktif) {
+        $result = processFiktifCustomer((int) $fiktif['customer_id']);
 
-        $result=processFiktifCustomer(
-                $fiktif['customer_id'],
-                $today,
-                $todayStr
-        );
-
-        if ($result==='activated') {
+        if ($result === 'activated') {
             $stats['activated']++;
             $stats['processed']++;
         } else {
@@ -473,12 +357,13 @@ function runFiktifCustomers(PDO $pdo): void
         }
     }
 
-    writeLog("=== FIKTIF CUSTOMERS SUMMARY ===","SUMMARY");
-    writeLog("✓ Processed payments : {$stats['processed']}","SUMMARY");
-    writeLog("✓ Activated customers: {$stats['activated']}","SUMMARY");
-    writeLog("⏳ Skipped : {$stats['skipped']}","SUMMARY");
-    writeLog("✗ Failed : {$stats['failed']}","SUMMARY");
+    writeLog("=== FIKTIF CUSTOMERS SUMMARY ===", "SUMMARY");
+    writeLog("✓ Processed payments : {$stats['processed']}", "SUMMARY");
+    writeLog("✓ Activated customers: {$stats['activated']}", "SUMMARY");
+    writeLog("⏳ Skipped            : {$stats['skipped']}", "SUMMARY");
+    writeLog("✗ Failed              : {$stats['failed']}", "SUMMARY");
 }
+
 /**
  * Run auto-isolir based on customers.isolation_date
  * (bukan berdasarkan due_date invoice)
@@ -488,7 +373,7 @@ function runAutoIsolir($pdo)
     echo "Running auto-isolir based on isolation_date...\n";
 
     // Pastikan kolom isolation_date ada
-    $hasAutoIsolate = ensureCustomersAutoIsolateColumn();
+    $hasAutoIsolate    = ensureCustomersAutoIsolateColumn();
     $autoIsolateClause = $hasAutoIsolate ? "AND auto_isolate = 1" : "";
 
     // Cari pelanggan yang isolation_date-nya sudah lewat/hari ini
@@ -523,8 +408,7 @@ function runAutoIsolir($pdo)
         if (isolateCustomer($customer['id'], ['send_whatsapp' => false])) {
             echo "  ✓ Customer isolated\n";
 
-            // Send WhatsApp notification
-            $message = "Halo {$customer['name']},\n\n";
+            $message  = "Halo {$customer['name']},\n\n";
             $message .= "Koneksi internet Anda telah diisolir karena belum melakukan pembayaran tagihan.\n\n";
             $message .= "Tanggal isolasi: " . date('d/m/Y', strtotime($customer['isolation_date'])) . "\n\n";
             $message .= "Mohon segera lakukan pembayaran untuk mengaktifkan kembali koneksi internet Anda.\n\n";
@@ -537,7 +421,6 @@ function runAutoIsolir($pdo)
         }
     }
 }
-
 
 /**
  * Run auto invoice generation (for 1st of each month) - OPTIMIZED VERSION
@@ -552,13 +435,13 @@ function runAutoInvoice($pdo)
         return;
     }
 
-    $currentYear = date('Y');
-    $currentMonth = date('m');
-    $firstDayOfMonth = date('Y-m-01');
-    $now = date('Y-m-d H:i:s');
-    $generatedCount = 0;
-    $skippedCount = 0;
-    $failedCount = 0;
+    $currentYear      = date('Y');
+    $currentMonth     = date('m');
+    $firstDayOfMonth  = date('Y-m-01');
+    $now              = date('Y-m-d H:i:s');
+    $generatedCount   = 0;
+    $skippedCount     = 0;
+    $failedCount      = 0;
 
     // Get all active customers with their package info in ONE QUERY
     $customers = fetchAll("
@@ -568,7 +451,7 @@ function runAutoInvoice($pdo)
         WHERE c.status = 'active'
         ORDER BY c.id
     ");
-    
+
     echo "Found " . count($customers) . " active customers\n";
 
     if (empty($customers)) {
@@ -576,72 +459,67 @@ function runAutoInvoice($pdo)
         return;
     }
 
-    // Get all existing invoices for this month in ONE QUERY (untuk batch check)
+    // Get all existing invoices for this month in ONE QUERY
     $existingInvoices = fetchAll("
         SELECT customer_id, due_date, status 
         FROM invoices 
         WHERE YEAR(due_date) = ? AND MONTH(due_date) = ?
         AND status != 'cancelled'
     ", [$currentYear, $currentMonth]);
-    
+
     // Convert to lookup array for O(1) check
     $existingMap = [];
     foreach ($existingInvoices as $inv) {
         $existingMap[$inv['customer_id']] = $inv['due_date'];
     }
-    
+
     echo "Found " . count($existingMap) . " existing invoices for this month\n";
 
     $batchInsertData = [];
-    
+
     foreach ($customers as $customer) {
         if (isset($existingMap[$customer['id']])) {
             echo "  ✗ Invoice already exists for: {$customer['name']} (due_date: {$existingMap[$customer['id']]})\n";
             $skippedCount++;
             continue;
         }
-        
-        // Check if customer has package
+
         if (!$customer['package_price']) {
             echo "  ⚠ No package found for: {$customer['name']}\n";
             $skippedCount++;
             continue;
         }
 
-        // Get due date based on customer's isolation_date day
         $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
-        
-        // Validate due_date
+
         if (!$dueDate || $dueDate < $firstDayOfMonth) {
             echo "  ⚠ Invalid due_date for: {$customer['name']}, using default\n";
             $dueDate = date('Y-m-20', strtotime($firstDayOfMonth));
         }
-        
+
         $invoiceNumber = generateInvoiceNumber();
-        
+
         $batchInsertData[] = [
-            'invoice_number' => $invoiceNumber,
-            'customer_id' => $customer['id'],
-            'amount' => $customer['package_price'],
-            'status' => 'unpaid',
-            'due_date' => $dueDate,
-            'created_at' => $now
+                'invoice_number' => $invoiceNumber,
+                'customer_id'    => $customer['id'],
+                'amount'         => $customer['package_price'],
+                'status'         => 'unpaid',
+                'due_date'       => $dueDate,
+                'created_at'     => $now
         ];
-        
+
         echo "  ✓ Ready: {$customer['name']} - {$invoiceNumber} (due: {$dueDate})\n";
         $generatedCount++;
     }
-    
-    // Batch insert if using PDO (opsional, untuk performa)
+
     if ($generatedCount > 0 && function_exists('batchInsert')) {
         $result = batchInsert('invoices', $batchInsertData);
         if (!$result) {
             echo "  ✗ Batch insert failed!\n";
-            $failedCount = $generatedCount;
+            $failedCount    = $generatedCount;
             $generatedCount = 0;
         }
     } else {
-        // Fallback to single insert
         foreach ($batchInsertData as $data) {
             if (insert('invoices', $data)) {
                 echo "  ✓ Inserted: {$data['invoice_number']}\n";
@@ -659,7 +537,6 @@ function runAutoInvoice($pdo)
     echo "✗ Failed: {$failedCount} customers\n";
     echo "Total processed: " . count($customers) . " active customers\n";
 
-    // Log activity
     if ($generatedCount > 0) {
         logActivity('AUTO_INVOICE', "Auto-generated {$generatedCount} invoices for " . date('F Y'));
     }
@@ -672,13 +549,13 @@ function runBackupDb()
 {
     echo "Running database backup...\n";
     $retentionDays = (int) getSetting('BACKUP_RETENTION_DAYS', 7);
-    $result = createDatabaseBackup($retentionDays);
+    $result        = createDatabaseBackup($retentionDays);
     if (!$result['success']) {
         echo "  ✗ " . ($result['message'] ?? 'Backup failed') . "\n";
         return;
     }
-    $filePath = $result['file_path'] ?? '';
-    $fileSize = $result['file_size'] ?? 0;
+    $filePath     = $result['file_path'] ?? '';
+    $fileSize     = $result['file_size'] ?? 0;
     echo "  ✓ Backup created: {$filePath} (" . round(((int) $fileSize) / 1024 / 1024, 2) . " MB)\n";
     $deletedFiles = $result['deleted_files'] ?? [];
     foreach ($deletedFiles as $deleted) {
@@ -693,7 +570,6 @@ function sendReminders($pdo)
 {
     echo "Sending payment reminders...\n";
 
-    // Get customers with unpaid invoices due in 3 days
     $upcomingInvoices = fetchAll("
         SELECT c.id, c.name, c.phone, c.pppoe_username, i.invoice_number, i.amount, i.due_date
         FROM customers c
@@ -715,7 +591,7 @@ function sendReminders($pdo)
     foreach ($upcomingInvoices as $invoice) {
         $daysUntilDue = (strtotime($invoice['due_date']) - time()) / 86400;
 
-        $message = "Halo {$invoice['name']},\n\n";
+        $message  = "Halo {$invoice['name']},\n\n";
         $message .= "Pengingat: Tagihan internet Anda akan jatuh tempo dalam " . ceil($daysUntilDue) . " hari.\n\n";
         $message .= "Tagihan: " . formatCurrency($invoice['amount']) . "\n";
         $message .= "Invoice: {$invoice['invoice_number']}\n";
@@ -745,15 +621,15 @@ function runCustomScript($pdo, $schedule)
         throw new Exception('Project root tidak ditemukan.');
     }
 
-    $isAbsolute = preg_match('/^(?:[a-zA-Z]:[\\\/]|\/)/', $rawPath) === 1;
+    $isAbsolute    = preg_match('/^(?:[a-zA-Z]:[\\\/]|\/)/', $rawPath) === 1;
     $candidatePath = $isAbsolute ? $rawPath : $projectRoot . DIRECTORY_SEPARATOR . ltrim($rawPath, '/\\');
-    $resolvedPath = realpath($candidatePath);
+    $resolvedPath  = realpath($candidatePath);
 
     if ($resolvedPath === false || !is_file($resolvedPath)) {
         throw new Exception('File script tidak ditemukan: ' . $rawPath);
     }
 
-    $normalizedRoot = str_replace('\\', '/', $projectRoot);
+    $normalizedRoot     = str_replace('\\', '/', $projectRoot);
     $normalizedResolved = str_replace('\\', '/', $resolvedPath);
     if (strpos($normalizedResolved, $normalizedRoot . '/') !== 0 && $normalizedResolved !== $normalizedRoot) {
         throw new Exception('Akses script di luar folder project tidak diizinkan.');
@@ -768,7 +644,7 @@ function runCustomScript($pdo, $schedule)
         throw new Exception('Fungsi exec() dinonaktifkan di server.');
     }
 
-    $phpBin = defined('PHP_BINARY') && PHP_BINARY ? PHP_BINARY : 'php';
+    $phpBin  = defined('PHP_BINARY') && PHP_BINARY ? PHP_BINARY : 'php';
     $command = escapeshellarg($phpBin) . ' ' . escapeshellarg($resolvedPath);
 
     $argsRaw = trim((string) ($schedule['custom_script_args'] ?? ''));
@@ -783,7 +659,7 @@ function runCustomScript($pdo, $schedule)
         }
     }
 
-    $output = [];
+    $output     = [];
     $returnCode = 0;
     exec($command . ' 2>&1', $output, $returnCode);
 
