@@ -51,9 +51,35 @@ function generateLateDays(): int
 
 // Tambahan: Fungsi untuk waktu acak
 function getRandomTime(): string {
-    return sprintf("%02d:%02d:%02d", mt_rand(8, 19), mt_rand(0, 59), mt_rand(0, 59));
-}
+    $roll = mt_rand(1, 100);
 
+    // 20% Peluang: Jam 09:00 - 10:59
+    if ($roll <= 20) {
+        $hour = mt_rand(9, 10);
+    }
+    // 25% Peluang: Jam 11:00 - 12:59
+    elseif ($roll <= 45) { // 20 + 25 = 45
+        $hour = mt_rand(11, 12);
+    }
+    // 35% Peluang: Jam 13:00 - 14:59 (Puncak Hype Tertinggi)
+    elseif ($roll <= 80) { // 45 + 35 = 80
+        $hour = mt_rand(13, 14);
+    }
+    // 10% Peluang: Jam 15:00 - 16:59
+    elseif ($roll <= 90) { // 80 + 10 = 90
+        $hour = mt_rand(15, 16);
+    }
+    // 10% Peluang (5% request lu + 5% sisa genap 100): Jam 17:00 - 19:59
+    else {
+        $hour = mt_rand(17, 19);
+    }
+
+    // Menit dan detik acak (00 - 59)
+    $minute = mt_rand(0, 59);
+    $second = mt_rand(0, 59);
+
+    return sprintf("%02d:%02d:%02d", $hour, $minute, $second);
+}
 // =========================
 // HAPUS TEMP DATA LAMA (KHUSUS JUNI)
 // =========================
