@@ -1,6 +1,6 @@
 <?php
 
-include '../include/config.php';
+include '../includes/config.php';
 $host = DB_HOST;
 $db   = DB_NAME;
 $user = DB_USER;
