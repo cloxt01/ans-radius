@@ -43,6 +43,7 @@ echo $apply
 // =====================
 // 1. CARI PELANGGAN FIKTIF TANPA INVOICE
 // =====================
+
 $sqlSelect = "
     SELECT c.id, c.pppoe_username, c.isolation_date, c.status
     FROM customers c

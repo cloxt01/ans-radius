@@ -1805,15 +1805,15 @@ ob_start();
                 </div>
                 <p class="info-text">Jalankan setiap 1 menit untuk tugas otomatis (check expired, kirim notifikasi, dll)</p>
                 
-                <div class="url-wrapper">
-                    <input type="text" id="cron_web_url" readonly
-                        value="<?php echo APP_URL; ?>/cron/run.php?token=<?php echo htmlspecialchars(getSettingValue('CRON_TOKEN', ''), ENT_QUOTES, 'UTF-8'); ?>"
-                        class="webhook-input"
-                        onclick="this.select()">
-                    <button type="button" class="btn-icon" onclick="copyToClipboardById('cron_web_url')">
-                        <i class="fas fa-copy"></i> Salin URL
-                    </button>
-                </div>
+<!--                <div class="url-wrapper">-->
+<!--                    <input type="text" id="cron_web_url" readonly-->
+<!--                        value="--><?php //echo APP_URL; ?><!--/cron/run.php?token=--><?php //echo htmlspecialchars(getSettingValue('CRON_TOKEN', ''), ENT_QUOTES, 'UTF-8'); ?><!--"-->
+<!--                        class="webhook-input"-->
+<!--                        onclick="this.select()">-->
+<!--                    <button type="button" class="btn-icon" onclick="copyToClipboardById('cron_web_url')">-->
+<!--                        <i class="fas fa-copy"></i> Salin URL-->
+<!--                    </button>-->
+<!--                </div>-->
                 
                 <?php
                 $schedulerPath = realpath(__DIR__ . '/../cron/scheduler.php');
