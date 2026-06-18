@@ -5,7 +5,7 @@ include '../includes/config.php';
 $apply = in_array('--apply', $argv);
 
 try {
-    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . RADIUS_DB_NAME, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     echo "=== MODE " . ($apply ? "APPLY" : "DRY-RUN (SIMULASI)") . " ===\n\n";
