@@ -76,9 +76,11 @@ function handlePaidInvoice($invoiceNumber, $paymentData) {
     }
     
     // Update invoice status
+    $paidAt = date('Y-m-d H:i:s');
+    $isolationDate = date('Y-m-d', strtotime('+1 month', strtotime($paidAt)));
     update('invoices', [
         'status' => 'paid',
-        'paid_at' => date('Y-m-d H:i:s'),
+        'paid_at' => $paidAt,
         'payment_method' => $paymentData['payment_method'] ?? 'Tripay',
         'payment_ref' => $paymentData['reference'] ?? ''
     ], 'invoice_number = ?', [$invoiceNumber]);
@@ -104,6 +106,9 @@ function handlePaidInvoice($invoiceNumber, $paymentData) {
             // Unisolate customer
             if (unisolateCustomer($invoice['customer_id'])) {
                 logActivity('AUTO_UNISOLATE', "Customer ID: {$invoice['customer_id']}");
+            }
+            if(updateIsolationDate($invoice['customer_id'], $isolationDate)){
+                logActivity('AUTO_UPDATE_ISOLATIONDATE', "Customer ID: {$invoice['customer_id']}");
             }
         }
     }

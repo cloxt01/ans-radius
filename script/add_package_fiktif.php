@@ -41,8 +41,8 @@ echo $apply
 // =====================
 // ID Paket => Persentase Probabilitas (Total HARUS 100)
 $packageDistribution = [
-    1 => 918, // Request lu 80%, gua tambahin sisa 5% ke sini biar totalnya pas 100%
-    3 => 50,
+    1 => 936, // Request lu 80%, gua tambahin sisa 5% ke sini biar totalnya pas 100%
+    3 => 32,
     4 => 16,
     5 => 12,
     6 => 4

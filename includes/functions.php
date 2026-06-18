@@ -690,6 +690,17 @@ function isCustomerIsolated($customerId)
 }
 
 // Isolate customer
+function updateIsolationDate($customerId, $isolationDate) {
+    $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
+    if (!$customer) {
+        return false;
+    }
+
+    $updated = update('customers', [
+        'isolation_date' => $isolationDate
+    ], 'id = ?', [$customerId]);
+    return $updated ? true : false;
+}
 function isolateCustomer($customerId, $options = [])
 {
     $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
