@@ -125,7 +125,18 @@ function tripayPickDefaultEnabledMethod(array $enabledChannels): string
 
     return $enabledChannels[0] ?? '';
 }
+function paymentFallbackEmailFromId($customerId){
+    $host = parse_url(APP_URL, PHP_URL_HOST);
+    if (!$host || $host === 'localhost' || strpos($host, '127.0.0.1') !== false) {
+        $host = 'ansradius.id';
+    }
+    $host = preg_replace('/[^a-zA-Z0-9.-]/', '', $host);
+    if ($host === '') {
+        $host = 'ansradius.id';
+    }
 
+    return 'customer'.$customerId.'@'.$host;
+}
 function paymentFallbackEmailFromPhone($phone)
 {
     $digits = preg_replace('/\D+/', '', (string) $phone);
@@ -201,6 +212,7 @@ function paymentTripayRequest($path, $method, $apiKey, $payload = null, $baseUrl
     ];
 }
 
+
 function paymentMidtransSnapBaseUrl()
 {
     $mode = strtolower(trim((string) paymentGetConfig('MIDTRANS_MODE', paymentGetConfig('MIDTRANS_ENV', 'production'))));
@@ -209,13 +221,13 @@ function paymentMidtransSnapBaseUrl()
 }
 
 // Generate payment link based on gateway
-function generatePaymentLink($invoiceNumber, $amount, $customerName, $customerPhone, $dueDate, $gateway = 'tripay', $paymentMethod = '') {
+function generatePaymentLink($invoiceNumber, $amount, $customerId, $customerName, $customerPhone, $dueDate, $gateway = 'tripay', $paymentMethod = '') {
     switch ($gateway) {
         case 'tripay':
-            return generateTripayPaymentLink($invoiceNumber, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod);
+            return generateTripayPaymentLink($invoiceNumber, $amount, $customerId, $customerName, $customerPhone, $dueDate, $paymentMethod);
             
         case 'midtrans':
-            return generateMidtransPaymentLink($invoiceNumber, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod);
+            return generateMidtransPaymentLink($invoiceNumber, $amount, $customerId, $customerName, $customerPhone, $dueDate, $paymentMethod);
             
         default:
             return [
@@ -225,9 +237,8 @@ function generatePaymentLink($invoiceNumber, $amount, $customerName, $customerPh
             ];
     }
 }
-
 // Tripay Payment Link Generator
-function generateTripayPaymentLink($invoiceNumber, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod = '') {
+function generateTripayPaymentLink($invoiceNumber, $amount, $customerId, $customerName, $customerPhone, $dueDate, $paymentMethod = '') {
     $apiKey = trim((string) paymentGetConfig('TRIPAY_API_KEY', ''));
     $merchantCode = trim((string) paymentGetConfig('TRIPAY_MERCHANT_CODE', ''));
     $privateKey = trim((string) paymentGetConfig('TRIPAY_PRIVATE_KEY', ''));
@@ -277,7 +288,7 @@ function generateTripayPaymentLink($invoiceNumber, $amount, $customerName, $cust
         'merchant_ref' => $merchantRef,
         'amount' => $amountInt,
         'customer_name' => (string) $customerName,
-        'customer_email' => paymentFallbackEmailFromPhone($customerPhone),
+        'customer_email' => paymentFallbackEmailFromId($customerId),
         'customer_phone' => (string) $customerPhone,
         'order_items' => [
             [
@@ -337,7 +348,7 @@ function generateTripayPaymentLink($invoiceNumber, $amount, $customerName, $cust
 }
 
 // Midtrans Payment Link Generator
-function generateMidtransPaymentLink($invoiceNumber, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod = '') {
+function generateMidtransPaymentLink($invoiceNumber, $amount,$customerId, $customerName, $customerPhone, $dueDate, $paymentMethod = '') {
     $serverKey = trim((string) paymentGetConfig('MIDTRANS_API_KEY', ''));
     if ($serverKey === '') {
         return [
@@ -387,7 +398,7 @@ function generateMidtransPaymentLink($invoiceNumber, $amount, $customerName, $cu
     ];
 
     // Add email only if it's valid format
-    $email = paymentFallbackEmailFromPhone($customerPhone);
+    $email = paymentFallbackEmailFromId($customerId);
     if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $payload['customer_details']['email'] = $email;
     }

@@ -20,7 +20,7 @@ if ($invoiceId === 0) {
 }
 
 // Get invoice details
-$invoice = fetchOne("SELECT i.*, c.name as customer_name, c.phone as customer_phone, p.name as package_name FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id LEFT JOIN packages p ON c.package_id = p.id WHERE i.id = ? AND i.customer_id = ?", [$invoiceId, $customerId]);
+$invoice = fetchOne("SELECT i.*, c.id as customer_id, c.name as customer_name, c.phone as customer_phone, p.name as package_name FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id LEFT JOIN packages p ON c.package_id = p.id WHERE i.id = ? AND i.customer_id = ?", [$invoiceId, $customerId]);
 
 if (!$invoice) {
     setFlash('error', 'Invoice tidak ditemukan');
@@ -106,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = generatePaymentLink(
             $invoice['invoice_number'],
             $invoice['amount'],
+            $invoice['customer_id'],
             $invoice['customer_name'],
             $invoice['customer_phone'],
             $invoice['due_date'],
