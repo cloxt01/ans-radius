@@ -131,10 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if($customer_username !== $new_username) {
                     radiusRenameUser($customer_username, $new_username);
                 }
-                
-                // 2. Sinkronisasi Perubahan Password di RADIUS (Hanya jika password baru DIISI)
+
                 if ($new_password !== '') {
-                    // Ambil password lama di RADIUS (menggunakan username baru jika baru saja di-rename)
                     $old_radius_password = trim((string)radiusGetUserPassword($new_username));
                     
                     if($old_radius_password !== $new_password) {

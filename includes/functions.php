@@ -799,9 +799,6 @@ function unisolateFiktifCustomer($customerId, $options = [])
     if ($package && !empty($customer['pppoe_username'])) {
         mikrotikSetProfile($customer['pppoe_username'], $package['profile_normal'], $customer['router_id']);
         radiusUpdateUserProfile($customer['pppoe_username'], $package['profile_normal']);
-        if (function_exists('radiusSetSessionTimeoutFromIsolationDate') && radiusUserProvisioningReady()) {
-            radiusSetSessionTimeoutFromIsolationDate($customer['pppoe_username']);
-        }
     }
 
     logActivity('UNISOLATE_FIKTIF_CUSTOMER', "Customer ID: {$customerId}");
@@ -2400,6 +2397,11 @@ function sendInvoicePaidWhatsapp($invoiceNumber, $gateway = '', $paymentData = [
     $message .= getWhatsAppFooter();
 
     $sent = sendWhatsApp($phone, $message);
+    if($sent) {
+        logActivity('INVOICE_PAID_NOTIF', 'Pesan terkirim ke '.$phone);
+    } else {
+        logError('Gagal mengirim notifikasi pembayaran ke '. $phone);
+    }
 
     $data = [
         'invoice_number' => $invoiceNumber,
@@ -2465,7 +2467,7 @@ function findPublicVoucherPackage($catalog, $profileName)
 
 function getPackageIdbyProfileName($profileName)
 {
-    $sql = "SELECT id FROM packages WHERE profile_normal LIKE ? OR profile_isolate LIKE ? LIMIT 1";
+    $sql = "SELECT id FROM packages WHERE profile_normal LIKE ? OR profile_isolir LIKE ? LIMIT 1";
     $data = fetchOne($sql, ["%$profileName%", "%$profileName%"]);
     return $data['id'] ?? null;
 }
@@ -2476,7 +2478,7 @@ function getProfileFromPackageId($id)
     $data = fetchOne($package, [$id]);
     return [
         'profile_normal' => $data['profile_normal'] ?? null,
-        'profile_isolir' => $data['profile_isolate'] ?? null
+        'profile_isolir' => $data['profile_isolir'] ?? null
     ];
 }
 
