@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$alreadyPaid) {
                     // Create new invoice
                     $invData = [
-                        'invoice_number' => 'INV-' . date('ymd') . rand(1000,9999),
+                        'invoice_number' => generateInvoiceNumber($id),
                         'customer_id' => $id,
                         'amount' => $amountPerMonth,
                         'status' => 'paid',

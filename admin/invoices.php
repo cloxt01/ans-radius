@@ -186,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if ($customer) {
                     $invoiceData = [
-                        'invoice_number' => generateInvoiceNumber(),
+                        'invoice_number' => generateInvoiceNumber($customerId),
                         'customer_id' => $customerId,
                         'amount' => $amount,
                         'status' => 'unpaid',

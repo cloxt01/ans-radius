@@ -470,7 +470,7 @@ function runAutoInvoice($pdo)
             $dueDate = date('Y-m-20', strtotime($firstDayOfMonth));
         }
 
-        $invoiceNumber = generateInvoiceNumber();
+        $invoiceNumber = generateInvoiceNumber($customer['id']);
 
         $batchInsertData[] = [
                 'invoice_number' => $invoiceNumber,

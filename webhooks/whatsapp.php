@@ -650,7 +650,7 @@ function handleWhatsAppInvoiceCreate($phone, $args) {
     }
     
     $invoiceData = [
-        'invoice_number' => generateInvoiceNumber(),
+        'invoice_number' => generateInvoiceNumber($customer['id']),
         'customer_id' => $customer['id'],
         'amount' => $amount,
         'status' => 'unpaid',

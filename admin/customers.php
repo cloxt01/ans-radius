@@ -89,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             logError('ONU sync (add customer) failed: ' . $e->getMessage());
                         }
                     }
+                    $_SESSION['last_added_customer_id'] = isset($newCustomerId) ? $newCustomerId : $customerId;
                     setFlash('success', 'Pelanggan berhasil ditambahkan');
                     logActivity('ADD_CUSTOMER', "Name: {$data['name']}");
                     
@@ -433,7 +434,25 @@ if ($paginationQueryString !== '') {
 
 ob_start();
 ?>
-
+<?php if (isset($_SESSION['last_added_customer_id'])): ?>
+    <div id="successModal" style="display:flex; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+        <div class="card" style="max-width:420px; width:90%; padding:28px; text-align:center;">
+            <h3 style="color:var(--accent-green); margin-bottom:8px;">Pelanggan Berhasil Ditambahkan!</h3>
+            <p style="color:var(--text-secondary); margin-bottom:20px;">Mau langsung buat pembayaran untuk pelanggan ini?</p>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <a href="pay_process.php?customer_id=<?= $_SESSION['last_added_customer_id']; ?>"
+                   class="btn btn-success" style="padding:10px 20px;">
+                    <i class="fas fa-money-bill-wave"></i> Buat Pembayaran
+                </a>
+                <button onclick="document.getElementById('successModal').style.display='none'"
+                        class="btn btn-secondary" style="padding:10px 20px;">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+    <?php unset($_SESSION['last_added_customer_id']); ?>
+<?php endif; ?>
 <!-- Stats -->
 <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 30px;">
     <div class="stat-card">

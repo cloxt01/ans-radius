@@ -131,18 +131,18 @@ function formatDate($date, $format = 'd M Y')
 //     return $prefix . str_pad($newNum, 6, '0', STR_PAD_LEFT);
 // }
 
-function generateInvoiceNumber()
+function generateInvoiceNumber($customerId)
 {
     $prefix = INVOICE_PREFIX; // Diambil dari config: INV
     
     // Mengambil timestamp saat ini (format: YmdHis -> 20260506162205)
     $timestamp = date('YmdHis');
-    
+    $paddedId = str_pad($customerId, 5, '0', STR_PAD_LEFT);
     // Membuat 6 angka acak
-    $random = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    $random = str_pad(random_int(0, 999), 3, '0', STR_PAD_LEFT);
     
     // Hasil: INV-20260506162205-123456
-    return $prefix . '-' . $timestamp . $random;
+    return $prefix . '-' . $timestamp . $paddedId . $random;
 }
 function storeRedirectUrl($orderId, $redirectUrl) {
     $data = [
@@ -2520,7 +2520,7 @@ function generateInvoicesThisMonth()
             if ($package) {
                 $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
                 $invoiceData = [
-                    'invoice_number' => generateInvoiceNumber(),
+                    'invoice_number' => generateInvoiceNumber($customer['id']),
                     'customer_id' => $customer['id'],
                     'amount' => $package['price'],
                     'status' => 'unpaid',
@@ -2576,7 +2576,7 @@ function generateInvoicesForFiktifCustomers()
         $invoiceId=insert(
             'invoices',
             [
-                'invoice_number'=>generateInvoiceNumber(),
+                'invoice_number'=>generateInvoiceNumber($customer['id']),
                 'customer_id'=>$customer['id'],
                 'amount'=>$package['price'],
                 'status'=>'unpaid',
