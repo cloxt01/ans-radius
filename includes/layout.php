@@ -369,6 +369,74 @@ if (isset($_GET['switch_router'])) {
             overflow-y: auto;
             overflow-x: hidden;
         }
+        .actions-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .action-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            text-align: center;
+            transition: all var(--transition-fast);
+        }
+
+        .action-card:hover {
+            border-color: var(--border-color);
+        }
+
+        .action-card i {
+            font-size: 32px;
+            color: var(--accent-blue);
+            margin-bottom: 12px;
+        }
+
+        .action-card h4 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .action-card p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .action-btn {
+            background: var(--bg-secondary);
+            border: 0.5px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 10px 18px;
+            color: var(--text-primary);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            font-family: var(--font-sans);
+        }
+        .action-btn:hover {
+            background: var(--bg-card);
+            border-color: var(--accent-blue);
+            transform: translateY(-1px);
+        }
+        .action-btn i { color: var(--text-secondary); }
+        .action-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
 
         .nav-section {
             margin-bottom: 24px;
@@ -921,6 +989,13 @@ if (isset($_GET['switch_router'])) {
             }
             .header-title h1 {
                 font-size: 18px;
+            }
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                justify-content: flex-start;
             }
             .menu-toggle {
                 display: block !important;

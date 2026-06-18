@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $handle = fopen($file['tmp_name'], 'r');
             if (!$handle) {
                 setFlash('error', 'Gagal membuka file!');
-                redirect('export.php');
+                redirect('export-customers.php');
             }
             
             // Skip header row
@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } else {
             setFlash('error', 'Format file tidak didukung! Gunakan CSV, XLS, atau XLSX.');
-            redirect('export.php');
+            redirect('export-customers.php');
         }
         
         // Process rows
@@ -206,7 +206,7 @@ ob_start();
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-upload"></i> Upload & Import
                 </button>
-                <a href="export.php?action=export_excel" class="btn btn-secondary">
+                <a href="export-customers.php?action=export_excel" class="btn btn-secondary">
                     <i class="fas fa-download"></i> Download Template
                 </a>
                 <a href="customers.php" class="btn btn-secondary">

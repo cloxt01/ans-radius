@@ -704,36 +704,6 @@ ob_start();
         grid-template-columns: repeat(4, 1fr) !important;
         gap: 15px;
     }
-
-        .actions-row {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 24px;
-        flex-wrap: wrap;
-    }
-    .action-btn {
-        background: var(--bg-secondary);
-        border: 0.5px solid var(--border-color);
-        border-radius: var(--radius-md);
-        padding: 10px 18px;
-        color: var(--text-primary);
-        font-size: 14px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-decoration: none;
-        font-family: var(--font-sans);
-    }
-    .action-btn:hover {
-        background: var(--bg-card);
-        border-color: var(--accent-blue);
-        transform: translateY(-1px);
-    }
-    .action-btn i { color: var(--text-secondary); }
-
-
     .form-section {
         background: rgba(255, 255, 255, 0.02);
         padding: 18px;
@@ -858,7 +828,7 @@ ob_start();
 <!--            <i class="fas fa-retweet"></i> Tambah Pelanggan via Rename-->
 <!--        </button>-->
 <!--    //endif; -->
-    <a href="export.php" class="action-btn">
+    <a href="export-customers.php" class="action-btn">
         <i class="fas fa-file-excel"></i> Export/Import
     </a>
 </div>

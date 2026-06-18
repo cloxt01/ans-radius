@@ -369,8 +369,8 @@ $currentMonthKey = date('Y-m');
 $monthRevenue = (float) (fetchOne("SELECT COALESCE(SUM(i.amount), 0) as total 
         FROM invoices i 
         WHERE i.status = 'paid' 
-          AND i.paid_at IS NOT NULL 
-          AND DATE_FORMAT(i.paid_at, '%Y-%m') = ?
+          AND i.due_date IS NOT NULL 
+          AND DATE_FORMAT(i.due_date, '%Y-%m') = ?
           ", [$currentMonthKey])['total'] ?? 0);
 // $monthRevenue = (float) (fetchOne("SELECT COALESCE(SUM(i.amount), 0) as total 
 //         FROM invoices i 
@@ -435,6 +435,12 @@ ob_start();
         </div>
     </div>
 </div>
+<div class="actions-row">
+
+    <a href="export-invoices.php" class="action-btn">
+        <i class="fas fa-file-excel"></i> Export
+    </a>
+</div>
 
 <!-- Action Cards -->
 <div class="card">
@@ -493,9 +499,7 @@ ob_start();
                 <i class="fas fa-search"></i>
                 <input type="text" id="searchInvoice" class="form-control" placeholder="Cari invoice...">
             </div>
-            <a href="export_invoices.php?action=export_excel" class="btn btn-primary btn-sm">
-                <i class="fas fa-file-excel"></i> Export
-            </a>
+
         </div>
     </div>
     <div class="card-body" style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.04);">
@@ -777,42 +781,7 @@ ob_start();
 </div>
 
 <style>
-/* Additional styles for invoices page */
-.action-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-}
 
-.action-card {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-md);
-    padding: 20px;
-    text-align: center;
-    transition: all var(--transition-fast);
-}
-
-.action-card:hover {
-    border-color: var(--border-color);
-}
-
-.action-card i {
-    font-size: 32px;
-    color: var(--accent-blue);
-    margin-bottom: 12px;
-}
-
-.action-card h4 {
-    font-size: 16px;
-    margin-bottom: 8px;
-}
-
-.action-card p {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 16px;
-}
 
 .info-text {
     display: block;
@@ -870,11 +839,7 @@ ob_start();
     font-weight: 600;
 }
 
-.action-buttons {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
+
 
 .inline-form {
     display: inline;
@@ -929,9 +894,6 @@ ob_start();
 }
 
 @media (max-width: 768px) {
-    .action-grid {
-        grid-template-columns: 1fr;
-    }
     
     .search-wrapper {
         width: 100%;
@@ -941,10 +903,7 @@ ob_start();
     .search-wrapper .form-control {
         width: 100%;
     }
-    
-    .action-buttons {
-        justify-content: flex-start;
-    }
+
 }
 </style>
 

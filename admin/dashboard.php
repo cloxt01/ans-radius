@@ -18,8 +18,8 @@ $stats = [
         SELECT SUM(amount) as total 
         FROM invoices 
         WHERE status = 'paid' 
-        AND paid_at IS NOT NULL
-        AND DATE_FORMAT(paid_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+        AND due_date IS NOT NULL
+        AND DATE_FORMAT(due_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
     ")['total'] ?? 0,
 ];
 
@@ -51,8 +51,8 @@ for ($i = 5; $i >= 0; $i--) {
         SELECT COALESCE(SUM(amount), 0) as total 
         FROM invoices 
         WHERE status = 'paid' 
-        AND paid_at IS NOT NULL
-        AND DATE_FORMAT(paid_at, '%Y-%m') = ?
+        AND due_date IS NOT NULL
+        AND DATE_FORMAT(due_date, '%Y-%m') = ?
     ", [$month])['total'] ?? 0;
     
     $count = fetchOne("
