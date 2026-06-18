@@ -755,6 +755,7 @@ if (isset($_GET['switch_router'])) {
             border-radius: var(--radius-md);
             margin-bottom: 16px;
             display: flex;
+            flex-direction: column;
             align-items: center;
             gap: 10px;
             font-size: 13px;
