@@ -146,17 +146,17 @@ if (!$isConnected) {
 }
 
 // Get traffic stats from Mikrotik
-$trafficStats = [];
-if ($interfaces) {
-    $firstInterface = $interfaces[0]['name'] ?? 'ether1';
-    $trafficData = mikrotikMonitorTraffic($firstInterface);
-    $trafficStats = [
-        'tx' => $trafficData['tx'] ?? 0,
-        'rx' => $trafficData['rx'] ?? 0,
-        'total_tx' => $trafficData['total_tx'] ?? 0,
-        'total_rx' => $trafficData['total_rx'] ?? 0,
-    ];
-}
+//$trafficStats = [];
+//if ($interfaces) {
+//    $firstInterface = $interfaces[0]['name'] ?? 'ether1';
+//    $trafficData = mikrotikMonitorTraffic($firstInterface);
+//    $trafficStats = [
+//        'tx' => $trafficData['tx'] ?? 0,
+//        'rx' => $trafficData['rx'] ?? 0,
+//        'total_tx' => $trafficData['total_tx'] ?? 0,
+//        'total_rx' => $trafficData['total_rx'] ?? 0,
+//    ];
+//}
 
 // Current month unpaid count
 $currentMonth = date('m');
@@ -1022,114 +1022,114 @@ ob_start();
             });
         }
 
-        // ── Traffic Monitor ────────────────────────────────────
-        let trafficChart;
-        const MAX_POINTS = 20;
-        let currentInterface = document.getElementById('interfaceSelector')?.value || 'ether1';
-
-        function initTraffic() {
-            const ctx = document.getElementById('trafficChart');
-            if (!ctx) {
-                console.warn('Element #trafficChart tidak ditemukan');
-                return;
-            }
-            trafficChart = new Chart(ctx.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [
-                        { 
-                            label: 'Upload (Tx)', 
-                            data: [], 
-                            borderColor: '#10b981', 
-                            backgroundColor: 'rgba(16, 185, 129, 0.05)', 
-                            borderWidth: 2, 
-                            fill: true, 
-                            tension: 0.3, 
-                            pointRadius: 0 
-                        },
-                        { 
-                            label: 'Download (Rx)', 
-                            data: [], 
-                            borderColor: '#f59e0b', 
-                            backgroundColor: 'rgba(245, 158, 11, 0.05)', 
-                            borderWidth: 2, 
-                            fill: true, 
-                            tension: 0.3, 
-                            pointRadius: 0 
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(ctx) {
-                                    return ctx.dataset.label + ': ' + formatBits(ctx.parsed.y);
-                                }
-                            }
-                        },
-                        legend: {
-                            labels: { color: '#a0a0b0', usePointStyle: true }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            ticks: { callback: function(v) { return formatBits(v); }, color: '#a0a0b0' },
-                            grid: { color: 'rgba(255,255,255,0.06)' }
-                        },
-                        x: {
-                            ticks: { color: '#a0a0b0', maxRotation: 45 },
-                            grid: { display: false }
-                        }
-                    }
-                }
-            });
-        }
-
-        function fetchTraffic() {
-            fetch('../api/traffic.php?interface=' + encodeURIComponent(currentInterface))
-                .then(r => r.json())
-                .then(d => {
-                    if (!d || d.length < 2) return;
-                    
-                    const now = new Date();
-                    const label = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    const tx = parseInt(d[0].data) || 0;
-                    const rx = parseInt(d[1].data) || 0;
-                    const totalTx = parseInt(d[0].total) || 0;
-                    const totalRx = parseInt(d[1].total) || 0;
-                    
-                    // Update stats display
-                    document.getElementById('txSpeed').innerText = formatBits(tx);
-                    document.getElementById('rxSpeed').innerText = formatBits(rx);
-                    document.getElementById('totalTx').innerText = formatBytes(totalTx);
-                    document.getElementById('totalRx').innerText = formatBytes(totalRx);
-                    
-                    trafficChart.data.labels.push(label);
-                    trafficChart.data.datasets[0].data.push(tx);
-                    trafficChart.data.datasets[1].data.push(rx);
-                    
-                    if (trafficChart.data.labels.length > MAX_POINTS) {
-                        trafficChart.data.labels.shift();
-                        trafficChart.data.datasets[0].data.shift();
-                        trafficChart.data.datasets[1].data.shift();
-                    }
-                    trafficChart.update('none');
-                }).catch(e => console.error('Traffic error:', e));
-        }
-
-        function changeInterface(iface) {
-            currentInterface = iface;
-            trafficChart.data.labels = [];
-            trafficChart.data.datasets[0].data = [];
-            trafficChart.data.datasets[1].data = [];
-            trafficChart.update('none');
-            fetchTraffic();
-        }
+        // // ── Traffic Monitor ────────────────────────────────────
+        // let trafficChart;
+        // const MAX_POINTS = 20;
+        // let currentInterface = document.getElementById('interfaceSelector')?.value || 'ether1';
+        //
+        // function initTraffic() {
+        //     const ctx = document.getElementById('trafficChart');
+        //     if (!ctx) {
+        //         console.warn('Element #trafficChart tidak ditemukan');
+        //         return;
+        //     }
+        //     trafficChart = new Chart(ctx.getContext('2d'), {
+        //         type: 'line',
+        //         data: {
+        //             labels: [],
+        //             datasets: [
+        //                 {
+        //                     label: 'Upload (Tx)',
+        //                     data: [],
+        //                     borderColor: '#10b981',
+        //                     backgroundColor: 'rgba(16, 185, 129, 0.05)',
+        //                     borderWidth: 2,
+        //                     fill: true,
+        //                     tension: 0.3,
+        //                     pointRadius: 0
+        //                 },
+        //                 {
+        //                     label: 'Download (Rx)',
+        //                     data: [],
+        //                     borderColor: '#f59e0b',
+        //                     backgroundColor: 'rgba(245, 158, 11, 0.05)',
+        //                     borderWidth: 2,
+        //                     fill: true,
+        //                     tension: 0.3,
+        //                     pointRadius: 0
+        //                 }
+        //             ]
+        //         },
+        //         options: {
+        //             responsive: true,
+        //             maintainAspectRatio: false,
+        //             interaction: { mode: 'index', intersect: false },
+        //             plugins: {
+        //                 tooltip: {
+        //                     callbacks: {
+        //                         label: function(ctx) {
+        //                             return ctx.dataset.label + ': ' + formatBits(ctx.parsed.y);
+        //                         }
+        //                     }
+        //                 },
+        //                 legend: {
+        //                     labels: { color: '#a0a0b0', usePointStyle: true }
+        //                 }
+        //             },
+        //             scales: {
+        //                 y: {
+        //                     ticks: { callback: function(v) { return formatBits(v); }, color: '#a0a0b0' },
+        //                     grid: { color: 'rgba(255,255,255,0.06)' }
+        //                 },
+        //                 x: {
+        //                     ticks: { color: '#a0a0b0', maxRotation: 45 },
+        //                     grid: { display: false }
+        //                 }
+        //             }
+        //         }
+        //     });
+        // }
+        //
+        // function fetchTraffic() {
+        //     fetch('../api/traffic.php?interface=' + encodeURIComponent(currentInterface))
+        //         .then(r => r.json())
+        //         .then(d => {
+        //             if (!d || d.length < 2) return;
+        //
+        //             const now = new Date();
+        //             const label = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        //             const tx = parseInt(d[0].data) || 0;
+        //             const rx = parseInt(d[1].data) || 0;
+        //             const totalTx = parseInt(d[0].total) || 0;
+        //             const totalRx = parseInt(d[1].total) || 0;
+        //
+        //             // Update stats display
+        //             document.getElementById('txSpeed').innerText = formatBits(tx);
+        //             document.getElementById('rxSpeed').innerText = formatBits(rx);
+        //             document.getElementById('totalTx').innerText = formatBytes(totalTx);
+        //             document.getElementById('totalRx').innerText = formatBytes(totalRx);
+        //
+        //             trafficChart.data.labels.push(label);
+        //             trafficChart.data.datasets[0].data.push(tx);
+        //             trafficChart.data.datasets[1].data.push(rx);
+        //
+        //             if (trafficChart.data.labels.length > MAX_POINTS) {
+        //                 trafficChart.data.labels.shift();
+        //                 trafficChart.data.datasets[0].data.shift();
+        //                 trafficChart.data.datasets[1].data.shift();
+        //             }
+        //             trafficChart.update('none');
+        //         }).catch(e => console.error('Traffic error:', e));
+        // }
+        //
+        // function changeInterface(iface) {
+        //     currentInterface = iface;
+        //     trafficChart.data.labels = [];
+        //     trafficChart.data.datasets[0].data = [];
+        //     trafficChart.data.datasets[1].data = [];
+        //     trafficChart.update('none');
+        //     fetchTraffic();
+        // }
 
         // ── PPPoE Log ──────────────────────────────────────────
         const PPPoE_LIMIT = 20;
@@ -1172,9 +1172,9 @@ ob_start();
         }
 
         // ── Start everything ──────────────────────────────────
-        initTraffic();
-        fetchTraffic();
-        setInterval(fetchTraffic, 3000);
+        // initTraffic();
+        // fetchTraffic();
+        // setInterval(fetchTraffic, 3000);
         
         const selector = document.getElementById('interfaceSelector');
         if (selector) {
