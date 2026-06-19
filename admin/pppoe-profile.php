@@ -194,14 +194,14 @@ ob_start();
                     <small class="form-hint">Profile PPP dari MikroTik</small>
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="fas fa-globe"></i> DNS Server
-                    </label>
-                    <input type="text" name="dns_server" id="pDns" class="form-control" 
-                           placeholder="8.8.8.8, 1.1.1.1">
-                    <small class="form-hint">DNS server (pisah dengan koma)</small>
-                </div>
+<!--                <div class="form-group">-->
+<!--                    <label class="form-label">-->
+<!--                        <i class="fas fa-globe"></i> DNS Server-->
+<!--                    </label>-->
+<!--                    <input type="text" name="dns_server" id="pDns" class="form-control" -->
+<!--                           placeholder="8.8.8.8, 1.1.1.1">-->
+<!--                    <small class="form-hint">DNS server (pisah dengan koma)</small>-->
+<!--                </div>-->
             </div>
             
             <div class="form-actions">

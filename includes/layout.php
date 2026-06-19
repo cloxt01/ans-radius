@@ -1216,7 +1216,7 @@ if (isset($_GET['switch_router'])) {
                             <span>PPPoE User</span>
                         </a>
                         <a href="<?php echo APP_URL; ?>/admin/pppoe-profile.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'pppoe-profile.php' ? 'active' : ''; ?>">
-                            <i class="ti ti-speedometer"></i>
+                            <i class="ti ti-id"></i>
                             <span>Profiles</span>
                         </a>
                     </div>

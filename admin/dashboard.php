@@ -770,7 +770,7 @@ ob_start();
 
     <!-- ACTION BUTTONS -->
     <div class="actions-row">
-        <a href="customers.php" class="action-btn"><i class="fas fa-file-users"></i> Pelanggan</a>
+        <a href="customers.php" class="action-btn"><i class="fas fa-users"></i> Pelanggan</a>
         <a href="packages.php" class="action-btn"><i class="fas fa-box"></i> Paket</a>
         <a href="invoices.php" class="action-btn"><i class="fas fa-file-invoice"></i> Invoice</a>
         <a href="mikrotik.php" class="action-btn"><i class="fas fa-network-wired"></i> PPPoE</a>
