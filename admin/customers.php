@@ -807,8 +807,8 @@ ob_start();
     }
 </style>
 
-<div class="alert alert-warning">
-    <div style="font-size: 150px;">
+<div class="alert alert-warning" style="flex-direction: column;">
+    <div style="">
         <i class="fas fa-warning"></i>
         <strong>PENTING !!!</strong>
     </div>
