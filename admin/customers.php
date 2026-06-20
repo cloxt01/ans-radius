@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             logError('ONU sync (add customer) failed: ' . $e->getMessage());
                         }
                     }
-                    $_SESSION['last_added_customer_id'] = isset($newCustomerId) ? $newCustomerId : $customerId;
+                    $_SESSION['last_added_customer_id'] =  $customerId;
                     setFlash('success', 'Pelanggan berhasil ditambahkan');
                     logActivity('ADD_CUSTOMER', "Name: {$data['name']}");
                     
