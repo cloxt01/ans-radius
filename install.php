@@ -479,6 +479,25 @@ function createDatabaseTables() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CREATE TABLE agents (
+      id int(11) NOT NULL AUTO_INCREMENT,
+      username varchar(50) NOT NULL,
+      password varchar(255) NOT NULL,
+      name varchar(100) NOT NULL,
+      phone varchar(20) DEFAULT NULL,
+      fee decimal(10,2) DEFAULT NULL,
+      status enum('active','inactive') DEFAULT 'active',
+      last_login datetime DEFAULT NULL,
+      lat decimal(11,8) DEFAULT NULL,
+      lng decimal(11,8) DEFAULT NULL,
+      created_at timestamp NOT NULL DEFAULT current_timestamp(),
+      updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (id),
+      UNIQUE KEY username (username),
+      UNIQUE KEY phone (phone)
+      
+      
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     
     CREATE TABLE IF NOT EXISTS customers (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -487,6 +506,7 @@ function createDatabaseTables() {
         pppoe_username VARCHAR(50) UNIQUE NOT NULL,
         package_id INT,
         router_id INT DEFAULT 0,
+        agent_id INT DEFAULT NULL,
         status ENUM('active', 'isolated') DEFAULT 'active',
         auto_isolate TINYINT(1) NOT NULL DEFAULT 1,
         isolation_date DATETIME DEFAULT NULL,
@@ -504,6 +524,7 @@ function createDatabaseTables() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE SET NULL,
         FOREIGN KEY (installed_by) REFERENCES technician_users(id) ON DELETE SET NULL
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
     CREATE TABLE IF NOT EXISTS fiktif_customers (

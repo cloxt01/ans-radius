@@ -84,6 +84,45 @@ function requireAdminLogin() {
         redirect(APP_URL . '/admin/login.php');
     }
 }
+// Agent Authentication
+function agentLogin($username, $password) {
+    $agent = fetchOne("SELECT * FROM agents WHERE username = ?", [$username]);
+
+    if (!$agent) {
+        return false;
+    }
+
+    if (password_verify($password, $agent['password'])) {
+        session_regenerate_id(true);
+        $_SESSION['agent'] = [
+            'id' => $agent['id'],
+            'username' => $agent['username'],
+            'phone' => $agent['phone'],
+            'logged_in' => true,
+            'login_time' => time()
+        ];
+
+        logActivity('AGEN_LOGIN', "Username: {$username}");
+        return true;
+    }
+
+    return false;
+}
+
+function agentLogout() {
+    logActivity('AGEN_LOGOUT', "Username: " . ($_SESSION['agent']['username'] ?? 'unknown'));
+
+    unset($_SESSION['agent']);
+
+    redirect(APP_URL . '/agents/login.php');
+}
+
+function requireAgentLogin() {
+    if (!isAgentLoggedIn()) {
+        setFlash('error', 'Silakan login terlebih dahulu');
+        redirect(APP_URL . '/agents/login.php');
+    }
+}
 
 // Customer Authentication
 function customerLogin($phone, $password) {

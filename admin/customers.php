@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'pppoe_username' => sanitize($_POST['pppoe_username']),
                     'package_id' => (int)$_POST['package_id'],
                     'router_id' => (int)($_POST['router_id'] ?? 0),
+                    'agent_id' => (int)$_POST['agent_id'] ?? null,
                     'isolation_date' => !empty($_POST['isolation_date']) ? $_POST['isolation_date'] : date('Y-m-d', strtotime('+1 month', strtotime(date('Y-m-20')))),
                     'address' => sanitize($_POST['address']),
                     'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
@@ -148,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'phone' => sanitize($_POST['phone']),
                     'package_id' => (int)$_POST['package_id'],
                     'router_id' => (int)($_POST['router_id'] ?? 0),
-                    'isolation_date' => !empty($_POST['isolation_date']) ? $_POST['isolation_date'] : date('Y-m-d', strtotime('+1 month')),
+                    'agent_id' => !empty($_POST['agent_id']) ? (int)$_POST['agent_id'] : null, 'isolation_date' => !empty($_POST['isolation_date']) ? $_POST['isolation_date'] : date('Y-m-d', strtotime('+1 month')),
                     'address' => sanitize($_POST['address']),
                     'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
                     'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
@@ -291,10 +292,11 @@ $offset = ($page - 1) * $perPage;
 $customersTableExists = tableExists('customers');
 $packagesTableExists = tableExists('packages');
 $routersTableExists = tableExists('routers');
+$agentsTableExists = tableExists('agents');
 
 // Get technicians
 $technicians = fetchAll("SELECT * FROM technician_users WHERE status = 'active' ORDER BY name ASC");
-
+$agents = fetchAll("SELECT * FROM agents WHERE status = 'active' ORDER BY name ASC");
 if ($customersTableExists) {
     // Read filter parameters (used for initial server-side listing when provided)
     $search = trim((string)($_GET['search'] ?? ''));
@@ -375,6 +377,7 @@ if ($customersTableExists) {
         $packagesTableExists ? 'p.name as package_name' : "'Tanpa Paket' as package_name",
         $packagesTableExists ? 'p.price as package_price' : "'0' as package_price",
         $routersTableExists ? 'r.name as router_name' : "'' as router_name",
+        'a.name as agent_name',
         'COALESCE(onu.odp_id, NULL) as onu_odp_id',
         'IF(rc.username IS NOT NULL, TRUE, FALSE) as in_radius'
         , '(SELECT MAX(i.paid_at) FROM invoices i WHERE i.customer_id = c.id AND i.status = \'paid\') as last_paid'
@@ -387,7 +390,9 @@ if ($customersTableExists) {
     if ($routersTableExists) {
         $joinParts[] = 'LEFT JOIN routers r ON c.router_id = r.id';
     }
-    
+    $joinParts[] = 'LEFT JOIN agents ON c.agent_id = a.id';
+
+
     // LEFT JOIN untuk ONU locations
     $joinParts[] = 'LEFT JOIN onu_locations onu ON onu.serial_number = c.pppoe_username';
     
@@ -919,6 +924,15 @@ ob_start();
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">Agen / Reseller (Opsional)</label>
+                        <select name="agent_id" id="edit_agent_id" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
+                            <option value="">-- Tanpa Agen --</option>
+                            <?php foreach ($agents as $ag): ?>
+                                <option value="<?php echo $ag['id']; ?>"><?php echo htmlspecialchars($ag['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
 
                     <div class="form-group">
                         <label class="form-label">Tanggal Isolir</label>
@@ -1344,6 +1358,26 @@ ob_start();
                                 <option value="<?php echo $r['id']; ?>">
                                     <?php echo htmlspecialchars($r['name']); ?> (<?php echo htmlspecialchars($r['host']); ?>)
                                 </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Teknisi Instalasi (Opsional)</label>
+                        <select name="installed_by" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
+                            <option value="">-- Pilih Teknisi --</option>
+                            <?php foreach ($technicians as $tech): ?>
+                                <option value="<?php echo $tech['id']; ?>"><?php echo htmlspecialchars($tech['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Agen / Reseller (Opsional)</label>
+                        <select name="agent_id" id="edit_agent_id" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
+                            <option value="">-- Tanpa Agen --</option>
+                            <?php foreach ($agents as $ag): ?>
+                                <option value="<?php echo $ag['id']; ?>"><?php echo htmlspecialchars($ag['name']); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>

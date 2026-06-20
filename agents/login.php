@@ -1,6 +1,6 @@
-﻿<?php
+<?php
 /**
- * Customer Portal Login
+ * Agen Login Page
  */
 
 require_once '../includes/auth.php';
@@ -11,7 +11,7 @@ header('Pragma: no-cache');
 header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 
 // Check if already logged in
-if (isCustomerLoggedIn()) {
+if (isAgentLoggedIn()) {
     redirect('dashboard.php');
 }
 
@@ -23,55 +23,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('login.php');
     }
 
-    $phone = $_POST['phone'] ?? '';
+    $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
-    $throttleStatus = getLoginThrottleStatus('customer', $phone, 5, 900, 900);
+    $throttleStatus = getLoginThrottleStatus('agent', $username, 5, 900, 900);
     if ($throttleStatus['blocked']) {
         $retryAfter = max(1, (int) ceil($throttleStatus['retry_after'] / 60));
         setFlash('error', 'Terlalu banyak percobaan login. Coba lagi dalam ' . $retryAfter . ' menit.');
         redirect('login.php');
     }
 
-    if (customerLogin($phone, $password)) {
-        clearLoginFailures('customer', $phone);
+    if (agentLogin($username, $password)) {
+        clearLoginFailures('agent', $username);
         setFlash('success', 'Login berhasil! Selamat datang.');
         redirect('dashboard.php');
     } else {
-        addLoginFailure('customer', $phone, 5, 900, 900);
-        setFlash('error', 'Nomor HP atau password salah!');
+        addLoginFailure('agent', $username, 5, 900, 900);
+        setFlash('error', 'Username atau password salah!');
         redirect('login.php');
     }
 }
 
 
-
 $appName = getSetting('app_name', 'ANS Radius');
-$pageTitle = 'Login Pelanggan';
+$pageTitle = 'Login Agen';
 $content = '';
 
 ob_start();
 ?>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title><?php echo htmlspecialchars($pageTitle . ' - ' . $appName); ?></title>
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#0d1117">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="apple-mobile-web-app-title" content="Portal Pelanggan">
-    <link rel="manifest" href="<?php echo APP_URL; ?>/manifest.json">
-    <link rel="apple-touch-icon" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800;14..32,900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
+<div class="login-wrap">
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+
+    <div class="login-card">
+        <div class="brand">
+            <img src="<?php echo APP_URL; ?>/assets/icons/icon.webp" class="login-header-icon" alt="Icon">
+            <p class="login-subtitle">Portal Agen</p>
+        </div>
+
+        <?php if (hasFlash('error')): ?>
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <?php echo htmlspecialchars(getFlash('error')); ?>
+            </div>
+        <?php endif; ?>
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-user"></i> Username
+                </label>
+                <input type="text" name="username" class="form-control" placeholder="Masukkan username" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-lock"></i> Password
+                </label>
+                <input type="password" name="password" class="form-control" placeholder="Masukkan password" required>
+            </div>
+
+            <button type="submit" class="btn-login">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+        </form>
+
+        <div class="login-footer">
+            <p><i class="fas fa-shield-alt"></i> Ganti password setelah login pertama.</p>
+<!--            <a href="forgot_password.php"><i class="fas fa-unlock-alt"></i> Lupa password?</a>-->
+            <a href="../index.php"><i class="fas fa-arrow-left"></i> Kembali ke Beranda</a>
+        </div>
+    </div>
+</div>
+
 <style>
     /* ==================== GITHUB DARK THEME ==================== */
     :root {
@@ -100,9 +126,9 @@ ob_start();
     }
 
     * {
-        box-sizing: border-box;
         margin: 0;
         padding: 0;
+        box-sizing: border-box;
     }
 
     body {
@@ -155,9 +181,10 @@ ob_start();
         opacity: 0.1;
     }
 
-    .login-container {
+    /* Login Container */
+    .login-wrap {
         width: 100%;
-        max-width: 480px;
+        max-width: 460px;
         margin: 20px;
         position: relative;
         z-index: 1;
@@ -193,7 +220,6 @@ ob_start();
         box-shadow: var(--shadow-small);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         padding: 8px;
-        object-fit: contain;
     }
 
     .login-header-icon:hover {
@@ -201,11 +227,11 @@ ob_start();
         box-shadow: var(--shadow-medium);
     }
 
-    .login-title {
-        font-size: 1.6rem;
+    .brand h1 {
+        font-size: 1.75rem;
         font-weight: 700;
         letter-spacing: -0.02em;
-        margin-bottom: 4px;
+        margin-bottom: 8px;
         background: linear-gradient(135deg, var(--accent-blue), var(--accent-green));
         -webkit-background-clip: text;
         background-clip: text;
@@ -327,22 +353,6 @@ ob_start();
         transform: translateY(0);
     }
 
-    /* Help Box */
-    .login-help {
-        margin-top: 20px;
-        padding: 14px 16px;
-        background: var(--accent-blue-soft);
-        border: 1px solid rgba(47, 129, 247, 0.25);
-        border-radius: 12px;
-        color: var(--accent-blue);
-        font-size: 0.8rem;
-        text-align: center;
-    }
-
-    .login-help i {
-        margin-right: 8px;
-    }
-
     /* Footer Links */
     .login-footer {
         text-align: center;
@@ -382,70 +392,23 @@ ob_start();
         font-size: 0.75rem;
     }
 
-    /* ==================== RESPONSIVE ==================== */
+    /* Responsive */
     @media (max-width: 520px) {
-        .login-container {
-            margin: 0;
-            max-width: 100%;
-        }
-
         .login-card {
             padding: 32px 24px;
-            border-radius: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
         }
 
         .login-header-icon {
             width: 72px;
             height: 72px;
-            padding: 6px;
         }
 
-        .login-title {
-            font-size: 1.8rem;
-        }
-
-        .login-subtitle {
-            font-size: 0.9rem;
-        }
-
-        .form-group {
-            margin-bottom: 24px;
-        }
-
-        .form-label {
-            font-size: 0.8rem;
-            margin-bottom: 10px;
-        }
-
-        .form-control {
-            padding: 14px 16px;
-            font-size: 1rem;
-            border-radius: 12px;
+        .brand h1 {
+            font-size: 1.5rem;
         }
 
         .btn-login {
-            padding: 14px 18px;
-            font-size: 1rem;
-            border-radius: 12px;
-            margin-top: 12px;
-        }
-
-        .login-help {
-            font-size: 0.85rem;
-            padding: 12px 14px;
-        }
-
-        .login-footer {
-            margin-top: 24px;
-        }
-
-        .login-footer a {
-            font-size: 0.85rem;
-            margin: 8px 6px;
+            padding: 11px 14px;
         }
     }
 
@@ -475,67 +438,43 @@ ob_start();
         }
     }
 </style>
+
+<?php
+$content = ob_get_clean();
+
+// Simple layout without sidebar for login
+?>
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $pageTitle; ?> - <?php echo htmlspecialchars($appName); ?></title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#0d1117">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Agen Panel">
+    <link rel="manifest" href="<?php echo APP_URL; ?>/manifest.json">
+    <link rel="apple-touch-icon" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800;14..32,900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<div class="login-container">
-    <div class="bg-orb orb-1"></div>
-    <div class="bg-orb orb-2"></div>
-    <div class="bg-orb orb-3"></div>
 
-    <div class="login-card">
-        <div class="brand">
-            <img src="<?php echo APP_URL; ?>/assets/icons/icon.webp" alt="<?php echo htmlspecialchars($appName); ?>" class="login-header-icon">
-            <p class="login-subtitle">
-                <i class="fas fa-users"></i> Portal Pelanggan
-            </p>
-        </div>
-
-        <?php if (hasFlash('error')): ?>
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i>
-                <?php echo htmlspecialchars(getFlash('error')); ?>
-            </div>
-        <?php endif; ?>
-
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-            
-            <div class="form-group">
-                <label class="form-label">
-                    <i class="fas fa-phone-alt"></i> Nomor HP
-                </label>
-                <input type="text" name="phone" class="form-control" placeholder="08xxxxxxxxxx" required autofocus>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">
-                    <i class="fas fa-lock"></i> Password
-                </label>
-                <input type="password" name="password" class="form-control" placeholder="Masukkan password" required>
-            </div>
-
-            <button type="submit" class="btn-login">
-                <i class="fas fa-sign-in-alt"></i> Login
-            </button>
-        </form>
-
-        <div class="login-help">
-            <i class="fas fa-info-circle"></i>
-            Belum punya akun atau Lupa Password? Hubungi admin.
-        </div>
-
-        <div class="login-footer">
-            <a href="../index.php">
-                <i class="fas fa-arrow-left"></i> Kembali ke Beranda
-            </a>
-        </div>
-    </div>
-</div>
+<body>
+<?php echo $content; ?>
 
 <script>
     // Register Service Worker for PWA
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-            navigator.serviceWorker.register('/sw.js')
+            navigator.serviceWorker.register('/sw.js?v=git')
                 .then(function(registration) {
                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
                 })
@@ -545,10 +484,6 @@ ob_start();
         });
     }
 </script>
-
-<?php
-$content = ob_get_clean();
-echo $content;
-?>
 </body>
+
 </html>

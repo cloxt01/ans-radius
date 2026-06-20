@@ -1232,10 +1232,24 @@ if (isset($_GET['switch_router'])) {
                         <i class="ti ti-alert-triangle"></i>
                         <span>Gangguan</span>
                     </a>
-                    <a href="<?php echo APP_URL; ?>/admin/technicians.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'technicians.php' ? 'active' : ''; ?>">
-                        <i class="ti ti-tools"></i>
-                        <span>Teknisi</span>
-                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Users</div>
+                    <div class="menu-item" onclick="toggleSubmenu(this)">
+                        <i class="ti ti-network"></i>
+                        <span>Users</span>
+                        <span class="submenu-arrow ti ti-chevron-down"></span>
+                    </div>
+                    <div class="submenu">
+                        <a href="<?php echo APP_URL; ?>/admin/technicians.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'technicians.php' ? 'active' : ''; ?>">
+                            <i class="ti ti-tools"></i>
+                            <span>Teknisi</span>
+                        </a>
+                        <a href="<?php echo APP_URL; ?>/admin/agents.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'agents.php' ? 'active' : ''; ?>">
+                            <i class="ti ti-users"></i>
+                            <span>Agen</span>
+                        </a>
+                    </div>
                 </div>
 
                 <div class="nav-section">

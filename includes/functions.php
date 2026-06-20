@@ -2012,6 +2012,19 @@ function isAdminLoggedIn()
     }
     return true;
 }
+// Check if agent is logged in
+function isAgentLoggedIn()
+{
+    if (!isset($_SESSION['agent']['logged_in']) || $_SESSION['agent']['logged_in'] !== true) {
+        return false;
+    }
+    $loginTime = $_SESSION['agent']['login_time'] ?? null;
+    if (is_numeric($loginTime) && (time() - (int) $loginTime) > 43200) {
+        unset($_SESSION['agent']);
+        return false;
+    }
+    return true;
+}
 
 // Check if customer is logged in
 function isCustomerLoggedIn()
@@ -2031,6 +2044,10 @@ function isCustomerLoggedIn()
 function getCurrentAdmin()
 {
     return $_SESSION['admin'] ?? null;
+}
+function getCurrentAgent()
+{
+    return $_SESSION['agent'] ?? null;
 }
 
 function getFiktifCustomers($onlyActive = false) {
