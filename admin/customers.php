@@ -440,7 +440,7 @@ ob_start();
             <h3 style="color:var(--accent-green); margin-bottom:8px;">Pelanggan Berhasil Ditambahkan!</h3>
             <p style="color:var(--text-secondary); margin-bottom:20px;">Mau langsung buat pembayaran untuk pelanggan ini?</p>
             <div style="display:flex; gap:10px; justify-content:center;">
-                <a href="pay_process.php?customer_id=<?= $_SESSION['last_added_customer_id']; ?>"
+                <a href="pay_process.php?id=<?= $_SESSION['last_added_customer_id']; ?>"
                    class="btn btn-success" style="padding:10px 20px;">
                     <i class="fas fa-money-bill-wave"></i> Buat Pembayaran
                 </a>
