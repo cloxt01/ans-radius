@@ -390,7 +390,7 @@ if ($customersTableExists) {
     if ($routersTableExists) {
         $joinParts[] = 'LEFT JOIN routers r ON c.router_id = r.id';
     }
-    $joinParts[] = 'LEFT JOIN agents ON c.agent_id = a.id';
+    $joinParts[] = 'LEFT JOIN agents a ON c.agent_id = a.id';
 
 
     // LEFT JOIN untuk ONU locations
