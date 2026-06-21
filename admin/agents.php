@@ -129,6 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch all agents
 $agents = fetchAll("SELECT * FROM agents ORDER BY name ASC");
+$count_c = array_column(fetchAll("SELECT agent_id, COUNT(*) as total FROM customers GROUP BY agent_id"), 'total', 'agent_id');
 
 ob_start();
 ?>
@@ -210,6 +211,7 @@ ob_start();
                     <th>Kontak</th>
                     <th>Lokasi GPS</th>
                     <th>Fee/Komisi</th>
+                    <th>Total Pelanggan</th>
                     <th>Status & Login</th>
                     <th>Aksi</th>
                 </tr>
@@ -262,6 +264,9 @@ ob_start();
                             </td>
                             <td data-label="Fee/Komisi">
                                 <strong>Rp <?php echo number_format($a['fee'], 0, ',', '.'); ?></strong>
+                            </td>
+                            <td data-label="Total Pelanggan">
+                                <span class="badge badge-info"><?php echo($count_c[$a['id']])?></span>
                             </td>
                             <td data-label="Status & Login">
                                 <div>
