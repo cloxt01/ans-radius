@@ -372,7 +372,7 @@ if ($customersTableExists) {
 
     // Build query with proper JOINs to avoid N+1 queries
     $selectParts = [
-        'c.id', 'c.name', 'c.phone', 'c.pppoe_username', 'c.package_id', 'c.router_id',
+        'c.id','c.name', 'c.phone', 'c.pppoe_username', 'c.package_id', 'c.router_id', 'c.agent_id',
         'c.isolation_date', 'c.address', 'c.lat', 'c.lng', 'c.status', 'c.created_at', 'c.auto_isolate', 'c.installed_by', 'c.ip_address', 'c.mac_address',
         $packagesTableExists ? 'p.name as package_name' : "'Tanpa Paket' as package_name",
         $packagesTableExists ? 'p.price as package_price' : "'0' as package_price",
@@ -1377,7 +1377,7 @@ ob_start();
                         <select name="agent_id" id="edit_agent_id" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
                             <option value="">-- Tanpa Agen --</option>
                             <?php foreach ($agents as $ag): ?>
-                                <option value="<?php echo $ag['id']; ?>"><?php echo htmlspecialchars($ag['name']); ?></option>
+                                <option  value="<?php echo $ag['id']; ?>"><?php echo htmlspecialchars($ag['name']); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -2313,6 +2313,7 @@ function editCustomer(customer) {
     if (autoIsolate) {
         autoIsolate.checked = String(customer.auto_isolate ?? 1) === '1';
     }
+    document.getElementById('edit_agent_id').value = customer.agent_id;
     document.getElementById('edit_address').value = customer.address || '';
     document.getElementById('edit_lat').value = customer.lat || '';
     document.getElementById('edit_lng').value = customer.lng || '';
