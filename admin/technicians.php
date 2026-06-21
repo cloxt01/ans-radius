@@ -7,97 +7,131 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 
 $pageTitle = 'Manajemen Teknisi';
-
+$workdir = 'admin/technicians.php';
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
+        AppLog('TECHNICIAN_CSRF_FAILED', $workdir, "CSRF token tidak valid", json_encode(['ip' => $_SERVER['REMOTE_ADDR']]));
         setFlash('error', 'Invalid CSRF token');
         redirect('technicians.php');
     }
 
     if (isset($_POST['action'])) {
-        switch ($_POST['action']) {
+        $action = $_POST['action'];
+        AppLog('TECHNICIAN_ACTION_RECEIVED', $workdir, "Menerima aksi teknisi", json_encode(['action' => $action]));
+
+        switch ($action) {
             case 'add':
                 $username = sanitize($_POST['username']);
-                
+                $password = $_POST['password'] ?? '';
+                $name = sanitize($_POST['name']);
+                $phone = sanitize($_POST['phone']);
+                $logData = ['username' => $username, 'name' => $name, 'phone' => $phone];
+                AppLog('TECHNICIAN_ADD_ATTEMPT', $workdir, "Mencoba menambahkan teknisi", json_encode($logData));
+
                 if (strlen($username) < 3 || !preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
+                    AppLog('TECHNICIAN_ADD_FAILED', $workdir, "Username tidak valid", json_encode($logData));
                     setFlash('error', 'Username minimal 3 karakter, hanya huruf, angka, dan underscore');
                     redirect('technicians.php');
                 }
-                
-                if (strlen($_POST['password']) < 6) {
+
+                if (strlen($password) < 6) {
+                    AppLog('TECHNICIAN_ADD_FAILED', $workdir, "Password terlalu pendek", json_encode($logData));
                     setFlash('error', 'Password minimal 6 karakter');
                     redirect('technicians.php');
                 }
-                
+
                 $existing = fetchOne("SELECT id FROM technician_users WHERE username = ?", [$username]);
                 if ($existing) {
+                    AppLog('TECHNICIAN_ADD_FAILED', $workdir, "Username sudah digunakan", json_encode($logData));
                     setFlash('error', 'Username sudah digunakan');
                     redirect('technicians.php');
                 }
-                
+
                 $data = [
-                    'name' => sanitize($_POST['name']),
-                    'username' => $username,
-                    'password' => password_hash($_POST['password'], PASSWORD_DEFAULT),
-                    'phone' => sanitize($_POST['phone']),
-                    'status' => 'active',
-                    'created_at' => date('Y-m-d H:i:s')
+                        'name' => $name,
+                        'username' => $username,
+                        'password' => password_hash($password, PASSWORD_DEFAULT),
+                        'phone' => $phone,
+                        'status' => 'active',
+                        'created_at' => date('Y-m-d H:i:s')
                 ];
-                
+
                 if (insert('technician_users', $data)) {
+                    AppLog('TECHNICIAN_ADD_SUCCESS', $workdir, "Teknisi berhasil ditambahkan", json_encode($logData));
                     setFlash('success', 'Teknisi berhasil ditambahkan');
                     logActivity('ADD_TECHNICIAN', "Name: {$data['name']}");
                 } else {
+                    AppLog('TECHNICIAN_ADD_FAILED', $workdir, "Gagal menyimpan teknisi ke DB", json_encode($logData));
                     setFlash('error', 'Gagal menambahkan teknisi');
                 }
                 redirect('technicians.php');
                 break;
-                
+
             case 'edit':
                 $id = (int)$_POST['id'];
                 $data = [
-                    'name' => sanitize($_POST['name']),
-                    'phone' => sanitize($_POST['phone']),
-                    'status' => sanitize($_POST['status']),
-                    'updated_at' => date('Y-m-d H:i:s')
+                        'name' => sanitize($_POST['name']),
+                        'phone' => sanitize($_POST['phone']),
+                        'status' => sanitize($_POST['status']),
+                        'updated_at' => date('Y-m-d H:i:s')
                 ];
-                
-                if (!empty($_POST['password'])) {
-                    if (strlen($_POST['password']) < 6) {
+                $password = $_POST['password'] ?? '';
+                $logData = ['id' => $id, 'name' => $data['name'], 'status' => $data['status']];
+                AppLog('TECHNICIAN_EDIT_ATTEMPT', $workdir, "Mencoba mengupdate teknisi", json_encode($logData));
+
+                if (!empty($password)) {
+                    if (strlen($password) < 6) {
+                        AppLog('TECHNICIAN_EDIT_FAILED', $workdir, "Password baru terlalu pendek", json_encode($logData));
                         setFlash('error', 'Password minimal 6 karakter');
                         redirect('technicians.php');
                     }
-                    $data['password'] = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                    $data['password'] = password_hash($password, PASSWORD_DEFAULT);
                 }
-                
+
                 if (update('technician_users', $data, 'id = ?', [$id])) {
+                    AppLog('TECHNICIAN_EDIT_SUCCESS', $workdir, "Data teknisi berhasil diperbarui", json_encode($logData));
                     setFlash('success', 'Data teknisi berhasil diperbarui');
                     logActivity('UPDATE_TECHNICIAN', "ID: {$id}");
                 } else {
+                    AppLog('TECHNICIAN_EDIT_FAILED', $workdir, "Gagal mengupdate teknisi", json_encode($logData));
                     setFlash('error', 'Gagal memperbarui teknisi');
                 }
                 redirect('technicians.php');
                 break;
-                
+
             case 'delete':
                 $id = (int)$_POST['id'];
-                
+                AppLog('TECHNICIAN_DELETE_ATTEMPT', $workdir, "Mencoba menghapus teknisi", json_encode(['id' => $id]));
+
                 $activeTickets = fetchOne("SELECT COUNT(*) as total FROM trouble_tickets WHERE technician_id = ? AND status != 'resolved'", [$id]);
                 if ($activeTickets['total'] > 0) {
+                    AppLog('TECHNICIAN_DELETE_FAILED', $workdir, "Teknisi masih memiliki tugas aktif", json_encode(['id' => $id, 'active_tickets' => $activeTickets['total']]));
                     setFlash('error', 'Teknisi ini masih memiliki tugas aktif. Tidak bisa dihapus.');
                     redirect('technicians.php');
                 }
-                
+
                 if (delete('technician_users', 'id = ?', [$id])) {
+                    AppLog('TECHNICIAN_DELETE_SUCCESS', $workdir, "Teknisi berhasil dihapus", json_encode(['id' => $id]));
                     setFlash('success', 'Teknisi berhasil dihapus');
                     logActivity('DELETE_TECHNICIAN', "ID: {$id}");
                 } else {
+                    AppLog('TECHNICIAN_DELETE_FAILED', $workdir, "Gagal menghapus teknisi", json_encode(['id' => $id]));
                     setFlash('error', 'Gagal menghapus teknisi');
                 }
                 redirect('technicians.php');
                 break;
+
+            default:
+                AppLog('TECHNICIAN_UNKNOWN_ACTION', $workdir, "Aksi tidak dikenali", json_encode(['action' => $action]));
+                setFlash('error', 'Aksi tidak dikenali.');
+                redirect('technicians.php');
+                break;
         }
+    } else {
+        AppLog('TECHNICIAN_NO_ACTION', $workdir, "Tidak ada aksi yang dikirim", json_encode([]));
+        // optional redirect or set flash? original does not handle, but we can leave as is.
+        redirect('technicians.php');
     }
 }
 

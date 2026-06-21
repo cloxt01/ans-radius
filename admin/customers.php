@@ -8,8 +8,10 @@ require_once '../includes/radius.php';
 requireAdminLogin();
 
 $pageTitle = 'Pelanggan';
+$workdir = 'admin/customers.php';
 $hasAutoIsolate = ensureCustomersAutoIsolateColumn();
 
+// Handle form submissions
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Verify CSRF token
@@ -40,9 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($hasAutoIsolate) {
                     $data['auto_isolate'] = isset($_POST['auto_isolate']) ? 1 : 0;
                 }
+                AppLog('ADD_CUSTOMER_ATTEMPT', $workdir, "Mencoba menambahkan pelanggan", json_encode($data));
+
 
                 $customerId = insert('customers', $data);
                 if ($customerId) {
+                    AppLog('ADD_CUSTOMER_SUCCESS', $workdir, "Berhasil menambahkan pelanggan", json_encode(['id' => $customerId, 'data' => $data]));
+
                     // Sync RADIUS timeout if username exists in radcheck
                     if (!radiusIsUserExistsByUsername($data['pppoe_username'])) {
                         $profile = getProfileFromPackageId($data['package_id'])['profile_normal'] ?? null;
@@ -50,9 +56,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             logError('Failed to sync RADIUS for new customer - profile not found. Customer ID: ' . $customerId);
                         }
                         # Add ke RADIUS
-                        mikrotikAddSecret($data['pppoe_username'], $pppoePassword, $profile);
+                        $ok = mikrotikAddSecret($data['pppoe_username'], $pppoePassword, $profile);
+                        if ($ok) {
+                            AppLog('ADD_RADIUS_SUCCESS', $workdir, "Berhasil menambahkan pelanggan", json_encode(['username' => $data['pppoe_username'], 'password' => $pppoePassword, 'profile' => $profile]));
+                        } else {
+                            AppLog('ADD_RADIUS_FAILED', $workdir, "Gagal menambahkan pelanggan", json_encode(['username' => $data['pppoe_username'], 'password' => $pppoePassword, 'profile' => $profile]));
+                        }
                     }
                     if (!empty($data['pppoe_username'])) {
+                        AppLog('SYNC_RADIUS_TIMEOUT', $workdir, "Berhasil menambahkan pelanggan", json_encode(['id' => $customerId, 'username' => $data['pppoe_username']]));
                         syncRadiusTimeoutForCustomer($data['pppoe_username'], $customerId);
                     }
 
@@ -61,7 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $odpId = isset($_POST['odp_id']) && $_POST['odp_id'] !== '' ? (int)$_POST['odp_id'] : null;
                     if ($saveOnu) {
                         try {
-                            $serial = $data['pppoe_username']; // Use PPPoE username as identifier if serial not known yet
+                            $serial = $data['pppoe_username'];
+                            AppLog('UPSERT_ONU_ATTEMPT', $workdir, "Mencoba menambahkan atau mengupdate ONU", json_encode(['odp_id' => $odpId, 'serial' => $serial]));
+
                             $exists = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$serial]);
                             $payload = [
                                     'name' => $data['name'],
@@ -71,10 +85,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     'updated_at' => date('Y-m-d H:i:s')
                             ];
                             if ($exists) {
+                                AppLog('UPDATE_ONU', $workdir, "Mencoba mengupdate ONU", json_encode(['serial_number' => $serial, 'payload' => $payload]));
                                 update('onu_locations', $payload, 'serial_number = ?', [$serial]);
                             } else {
                                 $payload['serial_number'] = $serial;
                                 $payload['created_at'] = date('Y-m-d H:i:s');
+                                AppLog('INSERT_ONU', $workdir, "Mencoba menambahkan ONU", json_encode(['serial_number' => $serial, 'payload' => $payload]));
                                 insert('onu_locations', $payload);
                             }
 
@@ -106,10 +122,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $msg .= "Maps: https://www.google.com/maps?q={$data['lat']},{$data['lng']}\n\n";
                             $msg .= "Mohon segera diproses. Terima kasih.";
 
-                            sendWhatsAppMessage($tech['phone'], $msg);
+                            $waSent = sendWhatsAppMessage($tech['phone'], $msg);
+                            AppLog($waSent ? 'NOTIFY_TECHNICIAN_SUCCESS' : 'NOTIFY_TECHNICIAN_FAILED', $workdir, $waSent ? "Berhasil mengirim notifikasi instalasi ke teknisi" : "Gagal mengirim notifikasi instalasi ke teknisi", json_encode(['customer_id' => $customerId, 'technician_id' => $data['installed_by'], 'phone' => $tech['phone']]));
                         }
                     }
                 } else {
+                    AppLog('ADD_CUSTOMER_FAILED', $workdir, "Gagal menambahkan pelanggan", json_encode($data));
                     setFlash('error', 'Gagal menambahkan pelanggan');
                 }
                 redirect('customers.php');
@@ -129,16 +147,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $new_username = sanitize($_POST['pppoe_username']);
                 $new_password = isset($_POST['pppoe_password']) ? trim((string)$_POST['pppoe_password']) : '';
 
+                AppLog('EDIT_CUSTOMER_ATTEMPT', $workdir, "Mencoba mengupdate pelanggan", json_encode(['id' => $customerId, 'old_username' => $customer_username, 'new_username' => $new_username]));
+
                 // 1. Sinkronisasi Perubahan Username di RADIUS
                 if ($customer_username !== $new_username) {
-                    radiusRenameUser($customer_username, $new_username);
+                    AppLog('RADIUS_RENAME_ATTEMPT', $workdir, "Mencoba mengganti username RADIUS", json_encode(['old' => $customer_username, 'new' => $new_username]));
+                    $renameOk = radiusRenameUser($customer_username, $new_username);
+                    AppLog($renameOk ? 'RADIUS_RENAME_SUCCESS' : 'RADIUS_RENAME_FAILED', $workdir, $renameOk ? "Berhasil mengganti username RADIUS" : "Gagal mengganti username RADIUS", json_encode(['old' => $customer_username, 'new' => $new_username]));
                 }
 
                 if ($new_password !== '') {
                     $old_radius_password = trim((string)radiusGetUserPassword($new_username));
 
                     if ($old_radius_password !== $new_password) {
-                        radiusUpdateUserPassword($new_username, $new_password);
+                        AppLog('RADIUS_PASSWORD_UPDATE_ATTEMPT', $workdir, "Mencoba mengupdate password RADIUS", json_encode(['username' => $new_username]));
+                        $pwOk = radiusUpdateUserPassword($new_username, $new_password);
+                        AppLog($pwOk ? 'RADIUS_PASSWORD_UPDATE_SUCCESS' : 'RADIUS_PASSWORD_UPDATE_FAILED', $workdir, $pwOk ? "Berhasil mengupdate password RADIUS" : "Gagal mengupdate password RADIUS", json_encode(['username' => $new_username]));
                     }
                 }
 
@@ -162,9 +186,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if (update('customers', $data, 'id = ?', [$customerId])) {
+                    AppLog('EDIT_CUSTOMER_SUCCESS', $workdir, "Berhasil mengupdate pelanggan", json_encode(['id' => $customerId, 'data' => $data]));
+
                     // Get updated customer data for RADIUS sync
                     $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
                     if ($customer && !empty($customer['pppoe_username'])) {
+                        AppLog('SYNC_RADIUS_TIMEOUT', $workdir, "Berhasil mengupdate pelanggan", json_encode(['id' => $customerId, 'username' => $customer['pppoe_username']]));
                         syncRadiusTimeoutForCustomer($customer['pppoe_username'], $customerId);
                     }
 
@@ -178,6 +205,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             }
                             if ($customer && !empty($customer['pppoe_username'])) {
                                 $serial = $customer['pppoe_username'];
+                                AppLog('UPSERT_ONU_ATTEMPT', $workdir, "Mencoba menambahkan atau mengupdate ONU", json_encode(['odp_id' => $odpId, 'serial' => $serial]));
+
                                 $exists = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$serial]);
                                 $payload = [
                                         'name' => $data['name'],
@@ -187,10 +216,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         'updated_at' => date('Y-m-d H:i:s')
                                 ];
                                 if ($exists) {
+                                    AppLog('UPDATE_ONU', $workdir, "Mencoba mengupdate ONU", json_encode(['serial_number' => $serial, 'payload' => $payload]));
                                     update('onu_locations', $payload, 'serial_number = ?', [$serial]);
                                 } else {
                                     $payload['serial_number'] = $serial;
                                     $payload['created_at'] = date('Y-m-d H:i:s');
+                                    AppLog('INSERT_ONU', $workdir, "Mencoba menambahkan ONU", json_encode(['serial_number' => $serial, 'payload' => $payload]));
                                     insert('onu_locations', $payload);
                                 }
 
@@ -209,6 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setFlash('success', 'Pelanggan berhasil diperbarui');
                     logActivity('UPDATE_CUSTOMER', "ID: {$customerId}");
                 } else {
+                    AppLog('EDIT_CUSTOMER_FAILED', $workdir, "Gagal mengupdate pelanggan", json_encode(['id' => $customerId, 'data' => $data]));
                     setFlash('error', 'Gagal memperbarui pelanggan');
                 }
                 redirect('customers.php');
@@ -217,14 +249,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'delete':
                 $customerId = (int)$_POST['customer_id'];
                 $customer_username = getPppoeUsernameByCustomerId($customerId);
+                AppLog('DELETE_CUSTOMER_ATTEMPT', $workdir, "Mencoba menghapus pelanggan", json_encode(['id' => $customerId, 'username' => $customer_username]));
+
                 if (radiusIsUserExistsByUsername($customer_username)) {
+                    AppLog('DELETE_RADIUS_ATTEMPT', $workdir, "Mencoba menghapus user RADIUS & sesi aktif", json_encode(['username' => $customer_username]));
                     radiusDeleteUser($customer_username);
                     mikrotikRemoveActiveSessionByName($customer_username);
+                    AppLog('DELETE_RADIUS_SUCCESS', $workdir, "Berhasil menghapus user RADIUS & sesi aktif", json_encode(['username' => $customer_username]));
                 }
                 if (delete('customers', 'id = ?', [$customerId])) {
+                    AppLog('DELETE_CUSTOMER_SUCCESS', $workdir, "Berhasil menghapus pelanggan", json_encode(['id' => $customerId, 'username' => $customer_username]));
                     setFlash('success', 'Pelanggan berhasil dihapus');
                     logActivity('DELETE_CUSTOMER', "ID: {$customerId}");
                 } else {
+                    AppLog('DELETE_CUSTOMER_FAILED', $workdir, "Gagal menghapus pelanggan", json_encode(['id' => $customerId]));
                     setFlash('error', 'Gagal menghapus pelanggan');
                 }
                 redirect('customers.php');
@@ -232,18 +270,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'unisolate':
                 $customerId = (int)$_POST['customer_id'];
+                AppLog('UNISOLATE_CUSTOMER_ATTEMPT', $workdir, "Mencoba membuka isolir pelanggan", json_encode(['id' => $customerId]));
                 if (unisolateCustomer($customerId)) {
+                    AppLog('UNISOLATE_CUSTOMER_SUCCESS', $workdir, "Berhasil membuka isolir pelanggan", json_encode(['id' => $customerId]));
                     setFlash('success', 'Pelanggan berhasil di-unisolate');
                 } else {
+                    AppLog('UNISOLATE_CUSTOMER_FAILED', $workdir, "Gagal membuka isolir pelanggan", json_encode(['id' => $customerId]));
                     setFlash('error', 'Gagal meng-unisolate pelanggan');
                 }
                 redirect('customers.php');
                 break;
             case 'isolate':
                 $customerId = (int)$_POST['customer_id'];
+                AppLog('ISOLATE_CUSTOMER_ATTEMPT', $workdir, "Mencoba mengisolir pelanggan", json_encode(['id' => $customerId]));
                 if (isolateCustomer($customerId)) {
+                    AppLog('ISOLATE_CUSTOMER_SUCCESS', $workdir, "Berhasil mengisolir pelanggan", json_encode(['id' => $customerId]));
                     setFlash('success', 'Pelanggan berhasil diisolir');
                 } else {
+                    AppLog('ISOLATE_CUSTOMER_FAILED', $workdir, "Gagal mengisolir pelanggan", json_encode(['id' => $customerId]));
                     setFlash('error', 'Gagal mengisolir pelanggan');
                 }
                 redirect('customers.php');
@@ -258,7 +302,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $tempPassword = '1234';
+                AppLog('RESET_PORTAL_PASSWORD_ATTEMPT', $workdir, "Mencoba reset password portal pelanggan", json_encode(['id' => $customerId, 'name' => $customer['name']]));
+
                 if (setCustomerPortalPassword($customerId, $tempPassword)) {
+                    AppLog('RESET_PORTAL_PASSWORD_SUCCESS', $workdir, "Berhasil reset password portal pelanggan", json_encode(['id' => $customerId, 'name' => $customer['name']]));
+
                     $waStatus = '';
                     $phone = (string)($customer['phone'] ?? '');
                     if (trim($phone) !== '') {
@@ -271,11 +319,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                         $waSent = sendWhatsApp($phone, $msg);
                         $waStatus = $waSent ? ' Notifikasi WhatsApp terkirim.' : ' Notifikasi WhatsApp gagal terkirim (cek pengaturan gateway).';
+                        AppLog($waSent ? 'RESET_PORTAL_PASSWORD_WA_SUCCESS' : 'RESET_PORTAL_PASSWORD_WA_FAILED', $workdir, $waSent ? "Notifikasi WhatsApp reset password terkirim" : "Notifikasi WhatsApp reset password gagal terkirim", json_encode(['id' => $customerId, 'phone' => $phone]));
                     }
 
                     setFlash('success', 'Password portal pelanggan berhasil direset.' . $waStatus);
                     logActivity('RESET_CUSTOMER_PORTAL_PASSWORD', "ID: {$customerId}");
                 } else {
+                    AppLog('RESET_PORTAL_PASSWORD_FAILED', $workdir, "Gagal reset password portal pelanggan", json_encode(['id' => $customerId]));
                     setFlash('error', 'Gagal reset password portal pelanggan');
                 }
                 redirect('customers.php');
@@ -2461,12 +2511,6 @@ ob_start();
             document.getElementById('edit_address').value = customer.address || '';
             document.getElementById('edit_lat').value = customer.lat || '';
             document.getElementById('edit_lng').value = customer.lng || '';
-
-            console.log('Customer data:', customer);
-            console.log('Agent ID:', customer.agent_id);
-            console.log('Dropdown element:', document.getElementById('edit_agent_id'));
-            document.getElementById('edit_agent_id').value = customer.agent_id;
-            console.log('Selected value after set:', document.getElementById('edit_agent_id').value);
 
             // Set technician
             const techSelect = document.getElementById('edit_installed_by');

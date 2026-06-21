@@ -15,10 +15,12 @@ if (!$customer) {
 }
 
 $pageTitle = 'Bayar Tagihan: ' . $customer['name'];
+$workdir = 'admin/pay_process.php';
 
 // Get Package Info
 $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
 
+// Handle Payment
 // Handle Payment
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Verify CSRF
@@ -30,7 +32,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $selectedMonths = $_POST['selected_months'] ?? [];
     $selectedYear = (int) $_POST['year'];
 
+    // Log awal percobaan pembayaran
+    AppLog('PAYMENT_PROCESS_ATTEMPT', $workdir, "Mencoba memproses pembayaran pelanggan", json_encode([
+            'customer_id' => $id,
+            'selected_months' => $selectedMonths,
+            'year' => $selectedYear,
+            'package_price' => $package['price'] ?? null
+    ]));
+
     if (empty($selectedMonths)) {
+        AppLog('PAYMENT_PROCESS_FAILED', $workdir, "Tidak ada bulan yang dipilih", json_encode(['customer_id' => $id]));
         setFlash('error', 'Pilih minimal 1 bulan.');
         redirect("pay_process.php?id=$id&year=$selectedYear");
     }
@@ -49,13 +60,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($selectedMonths as $monthNum) {
             // Get due date based on payment date (same day)
             $day = (int) date('d', strtotime($paymentDate));
-            
+
             // Adjust if day exceeds month days
             $lastDayOfMonth = (int) date('t', strtotime("$selectedYear-$monthNum-01"));
             if ($day > $lastDayOfMonth) {
                 $day = $lastDayOfMonth;
             }
-            
+
             $dueDate = date('Y-m-d', strtotime("$selectedYear-$monthNum-$day"));
 
             // Check if invoice already exists for this month/year (unpaid)
@@ -63,18 +74,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE customer_id = ? 
                 AND MONTH(due_date) = ? 
                 AND YEAR(due_date) = ? 
-                AND status = 'unpaid'", 
-                [$id, $monthNum, $selectedYear]);
+                AND status = 'unpaid'",
+                    [$id, $monthNum, $selectedYear]);
 
             if ($existingInvoice) {
                 // Update existing unpaid invoice to paid
                 update('invoices', [
-                    'status' => 'paid',
-                    'paid_at' => $paymentDateTime,
-                    'payment_method' => 'manual_admin',
-                    'updated_at' => $paymentDateTime
+                        'status' => 'paid',
+                        'paid_at' => $paymentDateTime,
+                        'payment_method' => 'manual_admin',
+                        'updated_at' => $paymentDateTime
                 ], 'id = ?', [$existingInvoice['id']]);
-                
+
                 $generatedInvoiceIds[] = $existingInvoice['id'];
             } else {
                 // Check if already paid
@@ -82,20 +93,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     WHERE customer_id = ? 
                     AND MONTH(due_date) = ? 
                     AND YEAR(due_date) = ? 
-                    AND status = 'paid'", 
-                    [$id, $monthNum, $selectedYear]);
-                
+                    AND status = 'paid'",
+                        [$id, $monthNum, $selectedYear]);
+
                 if (!$alreadyPaid) {
                     // Create new invoice
                     $invData = [
-                        'invoice_number' => generateInvoiceNumber($id),
-                        'customer_id' => $id,
-                        'amount' => $amountPerMonth,
-                        'status' => 'paid',
-                        'due_date' => $dueDate,
-                        'paid_at' => $paymentDateTime,
-                        'payment_method' => 'manual_admin',
-                        'created_at' => $paymentDateTime
+                            'invoice_number' => generateInvoiceNumber($id),
+                            'customer_id' => $id,
+                            'amount' => $amountPerMonth,
+                            'status' => 'paid',
+                            'due_date' => $dueDate,
+                            'paid_at' => $paymentDateTime,
+                            'payment_method' => 'manual_admin',
+                            'created_at' => $paymentDateTime
                     ];
                     $invId = insert('invoices', $invData);
                     $generatedInvoiceIds[] = $invId;
@@ -105,6 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Unisolate customer if they were isolated
         if ($customer['status'] === 'isolated') {
+            AppLog('PAYMENT_PROCESS_UNISOLATE', $workdir, "Membuka isolir pelanggan karena pembayaran", json_encode(['customer_id' => $id]));
             unisolateCustomer($id);
         }
 
@@ -112,35 +124,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Get the LAST month paid
         $maxMonth = max($selectedMonths);
         $maxYear = $selectedYear;
-        
+
         // Get payment day
         $paymentDay = (int) date('d', strtotime($paymentDate));
-        
+
         // Create date for last paid month
         $lastDayOfLastMonth = (int) date('t', strtotime("$maxYear-$maxMonth-01"));
         if ($paymentDay > $lastDayOfLastMonth) {
             $paymentDay = $lastDayOfLastMonth;
         }
-        
+
         $lastPaidFullDate = date('Y-m-d', strtotime("$maxYear-$maxMonth-$paymentDay"));
-        
+
         // Add 1 month to get next isolation date
         $newIsolationDate = date('Y-m-d', strtotime($lastPaidFullDate . ' +1 month'));
-        
+
         // Adjust if day changed (e.g., Jan 31 -> Feb 28)
         $newDay = (int) date('d', strtotime($newIsolationDate));
         if ($paymentDay != $newDay) {
             $newIsolationDate = date('Y-m-t', strtotime($newIsolationDate));
         }
-        
+
         // Update customer's isolation_date
         $pdo->prepare("UPDATE customers SET isolation_date = ?, updated_at = ? WHERE id = ?")
-            ->execute([$newIsolationDate, $paymentDateTime, $id]);
-        
+                ->execute([$newIsolationDate, $paymentDateTime, $id]);
+
         // Update status to active
         if ($customer['status'] === 'isolated') {
             $pdo->prepare("UPDATE customers SET status = 'active' WHERE id = ?")
-                ->execute([$id]);
+                    ->execute([$id]);
         }
         // ========== END UPDATE ISOLATION DATE ==========
 
@@ -164,13 +176,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         logActivity('RENEW USER', "Customer ID: $id, Months: $monthsCount, Total: $totalBill, Next Isolation: $newIsolationDate");
 
+        // Log sukses
+        AppLog('PAYMENT_PROCESS_SUCCESS', $workdir, "Berhasil memproses pembayaran", json_encode([
+                'customer_id' => $id,
+                'months_count' => $monthsCount,
+                'total_bill' => $totalBill,
+                'new_isolation_date' => $newIsolationDate,
+                'invoice_ids' => $generatedInvoiceIds
+        ]));
+
         setFlash('success', "Pembayaran berhasil untuk $monthsCount bulan. Tanggal isolasi berikutnya: " . date('d/m/Y', strtotime($newIsolationDate)));
-        
+
         $ids = implode(',', $generatedInvoiceIds);
         redirect("print_invoice.php?ids=$ids");
 
     } catch (Exception $e) {
         $pdo->rollBack();
+        // Log error
+        AppLog('PAYMENT_PROCESS_FAILED', $workdir, "Gagal memproses pembayaran", json_encode([
+                'customer_id' => $id,
+                'error' => $e->getMessage()
+        ]));
         logError("GAGAL RENEW: Customer ID: $id, Error: " . $e->getMessage());
         setFlash('error', 'Gagal memproses pembayaran: ' . $e->getMessage());
         redirect("pay_process.php?id=$id&year=$selectedYear");

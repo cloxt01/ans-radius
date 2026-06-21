@@ -7,144 +7,169 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 
 $pageTitle = 'Export Pelanggan';
-
-// Handle Excel export
+$workdir = 'admin/export-customers.php';
+// ==================== EXPORT EXCEL ====================
 if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
-    $customers = fetchAll("
-        SELECT 
-            c.id,
-            c.name,
-            c.phone,
-            c.pppoe_username,
-            (SELECT paid_at FROM invoices WHERE customer_id = c.id AND status = 'paid' ORDER BY paid_at DESC LIMIT 1) as paid_at,
-            c.package_id,
-            p.name as package_name,
-            p.price as package_price,
-            c.status,
-            c.isolation_date,
-            c.address,
-            c.lat,
-            c.lng,
-            c.created_at,
-            c.updated_at
-        FROM customers c
-        LEFT JOIN packages p ON c.package_id = p.id
-        ORDER BY c.created_at DESC
-    ");
-    
-    // Set headers for Excel download (XML Spreadsheet format)
-    header('Content-Type: application/vnd.ms-excel');
-    header('Content-Disposition: attachment; filename="customers_' . date('Y-m-d_H-i-s') . '.xls"');
-    header('Pragma: no-cache');
-    header('Expires: 0');
-    
-    // Output Excel XML format
-    echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-    echo '<?mso-application progid="Excel.Sheet"?>' . "\n";
-    echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' . "\n";
-    echo '<Worksheet ss:Name="Pelanggan">' . "\n";
-    echo '<Table>' . "\n";
-    
-    // Header row
-    echo '<Row>' . "\n";
-        $headers = ['ID', 'Nama', 'No HP', 'PPPoE Username', 'Last Paid', 'Paket', 'Status', 'Register Date', 'Tgl Isolir', 'Alamat', 'Latitude', 'Longitude'];
-    foreach ($headers as $header) {
-        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($header) . '</Data></Cell>' . "\n";
-    }
-    echo '</Row>' . "\n";
-    
-    // Data rows
-    foreach ($customers as $customer) {
+    AppLog('EXPORT_CUSTOMERS_EXCEL_ATTEMPT', $workdir, "Mencoba export pelanggan ke Excel", json_encode([]));
+
+    try {
+        $customers = fetchAll("
+            SELECT 
+                c.id,
+                c.name,
+                c.phone,
+                c.pppoe_username,
+                (SELECT paid_at FROM invoices WHERE customer_id = c.id AND status = 'paid' ORDER BY paid_at DESC LIMIT 1) as paid_at,
+                c.package_id,
+                p.name as package_name,
+                p.price as package_price,
+                c.status,
+                c.isolation_date,
+                c.address,
+                c.lat,
+                c.lng,
+                c.created_at,
+                c.updated_at
+            FROM customers c
+            LEFT JOIN packages p ON c.package_id = p.id
+            ORDER BY c.created_at DESC
+        ");
+
+        $count = count($customers);
+        AppLog('EXPORT_CUSTOMERS_EXCEL_SUCCESS', $workdir, "Export pelanggan ke Excel berhasil", json_encode(['total_customers' => $count]));
+        logActivity('EXPORT_CUSTOMERS_EXCEL', "Exported {$count} customers");
+
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="customers_' . date('Y-m-d_H-i-s') . '.xls"');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        echo '<?mso-application progid="Excel.Sheet"?>' . "\n";
+        echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' . "\n";
+        echo '<Worksheet ss:Name="Pelanggan">' . "\n";
+        echo '<Table>' . "\n";
+
+        // Header row
         echo '<Row>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['id']) . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['name']) . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['phone']) . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['pppoe_username']) . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . ($customer['paid_at'] ? date('d/m/Y H:i:s', strtotime($customer['paid_at'])) : '') . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['package_name'] ?? 'Tanpa Paket') . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . ($customer['status'] == 'active' ? 'Aktif' : 'Isolir') . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . ($customer['created_at'] ? date('d/m/Y H:i:s', strtotime($customer['created_at'])) : 'N/A') . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . $customer['isolation_date'] . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['address'] ?? '') . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . ($customer['lat'] ?? '') . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . ($customer['lng'] ?? '') . '</Data></Cell>' . "\n";
+        $headers = ['ID', 'Nama', 'No HP', 'PPPoE Username', 'Last Paid', 'Paket', 'Status', 'Register Date', 'Tgl Isolir', 'Alamat', 'Latitude', 'Longitude'];
+        foreach ($headers as $header) {
+            echo '<Cell><Data ss:Type="String">' . htmlspecialchars($header) . '</Data></Cell>' . "\n";
+        }
         echo '</Row>' . "\n";
+
+        // Data rows
+        foreach ($customers as $customer) {
+            echo '<Row>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['id']) . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['name']) . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['phone']) . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['pppoe_username']) . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . ($customer['paid_at'] ? date('d/m/Y H:i:s', strtotime($customer['paid_at'])) : '') . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['package_name'] ?? 'Tanpa Paket') . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . ($customer['status'] == 'active' ? 'Aktif' : 'Isolir') . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . ($customer['created_at'] ? date('d/m/Y H:i:s', strtotime($customer['created_at'])) : 'N/A') . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . $customer['isolation_date'] . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['address'] ?? '') . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . ($customer['lat'] ?? '') . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . ($customer['lng'] ?? '') . '</Data></Cell>' . "\n";
+            echo '</Row>' . "\n";
+        }
+
+        echo '</Table>' . "\n";
+        echo '</Worksheet>' . "\n";
+        echo '</Workbook>' . "\n";
+        exit;
+
+    } catch (Exception $e) {
+        AppLog('EXPORT_CUSTOMERS_EXCEL_FAILED', $workdir, "Gagal export pelanggan ke Excel", json_encode(['error' => $e->getMessage()]));
+        setFlash('error', 'Gagal export Excel: ' . $e->getMessage());
+        header('Location: customers.php');
+        exit;
     }
-    
-    echo '</Table>' . "\n";
-    echo '</Worksheet>' . "\n";
-    echo '</Workbook>' . "\n";
-    exit;
 }
 
-// Handle CSV export
+// ==================== EXPORT CSV ====================
 if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
-    $customers = fetchAll("
-        SELECT 
-            c.id,
-            c.name,
-            c.phone,
-            c.pppoe_username,
-            (SELECT paid_at FROM invoices WHERE customer_id = c.id AND status = 'paid' ORDER BY paid_at DESC LIMIT 1) as paid_at,
-            c.package_id,
-            p.name as package_name,
-            p.price as package_price,
-            c.status,
-            c.isolation_date,
-            c.address,
-            c.lat,
-            c.lng,
-            c.created_at,
-            c.updated_at
-        FROM customers c
-        LEFT JOIN packages p ON c.package_id = p.id
-        ORDER BY c.created_at DESC
-    ");
-    
-    // Set headers for CSV download
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="customers_' . date('Y-m-d_H-i-s') . '.csv"');
-    header('Pragma: no-cache');
-    header('Expires: 0');
-    
-    $output = fopen('php://output', 'w');
-    
-    // Write CSV header
-    fputcsv($output, [
-        'ID',
-        'Nama',
-        'No HP',
-        'PPPoE Username',
-        'Paket',
-        'Last Paid',
-        'Status',
-        'Register Date',
-        'Tgl Isolir',
-        'Alamat',
-        'Latitude',
-        'Longitude'
-    ]);
-    
-    // Write data rows
-    foreach ($customers as $customer) {
+    AppLog('EXPORT_CUSTOMERS_CSV_ATTEMPT', $workdir, "Mencoba export pelanggan ke CSV", json_encode([]));
+
+    try {
+        $customers = fetchAll("
+            SELECT 
+                c.id,
+                c.name,
+                c.phone,
+                c.pppoe_username,
+                (SELECT paid_at FROM invoices WHERE customer_id = c.id AND status = 'paid' ORDER BY paid_at DESC LIMIT 1) as paid_at,
+                c.package_id,
+                p.name as package_name,
+                p.price as package_price,
+                c.status,
+                c.isolation_date,
+                c.address,
+                c.lat,
+                c.lng,
+                c.created_at,
+                c.updated_at
+            FROM customers c
+            LEFT JOIN packages p ON c.package_id = p.id
+            ORDER BY c.created_at DESC
+        ");
+
+        $count = count($customers);
+        AppLog('EXPORT_CUSTOMERS_CSV_SUCCESS', $workdir, "Export pelanggan ke CSV berhasil", json_encode(['total_customers' => $count]));
+        logActivity('EXPORT_CUSTOMERS_CSV', "Exported {$count} customers");
+
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="customers_' . date('Y-m-d_H-i-s') . '.csv"');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        $output = fopen('php://output', 'w');
+
+        // Write CSV header
         fputcsv($output, [
-            $customer['id'],
-            $customer['name'],
-            $customer['phone'],
-            $customer['pppoe_username'],
-                $customer['package_name'] ?? 'Tanpa Paket',
-                $customer['paid_at'] ? date('d M Y', strtotime($customer['paid_at'])) : '',
-            $customer['status'] == 'active' ? 'Aktif' : 'Isolir',
-            $customer['created_at'] ? date('d M Y', strtotime($customer['created_at'])) : 'N/A',
-            $customer['isolation_date'],
-            $customer['address'] ?? '',
-            $customer['lat'] ?? '',
-            $customer['lng'] ?? '',
+                'ID',
+                'Nama',
+                'No HP',
+                'PPPoE Username',
+                'Paket',
+                'Last Paid',
+                'Status',
+                'Register Date',
+                'Tgl Isolir',
+                'Alamat',
+                'Latitude',
+                'Longitude'
         ]);
+
+        // Write data rows
+        foreach ($customers as $customer) {
+            fputcsv($output, [
+                    $customer['id'],
+                    $customer['name'],
+                    $customer['phone'],
+                    $customer['pppoe_username'],
+                    $customer['package_name'] ?? 'Tanpa Paket',
+                    $customer['paid_at'] ? date('d M Y', strtotime($customer['paid_at'])) : '',
+                    $customer['status'] == 'active' ? 'Aktif' : 'Isolir',
+                    $customer['created_at'] ? date('d M Y', strtotime($customer['created_at'])) : 'N/A',
+                    $customer['isolation_date'],
+                    $customer['address'] ?? '',
+                    $customer['lat'] ?? '',
+                    $customer['lng'] ?? '',
+            ]);
+        }
+
+        fclose($output);
+        exit;
+
+    } catch (Exception $e) {
+        AppLog('EXPORT_CUSTOMERS_CSV_FAILED', $workdir, "Gagal export pelanggan ke CSV", json_encode(['error' => $e->getMessage()]));
+        setFlash('error', 'Gagal export CSV: ' . $e->getMessage());
+        header('Location: customers.php');
+        exit;
     }
-    
-    fclose($output);
-    exit;
 }
 
 ob_start();

@@ -7,6 +7,7 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 
 $pageTitle = 'PPPoE Management';
+$workdir = 'admin/mikrotik.php';
 
 $isConnected = mikrotikConnect();
 // Get MikroTik settings
@@ -309,7 +310,7 @@ ob_start();
                     <th>Status</th>
                     <th>Aktif</th>
                     <th>Last Login</th>
-                    <th>Aksi</th>
+<!--                    <th>Aksi</th>-->
                 </tr>
             </thead>
             <tbody>
@@ -374,30 +375,30 @@ ob_start();
                                     : '<i class="fas fa-minus-circle"></i> Tidak pernah'; ?>
                             </span>
                         </td>
-                        <td data-label="Aksi">
-                            <div class="action-buttons">
-                                <button class="btn-icon" onclick='editUser(<?php echo json_encode($user); ?>)' title="Edit">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                
-                                <form method="POST" class="inline-form" onsubmit="return confirmToggle('<?php echo htmlspecialchars($user['name'] ?? ''); ?>', <?php echo $isDisabled ? 'true' : 'false'; ?>)">
-                                    <input type="hidden" name="action" value="toggle">
-                                    <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['.id'] ?? ''); ?>">
-                                    <input type="hidden" name="current_status" value="<?php echo $user['disabled'] ?? 'false'; ?>">
-                                    <button type="submit" class="btn-icon <?php echo $isDisabled ? 'success' : 'warning'; ?>" title="<?php echo $isDisabled ? 'Enable' : 'Disable'; ?>">
-                                        <i class="fas fa-<?php echo $isDisabled ? 'play' : 'pause'; ?>"></i>
-                                    </button>
-                                </form>
-                                
-                                <form method="POST" class="inline-form" onsubmit="return confirmDelete('<?php echo htmlspecialchars($user['name'] ?? ''); ?>')">
-                                    <input type="hidden" name="action" value="delete">
-                                    <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['.id'] ?? ''); ?>">
-                                    <button type="submit" class="btn-icon danger" title="Hapus">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
+<!--                        <td data-label="Aksi">-->
+<!--                            <div class="action-buttons">-->
+<!--                                <button class="btn-icon" onclick='editUser(--><?php //echo json_encode($user); ?>//)' title="Edit">
+//                                    <i class="fas fa-edit"></i>
+//                                </button>
+//
+//                                <form method="POST" class="inline-form" onsubmit="return confirmToggle('<?php //echo htmlspecialchars($user['name'] ?? ''); ?>//', <?php //echo $isDisabled ? 'true' : 'false'; ?>//)">
+//                                    <input type="hidden" name="action" value="toggle">
+//                                    <input type="hidden" name="user_id" value="<?php //echo htmlspecialchars($user['.id'] ?? ''); ?><!--">-->
+<!--                                    <input type="hidden" name="current_status" value="--><?php //echo $user['disabled'] ?? 'false'; ?><!--">-->
+<!--                                    <button type="submit" class="btn-icon --><?php //echo $isDisabled ? 'success' : 'warning'; ?><!--" title="--><?php //echo $isDisabled ? 'Enable' : 'Disable'; ?><!--">-->
+<!--                                        <i class="fas fa---><?php //echo $isDisabled ? 'play' : 'pause'; ?><!--"></i>-->
+<!--                                    </button>-->
+<!--                                </form>-->
+<!--                                -->
+<!--                                <form method="POST" class="inline-form" onsubmit="return confirmDelete('--><?php //echo htmlspecialchars($user['name'] ?? ''); ?>//')">
+//                                    <input type="hidden" name="action" value="delete">
+//                                    <input type="hidden" name="user_id" value="<?php //echo htmlspecialchars($user['.id'] ?? ''); ?><!--">-->
+<!--                                    <button type="submit" class="btn-icon danger" title="Hapus">-->
+<!--                                        <i class="fas fa-trash-alt"></i>-->
+<!--                                    </button>-->
+<!--                                </form>-->
+<!--                            </div>-->
+<!--                        </td>-->
                     </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>

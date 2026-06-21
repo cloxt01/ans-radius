@@ -7,6 +7,7 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 
 $pageTitle = 'Paket Internet';
+$workdir = 'admin/packages.php';
 
 // Migrasi database jika perlu
 try {
@@ -41,56 +42,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($_POST['action']) {
             case 'add':
                 $data = [
-                    'name' => sanitize($_POST['name']),
-                    'price' => (float)$_POST['price'],
-                    'profile_normal' => sanitize($_POST['profile_normal']),
-                    'profile_isolir' => sanitize($_POST['profile_isolir']),
-                    'description' => sanitize($_POST['description']),
-                    'created_at' => date('Y-m-d H:i:s')
+                        'name' => sanitize($_POST['name']),
+                        'price' => (float)$_POST['price'],
+                        'profile_normal' => sanitize($_POST['profile_normal']),
+                        'profile_isolir' => sanitize($_POST['profile_isolir']),
+                        'description' => sanitize($_POST['description']),
+                        'created_at' => date('Y-m-d H:i:s')
                 ];
 
+                AppLog('ADD_PACKAGE_ATTEMPT', $workdir, "Mencoba menambahkan paket", json_encode($data));
+
                 if (insert('packages', $data)) {
+                    AppLog('ADD_PACKAGE_SUCCESS', $workdir, "Berhasil menambahkan paket", json_encode($data));
                     setFlash('success', 'Paket berhasil ditambahkan');
                     logActivity('ADD_PACKAGE', "Name: {$data['name']}");
                 } else {
+                    AppLog('ADD_PACKAGE_FAILED', $workdir, "Gagal menambahkan paket", json_encode($data));
                     setFlash('error', 'Gagal menambahkan paket');
                 }
                 redirect('packages.php');
                 break;
-                
+
             case 'edit':
                 $packageId = (int)$_POST['package_id'];
                 $data = [
-                    'name' => sanitize($_POST['name']),
-                    'price' => (float)$_POST['price'],
-                    'profile_normal' => sanitize($_POST['profile_normal']),
-                    'profile_isolir' => sanitize($_POST['profile_isolir']),
-                    'description' => sanitize($_POST['description']),
-                    'updated_at' => date('Y-m-d H:i:s')
+                        'name' => sanitize($_POST['name']),
+                        'price' => (float)$_POST['price'],
+                        'profile_normal' => sanitize($_POST['profile_normal']),
+                        'profile_isolir' => sanitize($_POST['profile_isolir']),
+                        'description' => sanitize($_POST['description']),
+                        'updated_at' => date('Y-m-d H:i:s')
                 ];
 
+                AppLog('EDIT_PACKAGE_ATTEMPT', $workdir, "Mencoba mengupdate paket", json_encode(['id' => $packageId, 'data' => $data]));
+
                 if (update('packages', $data, 'id = ?', [$packageId])) {
+                    AppLog('EDIT_PACKAGE_SUCCESS', $workdir, "Berhasil mengupdate paket", json_encode(['id' => $packageId, 'data' => $data]));
                     setFlash('success', 'Paket berhasil diperbarui');
                     logActivity('UPDATE_PACKAGE', "ID: {$packageId}");
                 } else {
+                    AppLog('EDIT_PACKAGE_FAILED', $workdir, "Gagal mengupdate paket", json_encode(['id' => $packageId, 'data' => $data]));
                     setFlash('error', 'Gagal memperbarui paket');
                 }
                 redirect('packages.php');
                 break;
-                
+
             case 'delete':
                 $packageId = (int)$_POST['package_id'];
-                
+
+                AppLog('DELETE_PACKAGE_ATTEMPT', $workdir, "Mencoba menghapus paket", json_encode(['id' => $packageId]));
+
                 $customerCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE package_id = ?", [$packageId])['total'];
                 if ($customerCount > 0) {
+                    AppLog('DELETE_PACKAGE_FAILED', $workdir, "Paket masih memiliki pelanggan, tidak dapat dihapus", json_encode(['id' => $packageId, 'customer_count' => $customerCount]));
                     setFlash('error', "Tidak dapat menghapus paket yang masih memiliki {$customerCount} pelanggan");
                     redirect('packages.php');
                 }
-                
+
                 if (delete('packages', 'id = ?', [$packageId])) {
+                    AppLog('DELETE_PACKAGE_SUCCESS', $workdir, "Berhasil menghapus paket", json_encode(['id' => $packageId]));
                     setFlash('success', 'Paket berhasil dihapus');
                     logActivity('DELETE_PACKAGE', "ID: {$packageId}");
                 } else {
+                    AppLog('DELETE_PACKAGE_FAILED', $workdir, "Gagal menghapus paket", json_encode(['id' => $packageId]));
                     setFlash('error', 'Gagal menghapus paket');
                 }
                 redirect('packages.php');

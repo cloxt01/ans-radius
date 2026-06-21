@@ -8,6 +8,7 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 
 $pageTitle = 'Export Invoice';
+$workdir = 'admin/export-invoices.php';
 
 // Helper: pastikan string tanggal valid & kembalikan format Y-m-d untuk input date
 function formatDateForInput($dateString)
@@ -79,6 +80,18 @@ function fetchInvoicesForExport(array $filters = [])
 
 // --- HANDLE EXPORT REQUEST ---
 if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
+    // Log awal percobaan export
+    $logFilters = array_filter([
+            'status'          => $_GET['status'] ?? null,
+            'date_from'       => $_GET['date_from'] ?? null,
+            'date_to'         => $_GET['date_to'] ?? null,
+            'paid_date_from'  => $_GET['paid_date_from'] ?? null,
+            'paid_date_to'    => $_GET['paid_date_to'] ?? null,
+            'customer_name'   => $_GET['customer_name'] ?? null,
+            'package_id'      => $_GET['package_id'] ?? null,
+    ]);
+    AppLog('EXPORT_INVOICES_ATTEMPT', $workdir, "Mencoba export invoice ke Excel", json_encode($logFilters));
+
     // Validasi tanggal dari URL
     $errors = [];
     $dateFields = ['date_from', 'date_to', 'paid_date_from', 'paid_date_to'];
@@ -89,7 +102,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
     }
 
     if (!empty($errors)) {
-        // Tampilkan error dan hentikan export
+        AppLog('EXPORT_INVOICES_FAILED', $workdir, "Validasi tanggal gagal", json_encode(['errors' => $errors, 'filters' => $logFilters]));
         setFlash('error', implode('<br>', $errors));
         header('Location: export-invoices.php?' . http_build_query(array_diff_key($_GET, ['action' => ''])));
         exit;
@@ -105,6 +118,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
             'package_id'      => $_GET['package_id'] ?? null,
     ];
     $invoices = fetchInvoicesForExport($filters);
+    $count = count($invoices);
+
+    // Log sukses sebelum output
+    AppLog('EXPORT_INVOICES_SUCCESS', $workdir, "Export invoice berhasil", json_encode([
+            'total_invoices' => $count,
+            'filters' => $filters
+    ]));
+    logActivity('EXPORT_INVOICES', "Exported {$count} invoices");
 
     header('Content-Type: application/vnd.ms-excel');
     header('Content-Disposition: attachment; filename="invoices_' . date('Y-m-d_H-i-s') . '.xls"');

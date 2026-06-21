@@ -7,53 +7,114 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 
 $pageTitle = 'Manajemen Router';
-
+$workdir = 'admin/routers.php';
 // Handle Actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
+        AppLog('ROUTER_CSRF_FAILED', $workdir, "CSRF token tidak valid", json_encode(['ip' => $_SERVER['REMOTE_ADDR']]));
         setFlash('error', 'Invalid CSRF token');
         redirect('routers.php');
     }
 
     $action = $_POST['action'] ?? '';
+    AppLog('ROUTER_ACTION_RECEIVED', $workdir, "Menerima aksi router", json_encode(['action' => $action]));
 
     if ($action === 'add' || $action === 'edit') {
         $data = [
-            'name' => $_POST['name'],
-            'host' => $_POST['host'],
-            'username' => $_POST['username'],
-            'password' => $_POST['password'],
-            'port' => (int) ($_POST['port'] ?: 8728),
-            'description' => $_POST['description'],
-            'is_active' => isset($_POST['is_active']) ? 1 : 0
+                'name' => $_POST['name'],
+                'host' => $_POST['host'],
+                'username' => $_POST['username'],
+                'password' => $_POST['password'],
+                'port' => (int) ($_POST['port'] ?: 8728),
+                'description' => $_POST['description'],
+                'is_active' => isset($_POST['is_active']) ? 1 : 0
         ];
 
-        if ($data['is_active']) {
-            query("UPDATE routers SET is_active = 0");
+        // Log data (password disertakan sesuai pola sebelumnya)
+        $logData = $data;
+        // Opsional: mask password untuk keamanan, tapi kita ikuti pola sebelumnya yang log password
+        AppLog('ROUTER_' . strtoupper($action) . '_ATTEMPT', $workdir, "Mencoba " . ($action === 'add' ? 'menambahkan' : 'mengupdate') . " router", json_encode($logData));
+
+        try {
+            if ($data['is_active']) {
+                query("UPDATE routers SET is_active = 0");
+            }
+
+            if ($action === 'add') {
+                $routerCount = fetchOne("SELECT COUNT(*) as total FROM routers")['total'] ?? 0;
+                if ($routerCount === 0) {
+                    $data['is_active'] = 1;
+                }
+                $id = insert('routers', $data);
+                if ($id) {
+                    AppLog('ROUTER_ADD_SUCCESS', $workdir, "Berhasil menambahkan router", json_encode(['id' => $id, 'data' => $data]));
+                    setFlash('success', 'Router berhasil ditambahkan.');
+                    logActivity('ADD_ROUTER', "Name: {$data['name']}, Host: {$data['host']}");
+                } else {
+                    AppLog('ROUTER_ADD_FAILED', $workdir, "Gagal menambahkan router", json_encode($data));
+                    setFlash('error', 'Gagal menambahkan router.');
+                }
+            } else { // edit
+                $id = $_POST['id'] ?? 0;
+                if (!$id) {
+                    AppLog('ROUTER_EDIT_FAILED', $workdir, "ID router tidak valid untuk edit", json_encode(['id' => $id]));
+                    setFlash('error', 'ID router tidak valid.');
+                    redirect('routers.php');
+                }
+                $affected = update('routers', $data, "id = ?", [$id]);
+                if ($affected !== false) {
+                    AppLog('ROUTER_EDIT_SUCCESS', $workdir, "Berhasil mengupdate router", json_encode(['id' => $id, 'data' => $data]));
+                    setFlash('success', 'Router berhasil diperbarui.');
+                    logActivity('UPDATE_ROUTER', "ID: {$id}, Name: {$data['name']}");
+                } else {
+                    AppLog('ROUTER_EDIT_FAILED', $workdir, "Gagal mengupdate router", json_encode(['id' => $id, 'data' => $data]));
+                    setFlash('error', 'Gagal memperbarui router.');
+                }
+            }
+        } catch (Exception $e) {
+            AppLog('ROUTER_' . strtoupper($action) . '_EXCEPTION', $workdir, "Exception saat " . ($action === 'add' ? 'menambahkan' : 'mengupdate') . " router", json_encode(['error' => $e->getMessage(), 'data' => $data]));
+            setFlash('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
 
-        if ($action === 'add') {
-            $routerCount = fetchOne("SELECT COUNT(*) as total FROM routers")['total'] ?? 0;
-            
-            if ($routerCount === 0) {
-                $data['is_active'] = 1;
-            }
-            
-            insert('routers', $data);
-            setFlash('success', 'Router berhasil ditambahkan.');
-        } else {
-            $id = $_POST['id'];
-            update('routers', $data, "id = ?", [$id]);
-            setFlash('success', 'Router berhasil diperbarui.');
-        }
     } elseif ($action === 'delete') {
-        $id = $_POST['id'];
-        query("DELETE FROM routers WHERE id = ?", [$id]);
-        setFlash('success', 'Router berhasil dihapus.');
+        $id = $_POST['id'] ?? 0;
+        AppLog('ROUTER_DELETE_ATTEMPT', $workdir, "Mencoba menghapus router", json_encode(['id' => $id]));
+
+        try {
+            $affected = query("DELETE FROM routers WHERE id = ?", [$id]);
+            if ($affected !== false) {
+                AppLog('ROUTER_DELETE_SUCCESS', $workdir, "Berhasil menghapus router", json_encode(['id' => $id]));
+                setFlash('success', 'Router berhasil dihapus.');
+                logActivity('DELETE_ROUTER', "ID: {$id}");
+            } else {
+                AppLog('ROUTER_DELETE_FAILED', $workdir, "Gagal menghapus router", json_encode(['id' => $id]));
+                setFlash('error', 'Gagal menghapus router.');
+            }
+        } catch (Exception $e) {
+            AppLog('ROUTER_DELETE_EXCEPTION', $workdir, "Exception saat menghapus router", json_encode(['id' => $id, 'error' => $e->getMessage()]));
+            setFlash('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+
     } elseif ($action === 'switch') {
-        $id = $_POST['id'];
-        $_SESSION['active_router_id'] = $id;
-        setFlash('success', 'Berhasil beralih ke router lain.');
+        $id = $_POST['id'] ?? 0;
+        AppLog('ROUTER_SWITCH_ATTEMPT', $workdir, "Mencoba beralih ke router lain", json_encode(['new_router_id' => $id]));
+
+        if ($id) {
+            $_SESSION['active_router_id'] = $id;
+            AppLog('ROUTER_SWITCH_SUCCESS', $workdir, "Berhasil beralih ke router lain", json_encode(['new_router_id' => $id]));
+            setFlash('success', 'Berhasil beralih ke router lain.');
+            logActivity('SWITCH_ROUTER', "New active router ID: {$id}");
+        } else {
+            AppLog('ROUTER_SWITCH_FAILED', $workdir, "ID router tidak valid untuk switch", json_encode(['id' => $id]));
+            setFlash('error', 'ID router tidak valid.');
+        }
+    } else {
+        if ($action !== '') {
+            AppLog('ROUTER_UNKNOWN_ACTION', $workdir, "Aksi tidak dikenali", json_encode(['action' => $action]));
+            setFlash('error', 'Aksi tidak dikenali.');
+        } else {
+            AppLog('ROUTER_NO_ACTION', $workdir, "Tidak ada aksi yang dikirim", json_encode([]));
+        }
     }
 
     redirect('routers.php');

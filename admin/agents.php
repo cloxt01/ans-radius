@@ -7,7 +7,7 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 
 $pageTitle = 'Manajemen Agen';
-
+$workdir = 'admin/agents.php';
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
@@ -20,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'add':
                 $username = sanitize($_POST['username']);
                 $phone = sanitize($_POST['phone']);
+                AppLog('ADD_AGENT_ATTEMPT', $workdir, "Mencoba menambahkan agen baru", json_encode(['username' => $username, 'phone' => $phone]));
 
                 if (strlen($username) < 3 || !preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
                     setFlash('error', 'Username minimal 3 karakter, hanya huruf, angka, dan underscore');
@@ -33,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $existingUser = fetchOne("SELECT id FROM agents WHERE username = ?", [$username]);
                 if ($existingUser) {
+                    AppLog('ADD_AGENT_FAILED', $workdir, "Username sudah digunakan", json_encode($username));
                     setFlash('error', 'Username sudah digunakan');
                     redirect('agents.php');
                 }
@@ -40,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($phone)) {
                     $existingPhone = fetchOne("SELECT id FROM agents WHERE phone = ?", [$phone]);
                     if ($existingPhone) {
+                        AppLog('ADD_AGENT_FAILED', $workdir, "Nomor telepon sudah digunakan", json_encode($phone));
                         setFlash('error', 'Nomor HP/Telepon sudah terdaftar pada agen lain');
                         redirect('agents.php');
                     }
@@ -58,10 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
 
                 if (insert('agents', $data)) {
+                    AppLog('ADD_AGENT_SUCCESS', $workdir, "Berhasil menambahkan agen", json_encode($data));
                     setFlash('success', 'Agen berhasil ditambahkan');
-                    logActivity('ADD_AGENT', "Name: {$data['name']}");
+                    logActivity('ADD (AGENTS)', "Name: {$data['name']}");
                 } else {
+                    AppLog('ADD_AGENT_FAILED', $workdir, "Gagal menambahkan agen", json_encode($data));
                     setFlash('error', 'Gagal menambahkan agen');
+                    logError('Agen gagal ditambahkan');
                 }
                 redirect('agents.php');
                 break;
@@ -69,27 +75,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'edit':
                 $id = (int)$_POST['id'];
                 $phone = sanitize($_POST['phone']);
+                AppLog('EDIT_AGENT_ATTEMPT', $workdir, "Mencoba memperbarui agen", json_encode(['id' => $id, 'phone' => $phone]));
+
 
                 if (!empty($phone)) {
                     $existingPhone = fetchOne("SELECT id FROM agents WHERE phone = ? AND id != ?", [$phone, $id]);
                     if ($existingPhone) {
+                        AppLog('EDIT_AGENT_FAILED', $workdir, "Nomor telepon sudah digunakan", json_encode($phone));
                         setFlash('error', 'Nomor HP/Telepon sudah terdaftar pada agen lain');
                         redirect('agents.php');
                     }
                 }
 
                 $data = [
-                        'name' => sanitize($_POST['name']),
-                        'phone' => !empty($phone) ? $phone : null,
-                        'fee' => !empty($_POST['fee']) ? (float)$_POST['fee'] : 0.00,
-                        'lat' => !empty($_POST['lat']) ? (float)$_POST['lat'] : null,
-                        'lng' => !empty($_POST['lng']) ? (float)$_POST['lng'] : null,
-                        'status' => sanitize($_POST['status']),
+                    'name' => sanitize($_POST['name']),
+                    'phone' => !empty($phone) ? $phone : null,
+                    'fee' => !empty($_POST['fee']) ? (float)$_POST['fee'] : 0.00,
+                    'lat' => !empty($_POST['lat']) ? (float)$_POST['lat'] : null,
+                    'lng' => !empty($_POST['lng']) ? (float)$_POST['lng'] : null,
+                    'status' => sanitize($_POST['status']),
                     // updated_at otomatis dihandle oleh ON UPDATE CURRENT_TIMESTAMP di MySQL
                 ];
 
                 if (!empty($_POST['password'])) {
                     if (strlen($_POST['password']) < 6) {
+
                         setFlash('error', 'Password minimal 6 karakter');
                         redirect('agents.php');
                     }
@@ -97,9 +107,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if (update('agents', $data, 'id = ?', [$id])) {
+                    AppLog('EDIT_AGENT_SUCCESS', $workdir, "Berhasil memperbarui data agen", json_encode(['id'=>$id, 'data'=>$data]));
                     setFlash('success', 'Data agen berhasil diperbarui');
                     logActivity('UPDATE_AGENT', "ID: {$id}");
                 } else {
+                    AppLog('EDIT_AGENT_FAILED', $workdir, "Kesalahan tidak terduga", json_encode(['id'=>$id, 'data'=>$data]));
+
                     setFlash('error', 'Gagal memperbarui agen');
                 }
                 redirect('agents.php');
@@ -107,6 +120,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'delete':
                 $id = (int)$_POST['id'];
+                AppLog('DELETE_AGEN_ATTEMPT', $workdir, "Mencoba menghapus agen", json_encode($id));
+
 
                 // Asumsi: Periksa apakah agen masih terikat dengan data pelanggan
                 // $activeCustomers = fetchOne("SELECT COUNT(*) as total FROM customers WHERE agent_id = ?", [$id]);
@@ -116,9 +131,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // }
 
                 if (delete('agents', 'id = ?', [$id])) {
+                    AppLog('DELETE_AGENT_SUCCESS', $workdir, "Berhasil menghapus data", json_encode($id));
                     setFlash('success', 'Agen berhasil dihapus');
                     logActivity('DELETE_AGENT', "ID: {$id}");
                 } else {
+                    AppLog('DELETE_AGENT_FAILED', $workdir, "Kesalahan tak terduga", json_encode($id));
                     setFlash('error', 'Gagal menghapus agen');
                 }
                 redirect('agents.php');

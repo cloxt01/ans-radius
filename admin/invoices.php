@@ -6,9 +6,11 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 
 $pageTitle = 'Invoice';
+$workdir = 'admin/invoices.php';
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Verify CSRF token
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
         setFlash('error', 'Invalid CSRF token');
         redirect('invoices.php');
@@ -17,188 +19,221 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'generate':
+                AppLog('GENERATE_INVOICES_ATTEMPT', $workdir, "Mencoba generate invoice bulan ini", json_encode([]));
                 $generatedCount = generateInvoicesThisMonth();
-                setFlash('success', "Berhasil mengenerate {$generatedCount} invoice untuk bulan ini");
                 if ($generatedCount > 0) {
+                    AppLog('GENERATE_INVOICES_SUCCESS', $workdir, "Berhasil generate invoice bulan ini", json_encode(['count' => $generatedCount]));
+                    setFlash('success', "Berhasil mengenerate {$generatedCount} invoice untuk bulan ini");
                     logActivity('GENERATE_INVOICES', "Generated {$generatedCount} invoices for " . date('F Y'));
                 } else {
+                    AppLog('GENERATE_INVOICES_NO_RESULT', $workdir, "Tidak ada invoice baru yang digenerate", json_encode([]));
+                    setFlash('info', "Tidak ada invoice baru yang perlu digenerate untuk bulan ini");
                 }
-
                 redirect('invoices.php');
                 break;
 
             case 'pay':
                 $invoiceId = (int)$_POST['invoice_id'];
                 $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
-                
+                AppLog('PAY_INVOICE_ATTEMPT', $workdir, "Mencoba membayar invoice", json_encode(['invoice_id' => $invoiceId]));
+
                 if ($invoice) {
                     $pdo = getDB();
                     try {
                         $pdo->beginTransaction();
-                        
+
                         // Update invoice to paid
                         update('invoices', [
-                            'status' => 'paid',
-                            'paid_at' => date('Y-m-d H:i:s'),
-                            'payment_method' => sanitize($_POST['payment_method'] ?? 'Manual'),
-                            'updated_at' => date('Y-m-d H:i:s')
+                                'status' => 'paid',
+                                'paid_at' => date('Y-m-d H:i:s'),
+                                'payment_method' => sanitize($_POST['payment_method'] ?? 'Manual'),
+                                'updated_at' => date('Y-m-d H:i:s')
                         ], 'id = ?', [$invoiceId]);
-                        
+
                         // Update isolation date based on latest payment
                         updateCustomerIsolationDateFromPaidInvoices($invoice['customer_id']);
-                        
+
                         // Unisolate if needed
                         if (isCustomerIsolated($invoice['customer_id'])) {
                             unisolateCustomer($invoice['customer_id']);
                         }
-                        
+
                         $pdo->commit();
-                        
+
+                        AppLog('PAY_INVOICE_SUCCESS', $workdir, "Berhasil membayar invoice", json_encode(['invoice_id' => $invoiceId, 'invoice_number' => $invoice['invoice_number']]));
                         setFlash('success', 'Invoice berhasil dibayar');
                         logActivity('PAY_INVOICE', "Invoice: {$invoice['invoice_number']}");
                     } catch (Exception $e) {
                         $pdo->rollBack();
+                        AppLog('PAY_INVOICE_FAILED', $workdir, "Gagal membayar invoice", json_encode(['invoice_id' => $invoiceId, 'error' => $e->getMessage()]));
                         setFlash('error', 'Gagal memproses pembayaran: ' . $e->getMessage());
                     }
                 } else {
+                    AppLog('PAY_INVOICE_FAILED', $workdir, "Invoice tidak ditemukan", json_encode(['invoice_id' => $invoiceId]));
                     setFlash('error', 'Invoice tidak ditemukan');
                 }
                 redirect('invoices.php');
                 break;
+
             case 'unisolate_only':
                 $invoiceId = (int)$_POST['invoice_id'];
                 $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
-                
+                AppLog('UNISOLATE_ONLY_ATTEMPT', $workdir, "Mencoba unisolate pelanggan dari invoice (tanpa bayar)", json_encode(['invoice_id' => $invoiceId]));
+
                 if ($invoice && $invoice['status'] === 'unpaid') {
                     if (unisolateCustomer($invoice['customer_id'])) {
+                        AppLog('UNISOLATE_ONLY_SUCCESS', $workdir, "Berhasil unisolate pelanggan dari invoice (tanpa bayar)", json_encode(['invoice_id' => $invoiceId, 'customer_id' => $invoice['customer_id']]));
                         setFlash('success', 'Pelanggan berhasil di-unisolate (tagihan tetap belum lunas)');
                     } else {
+                        AppLog('UNISOLATE_ONLY_FAILED', $workdir, "Gagal unisolate pelanggan dari invoice (tanpa bayar)", json_encode(['invoice_id' => $invoiceId, 'customer_id' => $invoice['customer_id']]));
                         setFlash('error', 'Gagal meng-unisolate pelanggan');
                     }
                 } else {
+                    AppLog('UNISOLATE_ONLY_FAILED', $workdir, "Invoice tidak ditemukan atau sudah lunas", json_encode(['invoice_id' => $invoiceId, 'status' => $invoice['status'] ?? 'unknown']));
                     setFlash('error', 'Invoice tidak ditemukan atau sudah lunas');
                 }
                 redirect('invoices.php');
                 break;
-            
+
             case 'defer_next_month':
                 $invoiceId = (int)$_POST['invoice_id'];
                 $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
-                
+                AppLog('DEFER_INVOICE_ATTEMPT', $workdir, "Mencoba menunda invoice ke bulan berikutnya", json_encode(['invoice_id' => $invoiceId]));
+
                 if ($invoice && $invoice['status'] === 'unpaid') {
                     $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$invoice['customer_id']]);
-                    
+
                     if ($customer) {
                         $nextMonthBase = date('Y-m-01', strtotime('+1 month'));
                         $newDueDate = getCustomerDueDate($customer, $nextMonthBase);
-                        
+
                         $description = $invoice['description'] ?? '';
                         $note = 'Ditunda ke bulan berikutnya dari due date ' . $invoice['due_date'];
                         $description .= $description ? ' | ' . $note : $note;
-                        
+
                         update('invoices', [
-                            'due_date' => $newDueDate,
-                            'description' => $description,
-                            'updated_at' => date('Y-m-d H:i:s')
+                                'due_date' => $newDueDate,
+                                'description' => $description,
+                                'updated_at' => date('Y-m-d H:i:s')
                         ], 'id = ?', [$invoiceId]);
-                        
+
                         if (isCustomerIsolated($invoice['customer_id'])) {
                             unisolateCustomer($invoice['customer_id']);
                         }
-                        
+
+                        AppLog('DEFER_INVOICE_SUCCESS', $workdir, "Berhasil menunda invoice ke bulan berikutnya", json_encode(['invoice_id' => $invoiceId, 'new_due_date' => $newDueDate]));
                         setFlash('success', 'Invoice ditunda ke bulan berikutnya dan isolir pelanggan dibuka.');
                         logActivity('DEFER_INVOICE', "Invoice: {$invoice['invoice_number']} deferred to {$newDueDate}");
                     } else {
+                        AppLog('DEFER_INVOICE_FAILED', $workdir, "Pelanggan tidak ditemukan", json_encode(['invoice_id' => $invoiceId, 'customer_id' => $invoice['customer_id']]));
                         setFlash('error', 'Pelanggan tidak ditemukan');
                     }
                 } else {
+                    AppLog('DEFER_INVOICE_FAILED', $workdir, "Invoice tidak ditemukan atau sudah lunas", json_encode(['invoice_id' => $invoiceId, 'status' => $invoice['status'] ?? 'unknown']));
                     setFlash('error', 'Invoice tidak ditemukan atau sudah lunas');
                 }
                 redirect('invoices.php');
                 break;
+
             case 'edit':
                 $invoiceId = (int)$_POST['invoice_id'];
                 $amount = (float)$_POST['amount'];
                 $dueDate = sanitize($_POST['due_date']);
                 $status = sanitize($_POST['status']);
-                
+
                 $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
-                
+                AppLog('EDIT_INVOICE_ATTEMPT', $workdir, "Mencoba mengedit invoice", json_encode(['invoice_id' => $invoiceId, 'new_data' => ['amount' => $amount, 'due_date' => $dueDate, 'status' => $status]]));
+
                 if ($invoice) {
                     $updateData = [
-                        'amount' => $amount,
-                        'due_date' => $dueDate,
-                        'status' => $status,
-                        'updated_at' => date('Y-m-d H:i:s')
+                            'amount' => $amount,
+                            'due_date' => $dueDate,
+                            'status' => $status,
+                            'updated_at' => date('Y-m-d H:i:s')
                     ];
-                    
+
                     $wasUnpaid = $invoice['status'] !== 'paid';
                     $isNowPaid = $status === 'paid';
-                    
+
                     if ($isNowPaid && $wasUnpaid) {
                         $updateData['paid_at'] = date('Y-m-d H:i:s');
                         $updateData['payment_method'] = 'Manual';
-                        
+
                         update('invoices', $updateData, 'id = ?', [$invoiceId]);
-                        
+
                         // Update isolation date
                         updateCustomerIsolationDateFromPaidInvoices($invoice['customer_id']);
-                        
+
                         if (isCustomerIsolated($invoice['customer_id'])) {
                             unisolateCustomer($invoice['customer_id']);
                         }
                     } else {
                         update('invoices', $updateData, 'id = ?', [$invoiceId]);
                     }
-                    
+
+                    AppLog('EDIT_INVOICE_SUCCESS', $workdir, "Berhasil mengedit invoice", json_encode(['invoice_id' => $invoiceId]));
                     setFlash('success', 'Invoice berhasil diperbarui');
                     logActivity('EDIT_INVOICE', "Invoice: {$invoice['invoice_number']}");
                 } else {
-                    setFlash('error', 'Invoice tidak ditemukan');
-                }
-                redirect('invoices.php');
-                break;    
-            case 'delete':
-                $invoiceId = (int)$_POST['invoice_id'];
-                $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
-                
-                if ($invoice) {
-                    if ($invoice['status'] === 'paid') {
-                        setFlash('error', 'Invoice yang sudah lunas tidak dapat dihapus');
-                    } else {
-                        delete('invoices', 'id = ?', [$invoiceId]);
-                        setFlash('success', 'Invoice berhasil dihapus');
-                        logActivity('DELETE_INVOICE', "Invoice: {$invoice['invoice_number']}");
-                    }
-                } else {
+                    AppLog('EDIT_INVOICE_FAILED', $workdir, "Invoice tidak ditemukan", json_encode(['invoice_id' => $invoiceId]));
                     setFlash('error', 'Invoice tidak ditemukan');
                 }
                 redirect('invoices.php');
                 break;
-                
+
+            case 'delete':
+                $invoiceId = (int)$_POST['invoice_id'];
+                $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
+                AppLog('DELETE_INVOICE_ATTEMPT', $workdir, "Mencoba menghapus invoice", json_encode(['invoice_id' => $invoiceId]));
+
+                if ($invoice) {
+                    if ($invoice['status'] === 'paid') {
+                        AppLog('DELETE_INVOICE_FAILED', $workdir, "Invoice sudah lunas, tidak dapat dihapus", json_encode(['invoice_id' => $invoiceId]));
+                        setFlash('error', 'Invoice yang sudah lunas tidak dapat dihapus');
+                    } else {
+                        delete('invoices', 'id = ?', [$invoiceId]);
+                        AppLog('DELETE_INVOICE_SUCCESS', $workdir, "Berhasil menghapus invoice", json_encode(['invoice_id' => $invoiceId]));
+                        setFlash('success', 'Invoice berhasil dihapus');
+                        logActivity('DELETE_INVOICE', "Invoice: {$invoice['invoice_number']}");
+                    }
+                } else {
+                    AppLog('DELETE_INVOICE_FAILED', $workdir, "Invoice tidak ditemukan", json_encode(['invoice_id' => $invoiceId]));
+                    setFlash('error', 'Invoice tidak ditemukan');
+                }
+                redirect('invoices.php');
+                break;
+
             case 'create_manual':
                 $customerId = (int)$_POST['customer_id'];
                 $amount = (float)$_POST['manual_amount'];
                 $dueDate = sanitize($_POST['manual_due_date']);
                 $description = sanitize($_POST['manual_description'] ?? '');
-                
+
                 $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
-                
+                AppLog('CREATE_MANUAL_INVOICE_ATTEMPT', $workdir, "Mencoba membuat invoice manual", json_encode(['customer_id' => $customerId, 'amount' => $amount, 'due_date' => $dueDate]));
+
                 if ($customer) {
                     $invoiceData = [
-                        'invoice_number' => generateInvoiceNumber($customerId),
-                        'customer_id' => $customerId,
-                        'amount' => $amount,
-                        'status' => 'unpaid',
-                        'due_date' => $dueDate,
-                        'description' => $description,
-                        'created_at' => date('Y-m-d H:i:s')
+                            'invoice_number' => generateInvoiceNumber($customerId),
+                            'customer_id' => $customerId,
+                            'amount' => $amount,
+                            'status' => 'unpaid',
+                            'due_date' => $dueDate,
+                            'description' => $description,
+                            'created_at' => date('Y-m-d H:i:s')
                     ];
-                    
-                    insert('invoices', $invoiceData);
-                    setFlash('success', 'Invoice manual berhasil dibuat');
-                    logActivity('CREATE_INVOICE', "Manual invoice for customer: {$customer['name']}");
+
+                    $invoiceId = insert('invoices', $invoiceData);
+                    if ($invoiceId) {
+                        AppLog('CREATE_MANUAL_INVOICE_SUCCESS', $workdir, "Berhasil membuat invoice manual", json_encode(['invoice_id' => $invoiceId, 'data' => $invoiceData]));
+                        setFlash('success', 'Invoice manual berhasil dibuat');
+                        logActivity('CREATE_INVOICE', "Manual invoice for customer: {$customer['name']}");
+                    } else {
+                        AppLog('CREATE_MANUAL_INVOICE_FAILED', $workdir, "Gagal menyimpan invoice manual", json_encode(['data' => $invoiceData]));
+                        setFlash('error', 'Gagal menyimpan invoice manual');
+                    }
                 } else {
+                    AppLog('CREATE_MANUAL_INVOICE_FAILED', $workdir, "Pelanggan tidak ditemukan", json_encode(['customer_id' => $customerId]));
                     setFlash('error', 'Pelanggan tidak ditemukan');
                 }
                 redirect('invoices.php');
@@ -213,6 +248,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     LEFT JOIN packages p ON c.package_id = p.id 
                     WHERE i.id = ?", [$invoiceId]);
 
+                AppLog('GENERATE_PAYMENT_LINK_ATTEMPT', $workdir, "Mencoba generate payment link", json_encode(['invoice_id' => $invoiceId]));
+
                 if ($invoice && $invoice['status'] === 'unpaid') {
                     $defaultGateway = getSetting('DEFAULT_PAYMENT_GATEWAY', 'tripay');
                     if (!in_array($defaultGateway, ['tripay', 'midtrans'], true)) {
@@ -222,22 +259,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     require_once '../includes/payment.php';
 
                     $result = generatePaymentLink(
-                        $invoice['invoice_number'],
-                        $invoice['amount'],
-                        $invoice['customer_id'],
-                        $invoice['customer_name'],
-                        $invoice['customer_phone'],
-                        $invoice['due_date'],
-                        $defaultGateway
+                            $invoice['invoice_number'],
+                            $invoice['amount'],
+                            $invoice['customer_id'],
+                            $invoice['customer_name'],
+                            $invoice['customer_phone'],
+                            $invoice['due_date'],
+                            $defaultGateway
                     );
 
                     if (!empty($result['success']) && !empty($result['link'])) {
+                        AppLog('GENERATE_PAYMENT_LINK_SUCCESS', $workdir, "Berhasil generate payment link", json_encode(['invoice_id' => $invoiceId, 'gateway' => $defaultGateway, 'link' => $result['link']]));
                         logActivity('PAYMENT_LINK_GENERATED', "Invoice: {$invoice['invoice_number']}, Gateway: {$defaultGateway}");
                         redirect($result['link']);
                     }
 
+                    AppLog('GENERATE_PAYMENT_LINK_FAILED', $workdir, "Gagal generate payment link", json_encode(['invoice_id' => $invoiceId, 'error' => $result['message'] ?? 'unknown']));
                     setFlash('error', $result['message'] ?? 'Gagal generate payment link');
                 } else {
+                    AppLog('GENERATE_PAYMENT_LINK_FAILED', $workdir, "Invoice tidak ditemukan atau sudah lunas", json_encode(['invoice_id' => $invoiceId, 'status' => $invoice['status'] ?? 'unknown']));
                     setFlash('error', 'Invoice tidak ditemukan atau sudah lunas');
                 }
                 redirect('invoices.php');

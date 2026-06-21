@@ -3,6 +3,7 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 
 $pageTitle = 'Update Aplikasi';
+$workdir = 'admin/update.php';
 
 // Get local version primarily from version.txt
 $localVersion = '1.0.0'; // Fallback
@@ -50,126 +51,195 @@ if ($isGitRepo && $canExec) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
+
+    // CSRF validation
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken((string) $_POST['csrf_token'])) {
+        AppLog('UPDATE_CSRF_FAILED', $workdir, "CSRF token tidak valid", json_encode(['ip' => $_SERVER['REMOTE_ADDR']]));
         $statusMessage = 'Sesi tidak valid atau telah kadaluarsa. Silakan refresh halaman dan coba lagi.';
         $statusType = 'error';
-        $action = '';
+        $action = ''; // reset action to prevent processing
+    } else {
+        // Log action received (only if CSRF passes to avoid noise)
+        AppLog('UPDATE_ACTION_RECEIVED', $workdir, "Menerima aksi update", json_encode(['action' => $action]));
     }
-    
-    if ($action === 'check') {
-        $configuredUrl = defined('GEMBOK_UPDATE_VERSION_URL') ? (string) GEMBOK_UPDATE_VERSION_URL : '';
-        $configuredUrl = trim($configuredUrl, " \t\n\r\0\x0B`'\"");
-        $configuredUrl = str_replace('refs/heads/main', 'main', $configuredUrl);
-        $fallbackUrls = [
-            'https://raw.githubusercontent.com/alijayanet/gembok-simple/main/version.txt',
-            'https://raw.githubusercontent.com/alijayanet/gembok-simple/refs/heads/main/version.txt'
-        ];
-        $urlsToTry = [];
-        if ($configuredUrl !== '') {
-            $urlsToTry[] = $configuredUrl;
-        }
-        foreach ($fallbackUrls as $url) {
-            if (!in_array($url, $urlsToTry, true)) {
-                $urlsToTry[] = $url;
-            }
-        }
-        if (empty($urlsToTry)) {
-            $statusMessage = 'URL versi update belum dikonfigurasi.';
-            $statusType = 'error';
-        } else {
-            $context = stream_context_create([
-                'http' => [
-                    'timeout' => 10,
-                    'header' => "User-Agent: GEMBOK-Updater\r\n"
-                ],
-                'ssl' => [
-                    'verify_peer' => false,
-                    'verify_peer_name' => false
-                ]
-            ]);
-            $lastErrorMessage = 'Unknown';
-            foreach ($urlsToTry as $url) {
-                $remoteContent = fetchRemoteVersionContent($url, $context);
-                if ($remoteContent !== false) {
-                    $remoteVersion = trim($remoteContent);
-                    if ($remoteVersion === '') {
-                        $lastErrorMessage = 'File versi kosong dari ' . $url;
-                        continue;
-                    }
-                    if (version_compare($localVersion, $remoteVersion, '>=')) {
-                        $statusMessage = 'Versi aplikasi sudah terbaru (' . htmlspecialchars($localVersion) . ').';
-                        $statusType = 'success';
-                    } else {
-                        $statusMessage = 'Tersedia versi baru: <strong>' . htmlspecialchars($remoteVersion) . '</strong> (saat ini: ' . htmlspecialchars($localVersion) . ').';
-                        $statusType = 'info';
-                    }
-                    break;
-                }
-                $error = error_get_last();
-                $lastErrorMessage = $error['message'] ?? 'Unknown';
-            }
-            if ($statusMessage === '') {
-                $statusMessage = 'Gagal mengambil versi dari server update. Error terakhir: ' . $lastErrorMessage;
-                $statusType = 'error';
-            }
-        }
-    } elseif ($action === 'update') {
-        $output = [];
-        $returnVar = 0;
 
-        if (!$canExec) {
-            $output[] = 'Gagal update otomatis: fungsi exec() tidak tersedia di server ini.';
-            $output[] = 'Solusi: aktifkan exec() pada PHP, atau gunakan "Update via ZIP" pada halaman ini.';
-            $returnVar = 1;
-        } elseif (!$isGitRepo) {
-            $output[] = 'Gagal update otomatis: folder aplikasi ini bukan repository Git (.git tidak ditemukan).';
-            $output[] = 'Solusi: gunakan "Inisialisasi Git" atau "Update via ZIP" pada halaman ini.';
-            $returnVar = 1;
-        } else {
-            $statusOut = [];
-            $statusRv = 0;
-            exec('cd ' . escapeshellarg($projectRoot) . ' && git status --porcelain 2>&1', $statusOut, $statusRv);
-            if ($statusRv !== 0) {
-                $output[] = 'Gagal cek status git.';
-                $output = array_merge($output, $statusOut);
-                $returnVar = 1;
-            } elseif (!empty($statusOut)) {
-                $output[] = 'Update dibatalkan karena ada perubahan lokal di server.';
-                $output[] = 'Solusi: commit/stash dulu, atau deploy ulang dari Git.';
-                $output = array_merge($output, $statusOut);
-                $returnVar = 1;
-            } else {
-                exec('cd ' . escapeshellarg($projectRoot) . ' && git pull --ff-only 2>&1', $output, $returnVar);
-            }
+    // Process action (only if not empty and CSRF passed)
+    if ($action !== '') {
+        switch ($action) {
+            case 'check':
+                AppLog('UPDATE_CHECK_ATTEMPT', $workdir, "Mencoba pengecekan versi update", json_encode(['local_version' => $localVersion ?? 'unknown']));
+
+                $configuredUrl = defined('GEMBOK_UPDATE_VERSION_URL') ? (string) GEMBOK_UPDATE_VERSION_URL : '';
+                $configuredUrl = trim($configuredUrl, " \t\n\r\0\x0B`'\"");
+                $configuredUrl = str_replace('refs/heads/main', 'main', $configuredUrl);
+                $fallbackUrls = [
+                        'https://raw.githubusercontent.com/alijayanet/gembok-simple/main/version.txt',
+                        'https://raw.githubusercontent.com/alijayanet/gembok-simple/refs/heads/main/version.txt'
+                ];
+                $urlsToTry = [];
+                if ($configuredUrl !== '') {
+                    $urlsToTry[] = $configuredUrl;
+                }
+                foreach ($fallbackUrls as $url) {
+                    if (!in_array($url, $urlsToTry, true)) {
+                        $urlsToTry[] = $url;
+                    }
+                }
+
+                if (empty($urlsToTry)) {
+                    $statusMessage = 'URL versi update belum dikonfigurasi.';
+                    $statusType = 'error';
+                    AppLog('UPDATE_CHECK_FAILED', $workdir, "URL versi update belum dikonfigurasi", json_encode([]));
+                } else {
+                    $context = stream_context_create([
+                            'http' => [
+                                    'timeout' => 10,
+                                    'header' => "User-Agent: GEMBOK-Updater\r\n"
+                            ],
+                            'ssl' => [
+                                    'verify_peer' => false,
+                                    'verify_peer_name' => false
+                            ]
+                    ]);
+                    $lastErrorMessage = 'Unknown';
+                    $remoteVersion = null;
+                    $statusMessage = '';
+                    $statusType = '';
+
+                    foreach ($urlsToTry as $url) {
+                        $remoteContent = fetchRemoteVersionContent($url, $context);
+                        if ($remoteContent !== false) {
+                            $remoteVersion = trim($remoteContent);
+                            if ($remoteVersion === '') {
+                                $lastErrorMessage = 'File versi kosong dari ' . $url;
+                                continue;
+                            }
+                            if (version_compare($localVersion, $remoteVersion, '>=')) {
+                                $statusMessage = 'Versi aplikasi sudah terbaru (' . htmlspecialchars($localVersion) . ').';
+                                $statusType = 'success';
+                                AppLog('UPDATE_CHECK_SUCCESS', $workdir, "Versi sudah terbaru", json_encode(['local' => $localVersion, 'remote' => $remoteVersion]));
+                            } else {
+                                $statusMessage = 'Tersedia versi baru: <strong>' . htmlspecialchars($remoteVersion) . '</strong> (saat ini: ' . htmlspecialchars($localVersion) . ').';
+                                $statusType = 'info';
+                                AppLog('UPDATE_CHECK_SUCCESS', $workdir, "Versi baru tersedia", json_encode(['local' => $localVersion, 'remote' => $remoteVersion]));
+                            }
+                            break;
+                        }
+                        $error = error_get_last();
+                        $lastErrorMessage = $error['message'] ?? 'Unknown';
+                    }
+
+                    if ($statusMessage === '') {
+                        $statusMessage = 'Gagal mengambil versi dari server update. Error terakhir: ' . $lastErrorMessage;
+                        $statusType = 'error';
+                        AppLog('UPDATE_CHECK_FAILED', $workdir, "Gagal mengambil versi dari server", json_encode(['error' => $lastErrorMessage, 'urls' => $urlsToTry]));
+                    }
+                }
+                break;
+
+            case 'update':
+                AppLog('UPDATE_ATTEMPT', $workdir, "Mencoba update otomatis via Git", json_encode(['local_version' => $localVersion ?? 'unknown']));
+
+                $output = [];
+                $returnVar = 0;
+
+                if (!$canExec) {
+                    $output[] = 'Gagal update otomatis: fungsi exec() tidak tersedia di server ini.';
+                    $output[] = 'Solusi: aktifkan exec() pada PHP, atau gunakan "Update via ZIP" pada halaman ini.';
+                    $returnVar = 1;
+                    AppLog('UPDATE_FAILED', $workdir, "exec() tidak tersedia", json_encode([]));
+                } elseif (!$isGitRepo) {
+                    $output[] = 'Gagal update otomatis: folder aplikasi ini bukan repository Git (.git tidak ditemukan).';
+                    $output[] = 'Solusi: gunakan "Inisialisasi Git" atau "Update via ZIP" pada halaman ini.';
+                    $returnVar = 1;
+                    AppLog('UPDATE_FAILED', $workdir, "Bukan repository Git", json_encode(['project_root' => $projectRoot]));
+                } else {
+                    $statusOut = [];
+                    $statusRv = 0;
+                    exec('cd ' . escapeshellarg($projectRoot) . ' && git status --porcelain 2>&1', $statusOut, $statusRv);
+                    if ($statusRv !== 0) {
+                        $output[] = 'Gagal cek status git.';
+                        $output = array_merge($output, $statusOut);
+                        $returnVar = 1;
+                        AppLog('UPDATE_FAILED', $workdir, "Gagal cek status git", json_encode(['status_rv' => $statusRv, 'output' => $statusOut]));
+                    } elseif (!empty($statusOut)) {
+                        $output[] = 'Update dibatalkan karena ada perubahan lokal di server.';
+                        $output[] = 'Solusi: commit/stash dulu, atau deploy ulang dari Git.';
+                        $output = array_merge($output, $statusOut);
+                        $returnVar = 1;
+                        AppLog('UPDATE_FAILED', $workdir, "Ada perubahan lokal", json_encode(['changes' => $statusOut]));
+                    } else {
+                        exec('cd ' . escapeshellarg($projectRoot) . ' && git pull --ff-only 2>&1', $output, $returnVar);
+                        if ($returnVar === 0) {
+                            AppLog('UPDATE_SUCCESS', $workdir, "Git pull berhasil", json_encode([]));
+                        } else {
+                            AppLog('UPDATE_FAILED', $workdir, "Git pull gagal", json_encode(['return_var' => $returnVar, 'output' => $output]));
+                        }
+                    }
+                }
+
+                if ($returnVar === 0) {
+                    runDatabaseMigrations($output);
+                    AppLog('UPDATE_MIGRATION_RUN', $workdir, "Migrasi database dijalankan", json_encode([]));
+                }
+
+                $statusMessage = implode("\n", $output);
+                $statusType = $returnVar === 0 ? 'success' : 'error';
+                break;
+
+            case 'migrate':
+                AppLog('MIGRATE_ATTEMPT', $workdir, "Mencoba menjalankan migrasi database", json_encode([]));
+                $output = [];
+                runDatabaseMigrations($output);
+                $statusMessage = implode("\n", $output);
+                $statusType = 'success';
+                AppLog('MIGRATE_SUCCESS', $workdir, "Migrasi database selesai", json_encode(['output' => $output]));
+                break;
+
+            case 'init_git':
+                AppLog('INIT_GIT_ATTEMPT', $workdir, "Mencoba inisialisasi Git", json_encode(['project_root' => $projectRoot]));
+                $output = [];
+                $rv = runGitBootstrapUpdate($projectRoot, $output);
+                if ($rv === 0) {
+                    AppLog('INIT_GIT_SUCCESS', $workdir, "Inisialisasi Git berhasil", json_encode([]));
+                    runDatabaseMigrations($output);
+                    AppLog('INIT_GIT_MIGRATION_RUN', $workdir, "Migrasi database setelah init Git dijalankan", json_encode([]));
+                } else {
+                    AppLog('INIT_GIT_FAILED', $workdir, "Inisialisasi Git gagal", json_encode(['output' => $output, 'return_value' => $rv]));
+                }
+                $statusMessage = implode("\n", $output);
+                $statusType = $rv === 0 ? 'success' : 'error';
+                break;
+
+            case 'zip_update':
+                AppLog('ZIP_UPDATE_ATTEMPT', $workdir, "Mencoba update via ZIP", json_encode([]));
+                $output = [];
+                $rv = runZipUpdate($projectRoot, $output);
+                if ($rv === 0) {
+                    AppLog('ZIP_UPDATE_SUCCESS', $workdir, "Update via ZIP berhasil", json_encode([]));
+                    runDatabaseMigrations($output);
+                    AppLog('ZIP_UPDATE_MIGRATION_RUN', $workdir, "Migrasi database setelah ZIP update dijalankan", json_encode([]));
+                } else {
+                    AppLog('ZIP_UPDATE_FAILED', $workdir, "Update via ZIP gagal", json_encode(['output' => $output, 'return_value' => $rv]));
+                }
+                $statusMessage = implode("\n", $output);
+                $statusType = $rv === 0 ? 'success' : 'error';
+                break;
+
+            default:
+                AppLog('UPDATE_UNKNOWN_ACTION', $workdir, "Aksi tidak dikenali", json_encode(['action' => $action]));
+                $statusMessage = 'Aksi tidak valid.';
+                $statusType = 'error';
+                break;
         }
-        
-        if ($returnVar === 0) {
-            runDatabaseMigrations($output);
+    } else {
+        // If action was reset due to CSRF, we already have status message; no further action.
+        // But if action is empty from the start, we might set a message.
+        if (!isset($statusMessage)) {
+            AppLog('UPDATE_NO_ACTION', $workdir, "Tidak ada aksi yang dikirim", json_encode([]));
+            $statusMessage = 'Tidak ada aksi yang dipilih.';
+            $statusType = 'error';
         }
-        
-        $statusMessage = implode("\n", $output);
-        $statusType = $returnVar === 0 ? 'success' : 'error';
-    } elseif ($action === 'migrate') {
-        $output = [];
-        runDatabaseMigrations($output);
-        $statusMessage = implode("\n", $output);
-        $statusType = 'success';
-    } elseif ($action === 'init_git') {
-        $output = [];
-        $rv = runGitBootstrapUpdate($projectRoot, $output);
-        if ($rv === 0) {
-            runDatabaseMigrations($output);
-        }
-        $statusMessage = implode("\n", $output);
-        $statusType = $rv === 0 ? 'success' : 'error';
-    } elseif ($action === 'zip_update') {
-        $output = [];
-        $rv = runZipUpdate($projectRoot, $output);
-        if ($rv === 0) {
-            runDatabaseMigrations($output);
-        }
-        $statusMessage = implode("\n", $output);
-        $statusType = $rv === 0 ? 'success' : 'error';
     }
 }
 

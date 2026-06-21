@@ -482,6 +482,22 @@ function logActivity($action, $details = '')
 
     file_put_contents($logFile, $logMessage, FILE_APPEND);
 }
+
+function AppLog($action, string $workdir, string $msg, ?string $data) {
+    $logFile = __DIR__ . '/../logs/action.log';
+    $logDir = dirname($logFile);
+
+    if (!is_dir($logDir)) {
+        mkdir($logDir, 0777, true);
+    }
+
+    $username = $_SESSION['admin']['username'] ?? 'guest';
+    $ip = getUserIP();
+    $timestamp = date('Y-m-d H:i:s');
+    $logMessage = "[{$timestamp}] [{$username}] [{$ip}] {$action} - [{$workdir}] - [{$msg}] - {$data}\n";
+
+    file_put_contents($logFile, $logMessage, FILE_APPEND);
+}
 // Redirect
 function redirect($url)
 {

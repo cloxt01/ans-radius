@@ -10,6 +10,7 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 
 $pageTitle = 'Settings';
+$workdir = 'admin/settings.php';
 
 
 
@@ -71,56 +72,47 @@ try {
 // ============================================================================
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    // Download backup
-//    if (isset($_GET['download_backup'])) {
-//        // Validasi CSRF untuk GET request
-//        if (!isset($_GET['csrf_token']) || !verifyCsrfToken($_GET['csrf_token'])) {
-//            setFlash('error', 'Invalid CSRF token');
-//            redirect('settings.php');
-//        }
-//
-//        $backupFile = sanitizeBackupFilename($_GET['download_backup'] ?? '');
-//        if ($backupFile === '') {
-//            setFlash('error', 'Nama file backup tidak valid');
-//            redirect('settings.php');
-//        }
-//        $fullPath = getBackupDirectory() . $backupFile;
-//        if (!is_file($fullPath)) {
-//            setFlash('error', 'File backup tidak ditemukan');
-//            redirect('settings.php');
-//        }
-//        header('Content-Type: application/sql');
-//        header('Content-Disposition: attachment; filename="' . $backupFile . '"');
-//        header('Content-Length: ' . filesize($fullPath));
-//        header('Cache-Control: private, max-age=0, must-revalidate');
-//        readfile($fullPath);
-//        exit;
-//    }
-    
-    // Get NAS data untuk edit (AJAX)
-    if (isset($_GET['get_nas']) && isset($_GET['id'])) {
-        header('Content-Type: application/json');
-        $nasId = (int)$_GET['id'];
-        $nas = radiusGetNasById($nasId);
-        if ($nas) {
-            echo json_encode(['success' => true, 'data' => $nas]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'NAS tidak ditemukan']);
+//    Download backup
+    if (isset($_GET['download_backup'])) {
+        // Validasi CSRF untuk GET request
+        AppLog('SETTINGS_DOWNLOAD_BACKUP_ATTEMPT', $workdir, "Mencoba mengunduh backup file");
+
+        if (!isset($_GET['csrf_token']) || !verifyCsrfToken($_GET['csrf_token'])) {
+            setFlash('error', 'Invalid CSRF token');
+            redirect('settings.php');
         }
+
+        $backupFile = sanitizeBackupFilename($_GET['download_backup'] ?? '');
+        if ($backupFile === '') {
+            AppLog('SETTINGS_DOWNLOAD_BACKUP_FAILED', $workdir, "Nama file tidak valid", json_encode($backupFile));
+            setFlash('error', 'Nama file backup tidak valid');
+            redirect('settings.php');
+        }
+        $fullPath = getBackupDirectory() . $backupFile;
+        if (!is_file($fullPath)) {
+            AppLog('SETTINGS_DOWNLOAD_BACKUP_FAILED', $workdir, "File tidak ditemukan", json_encode($fullPath));
+            setFlash('error', 'File backup tidak ditemukan');
+            redirect('settings.php');
+        }
+        AppLog('SETTINGS_DOWNLOAD_BACKUP_START', $workdir, "Memulai mengunduh backup file");
+        header('Content-Type: application/sql');
+        header('Content-Disposition: attachment; filename="' . $backupFile . '"');
+        header('Content-Length: ' . filesize($fullPath));
+        header('Cache-Control: private, max-age=0, must-revalidate');
+        readfile($fullPath);
         exit;
     }
 }
-
-// ============================================================================
-// HANDLE POST REQUESTS
-// ============================================================================
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // CSRF Validation untuk semua POST
+    // CSRF Validation
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
+        AppLog('SETTINGS_CSRF_FAILED', $workdir, "CSRF token tidak valid", json_encode(['ip' => $_SERVER['REMOTE_ADDR']]));
         setFlash('error', 'Invalid CSRF token');
         redirect('settings.php');
     }
+
+    $action = $_POST['action'] ?? '';
+    AppLog('SETTINGS_ACTION_RECEIVED', $workdir, "Menerima aksi settings", json_encode(['action' => $action]));
 
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
@@ -129,19 +121,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $nasName = sanitize($_POST['nas_name']);
                 $nasIp = sanitize($_POST['nas_ip']);
                 $nasSecret = sanitize($_POST['nas_secret']);
-                
+                $logData = ['nas_name' => $nasName, 'nas_ip' => $nasIp];
+
+                AppLog('SETTINGS_ADD_NAS_ATTEMPT', $workdir, "Mencoba menambahkan NAS", json_encode($logData));
+
                 if (empty($nasName) || empty($nasIp) || empty($nasSecret)) {
+                    AppLog('SETTINGS_ADD_NAS_FAILED', $workdir, "Field NAS tidak lengkap", json_encode($logData));
                     setFlash('error', 'Semua field NAS harus diisi');
                 } elseif (!filter_var($nasIp, FILTER_VALIDATE_IP)) {
+                    AppLog('SETTINGS_ADD_NAS_FAILED', $workdir, "IP NAS tidak valid", json_encode($logData));
                     setFlash('error', 'IP NAS tidak valid');
                 } elseif (radiusAddNas($nasName, $nasIp, $nasSecret)) {
+                    AppLog('SETTINGS_ADD_NAS_SUCCESS', $workdir, "NAS berhasil ditambahkan", json_encode($logData));
                     setFlash('success', 'NAS berhasil ditambahkan');
+                    logActivity('ADD_NAS', "Name: {$nasName}, IP: {$nasIp}");
                 } else {
+                    AppLog('SETTINGS_ADD_NAS_FAILED', $workdir, "Gagal menambahkan NAS", json_encode($logData));
                     setFlash('error', 'Gagal menambahkan NAS');
                 }
                 redirect('settings.php');
                 break;
-            
+
             // ==================== EDIT NAS ====================
             case 'edit_nas':
                 $nasId = (int)$_POST['nas_id'];
@@ -149,97 +149,113 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $nasIp = sanitize($_POST['nas_ip']);
                 $nasSecret = sanitize($_POST['nas_secret']);
                 $description = sanitize($_POST['description'] ?? '');
-                
+                $logData = ['nas_id' => $nasId, 'nas_name' => $nasName, 'nas_ip' => $nasIp];
+
+                AppLog('SETTINGS_EDIT_NAS_ATTEMPT', $workdir, "Mencoba mengupdate NAS", json_encode($logData));
+
                 if ($nasId <= 0) {
+                    AppLog('SETTINGS_EDIT_NAS_FAILED', $workdir, "ID NAS tidak valid", json_encode($logData));
                     setFlash('error', 'ID NAS tidak valid');
                 } elseif (empty($nasName) || empty($nasIp) || empty($nasSecret)) {
+                    AppLog('SETTINGS_EDIT_NAS_FAILED', $workdir, "Field NAS tidak lengkap", json_encode($logData));
                     setFlash('error', 'Semua field NAS harus diisi');
                 } elseif (!filter_var($nasIp, FILTER_VALIDATE_IP)) {
+                    AppLog('SETTINGS_EDIT_NAS_FAILED', $workdir, "IP NAS tidak valid", json_encode($logData));
                     setFlash('error', 'IP NAS tidak valid');
                 } elseif (radiusUpdateNas($nasId, $nasName, $nasIp, $nasSecret)) {
+                    AppLog('SETTINGS_EDIT_NAS_SUCCESS', $workdir, "NAS berhasil diperbarui", json_encode($logData));
                     setFlash('success', 'NAS berhasil diperbarui');
-                    // Restart radius setelah edit
                     shell_exec('sudo /bin/systemctl restart freeradius 2>/dev/null >/dev/null &');
+                    logActivity('EDIT_NAS', "ID: {$nasId}, Name: {$nasName}");
                 } else {
+                    AppLog('SETTINGS_EDIT_NAS_FAILED', $workdir, "Gagal mengupdate NAS", json_encode($logData));
                     setFlash('error', 'Gagal memperbarui NAS');
                 }
                 redirect('settings.php');
                 break;
-            
+
             // ==================== DELETE NAS ====================
             case 'delete_nas':
                 $nasId = (int)$_POST['nas_id'];
+                AppLog('SETTINGS_DELETE_NAS_ATTEMPT', $workdir, "Mencoba menghapus NAS", json_encode(['nas_id' => $nasId]));
+
                 if ($nasId <= 0) {
+                    AppLog('SETTINGS_DELETE_NAS_FAILED', $workdir, "ID NAS tidak valid", json_encode(['nas_id' => $nasId]));
                     setFlash('error', 'ID NAS tidak valid');
                 } elseif (radiusDeleteNas($nasId)) {
+                    AppLog('SETTINGS_DELETE_NAS_SUCCESS', $workdir, "NAS berhasil dihapus", json_encode(['nas_id' => $nasId]));
                     setFlash('success', 'NAS berhasil dihapus');
                     shell_exec('sudo /bin/systemctl restart freeradius 2>/dev/null >/dev/null &');
+                    logActivity('DELETE_NAS', "ID: {$nasId}");
                 } else {
+                    AppLog('SETTINGS_DELETE_NAS_FAILED', $workdir, "Gagal menghapus NAS", json_encode(['nas_id' => $nasId]));
                     setFlash('error', 'Gagal menghapus NAS');
                 }
                 redirect('settings.php');
                 break;
-            
+
             // ==================== ADD MIKROTIK CLIENT ====================
             case 'add_mikrotik_client':
                 $version = sanitize($_POST['mikrotik_version']);
+                AppLog('SETTINGS_ADD_MIKROTIK_CLIENT_ATTEMPT', $workdir, "Mencoba generate script MikroTik client", json_encode(['version' => $version]));
+
                 $script = generateMikrotikClientScript($version);
-                
-                // Cek apakah script valid
                 if (isset($script['error'])) {
+                    AppLog('SETTINGS_ADD_MIKROTIK_CLIENT_FAILED', $workdir, "Error generate script", json_encode(['error' => $script['error']]));
                     setFlash('error', $script['error']);
                     redirect('settings.php');
                     break;
                 }
-                
-                // Get next IP untuk client
+
                 $nextAddress = nextAddressOvpnClient();
                 if (!$nextAddress) {
-                    logError('Gagal mendapatkan IP berikutnya untuk client OVPN. Pastikan subnet OVPN benar dan tidak penuh.');
-                    setFlash('error', 'Gagal mendapatkan IP berikutnya untuk client OVPN. Subnet mungkin sudah penuh.');
+                    $errMsg = 'Gagal mendapatkan IP berikutnya untuk client OVPN. Subnet mungkin sudah penuh.';
+                    AppLog('SETTINGS_ADD_MIKROTIK_CLIENT_FAILED', $workdir, $errMsg, json_encode(['version' => $version]));
+                    logError($errMsg);
+                    setFlash('error', $errMsg);
                     redirect('settings.php');
                     break;
                 }
-                
-                // Add NAS ke RADIUS
+
                 $NASAdded = radiusAddNas($script['radius']['nas_name'], $nextAddress, $script['radius']['nas_secret']);
                 if (!$NASAdded) {
-                    $errorMsg = 'Gagal menambahkan NAS untuk client OVPN. Pastikan database RADIUS terkonfigurasi dengan benar.';
-                    setFlash('error', $errorMsg);
-                    logError($errorMsg);
+                    $errMsg = 'Gagal menambahkan NAS untuk client OVPN. Pastikan database RADIUS terkonfigurasi dengan benar.';
+                    AppLog('SETTINGS_ADD_MIKROTIK_CLIENT_FAILED', $workdir, $errMsg, json_encode(['version' => $version, 'nas_name' => $script['radius']['nas_name']]));
+                    logError($errMsg);
+                    setFlash('error', $errMsg);
                     redirect('settings.php');
                     break;
                 }
-                
-                // Add VPN user
+
                 require_once '../includes/vpn.php';
                 $clientVpnAdded = upsertVpnUser([
-                    'name' => $script['vpn']['name'],
-                    'username' => $script['vpn']['username'],
-                    'password' => $script['vpn']['password']
+                        'name' => $script['vpn']['name'],
+                        'username' => $script['vpn']['username'],
+                        'password' => $script['vpn']['password']
                 ]);
-                
                 if (!$clientVpnAdded) {
-                    $errorMsg = 'Gagal menambahkan user VPN untuk client OVPN. Pastikan database VPN terkonfigurasi dengan benar.';
-                    setFlash('error', $errorMsg);
-                    logError($errorMsg);
+                    $errMsg = 'Gagal menambahkan user VPN untuk client OVPN. Pastikan database VPN terkonfigurasi dengan benar.';
+                    AppLog('SETTINGS_ADD_MIKROTIK_CLIENT_FAILED', $workdir, $errMsg, json_encode(['version' => $version, 'username' => $script['vpn']['username']]));
+                    logError($errMsg);
+                    setFlash('error', $errMsg);
                     redirect('settings.php');
                     break;
                 }
-                
-                // Restart RADIUS
+
                 shell_exec('sudo /bin/systemctl restart freeradius 2>/dev/null >/dev/null &');
-                
                 $_SESSION['generated_script'] = $script['script'];
+                AppLog('SETTINGS_ADD_MIKROTIK_CLIENT_SUCCESS', $workdir, "Script MikroTik berhasil digenerate", json_encode(['version' => $version, 'nas_name' => $script['radius']['nas_name']]));
                 setFlash('success', 'Script MikroTik berhasil digenerate');
+                logActivity('ADD_MIKROTIK_CLIENT', "Version: {$version}");
                 redirect('settings.php');
                 break;
-            
+
             // ==================== SAVE SERVER ====================
             case 'save_server':
                 $serverIp = trim(sanitize($_POST['server_ip']));
                 $shortAppName = trim(sanitize($_POST['short_app_name']));
-                
+                AppLog('SETTINGS_SAVE_SERVER_ATTEMPT', $workdir, "Mencoba menyimpan pengaturan server", json_encode(['server_ip' => $serverIp, 'short_app_name' => $shortAppName]));
+
                 $errors = [];
                 if (empty($serverIp)) {
                     $errors[] = 'Server IP tidak boleh kosong';
@@ -249,220 +265,283 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (empty($shortAppName)) {
                     $errors[] = 'Short App Name tidak boleh kosong';
                 }
-                
                 if (!empty($errors)) {
+                    AppLog('SETTINGS_SAVE_SERVER_FAILED', $workdir, "Validasi gagal: " . implode(', ', $errors), json_encode(['server_ip' => $serverIp, 'short_app_name' => $shortAppName]));
                     setFlash('error', implode(', ', $errors));
                     redirect('settings.php');
                     break;
                 }
-                
+
                 // Update atau insert settings
-                $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['server_ip']);
-                if ($existing) {
-                    update('settings', ['setting_value' => $serverIp], 'setting_key = ?', ['server_ip']);
-                } else {
-                    insert('settings', ['setting_key' => 'server_ip', 'setting_value' => $serverIp]);
+                try {
+                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['server_ip']);
+                    if ($existing) {
+                        update('settings', ['setting_value' => $serverIp], 'setting_key = ?', ['server_ip']);
+                    } else {
+                        insert('settings', ['setting_key' => 'server_ip', 'setting_value' => $serverIp]);
+                    }
+
+                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['short_app_name']);
+                    if ($existing) {
+                        update('settings', ['setting_value' => $shortAppName], 'setting_key = ?', ['short_app_name']);
+                    } else {
+                        insert('settings', ['setting_key' => 'short_app_name', 'setting_value' => $shortAppName]);
+                    }
+
+                    AppLog('SETTINGS_SAVE_SERVER_SUCCESS', $workdir, "Pengaturan server berhasil disimpan", json_encode(['server_ip' => $serverIp, 'short_app_name' => $shortAppName]));
+                    setFlash('success', 'Pengaturan server berhasil disimpan');
+                    logActivity('SAVE_SERVER_SETTINGS', "Server IP: {$serverIp}");
+                } catch (Exception $e) {
+                    AppLog('SETTINGS_SAVE_SERVER_FAILED', $workdir, "Exception: " . $e->getMessage(), json_encode(['server_ip' => $serverIp, 'short_app_name' => $shortAppName]));
+                    setFlash('error', 'Gagal menyimpan pengaturan server: ' . $e->getMessage());
                 }
-                
-                $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['short_app_name']);
-                if ($existing) {
-                    update('settings', ['setting_value' => $shortAppName], 'setting_key = ?', ['short_app_name']);
-                } else {
-                    insert('settings', ['setting_key' => 'short_app_name', 'setting_value' => $shortAppName]);
-                }
-                
-                setFlash('success', 'Pengaturan server berhasil disimpan');
                 redirect('settings.php');
                 break;
-            
+
             // ==================== SAVE SYSTEM ====================
             case 'save_system':
                 $systemSettings = [
-                    'app_name' => sanitize($_POST['app_name']),
-                    'timezone' => sanitize($_POST['timezone']),
-                    'currency' => sanitize($_POST['currency']),
-                    'invoice_prefix' => sanitize($_POST['invoice_prefix']),
-                    'invoice_start' => (int)$_POST['invoice_start']
+                        'app_name' => sanitize($_POST['app_name']),
+                        'timezone' => sanitize($_POST['timezone']),
+                        'currency' => sanitize($_POST['currency']),
+                        'invoice_prefix' => sanitize($_POST['invoice_prefix']),
+                        'invoice_start' => (int)$_POST['invoice_start']
                 ];
-                
-                foreach ($systemSettings as $key => $value) {
-                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
-                    if ($existing) {
-                        update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
-                    } else {
-                        insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                AppLog('SETTINGS_SAVE_SYSTEM_ATTEMPT', $workdir, "Mencoba menyimpan pengaturan sistem", json_encode($systemSettings));
+
+                try {
+                    foreach ($systemSettings as $key => $value) {
+                        $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
+                        if ($existing) {
+                            update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
+                        } else {
+                            insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                        }
                     }
+                    if (function_exists('date_default_timezone_set')) {
+                        @date_default_timezone_set($systemSettings['timezone']);
+                    }
+                    AppLog('SETTINGS_SAVE_SYSTEM_SUCCESS', $workdir, "Pengaturan sistem berhasil disimpan", json_encode($systemSettings));
+                    setFlash('success', 'Pengaturan sistem berhasil disimpan');
+                    logActivity('SAVE_SYSTEM_SETTINGS', "App: {$systemSettings['app_name']}");
+                } catch (Exception $e) {
+                    AppLog('SETTINGS_SAVE_SYSTEM_FAILED', $workdir, "Exception: " . $e->getMessage(), json_encode($systemSettings));
+                    setFlash('error', 'Gagal menyimpan pengaturan sistem: ' . $e->getMessage());
                 }
-                
-                // Set timezone
-                if (function_exists('date_default_timezone_set')) {
-                    @date_default_timezone_set($systemSettings['timezone']);
-                }
-                
-                setFlash('success', 'Pengaturan sistem berhasil disimpan');
                 redirect('settings.php');
                 break;
-            
+
             // ==================== SAVE MIKROTIK ====================
             case 'save_mikrotik':
                 $mikrotikSettings = [
-                    'MIKROTIK_HOST' => sanitize($_POST['mikrotik_host']),
-                    'MIKROTIK_USER' => sanitize($_POST['mikrotik_user']),
-                    'MIKROTIK_PASS' => sanitize($_POST['mikrotik_pass']),
-                    'MIKROTIK_PORT' => (int)$_POST['mikrotik_port']
+                        'MIKROTIK_HOST' => sanitize($_POST['mikrotik_host']),
+                        'MIKROTIK_USER' => sanitize($_POST['mikrotik_user']),
+                        'MIKROTIK_PASS' => sanitize($_POST['mikrotik_pass']),
+                        'MIKROTIK_PORT' => (int)$_POST['mikrotik_port']
                 ];
-                
-                foreach ($mikrotikSettings as $key => $value) {
-                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
-                    if ($existing) {
-                        update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
-                    } else {
-                        insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                AppLog('SETTINGS_SAVE_MIKROTIK_ATTEMPT', $workdir, "Mencoba menyimpan pengaturan MikroTik", json_encode(['host' => $mikrotikSettings['MIKROTIK_HOST'], 'user' => $mikrotikSettings['MIKROTIK_USER']]));
+
+                try {
+                    foreach ($mikrotikSettings as $key => $value) {
+                        $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
+                        if ($existing) {
+                            update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
+                        } else {
+                            insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                        }
                     }
+                    AppLog('SETTINGS_SAVE_MIKROTIK_SUCCESS', $workdir, "Pengaturan MikroTik berhasil disimpan", json_encode(['host' => $mikrotikSettings['MIKROTIK_HOST']]));
+                    setFlash('success', 'Pengaturan MikroTik berhasil disimpan');
+                    logActivity('SAVE_MIKROTIK_SETTINGS', "Host: {$mikrotikSettings['MIKROTIK_HOST']}");
+                } catch (Exception $e) {
+                    AppLog('SETTINGS_SAVE_MIKROTIK_FAILED', $workdir, "Exception: " . $e->getMessage(), json_encode(['host' => $mikrotikSettings['MIKROTIK_HOST']]));
+                    setFlash('error', 'Gagal menyimpan pengaturan MikroTik: ' . $e->getMessage());
                 }
-                
-                setFlash('success', 'Pengaturan MikroTik berhasil disimpan');
                 redirect('settings.php');
                 break;
-            
+
             // ==================== SAVE GENIEACS ====================
             case 'save_genieacs':
                 $genieacsSettings = [
-                    'GENIEACS_URL' => sanitize($_POST['genieacs_url']),
-                    'GENIEACS_USERNAME' => sanitize($_POST['genieacs_username']),
-                    'GENIEACS_PASSWORD' => sanitize($_POST['genieacs_password'])
+                        'GENIEACS_URL' => sanitize($_POST['genieacs_url']),
+                        'GENIEACS_USERNAME' => sanitize($_POST['genieacs_username']),
+                        'GENIEACS_PASSWORD' => sanitize($_POST['genieacs_password'])
                 ];
-                
-                foreach ($genieacsSettings as $key => $value) {
-                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
-                    if ($existing) {
-                        update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
-                    } else {
-                        insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                AppLog('SETTINGS_SAVE_GENIEACS_ATTEMPT', $workdir, "Mencoba menyimpan pengaturan GenieACS", json_encode(['url' => $genieacsSettings['GENIEACS_URL'], 'username' => $genieacsSettings['GENIEACS_USERNAME']]));
+
+                try {
+                    foreach ($genieacsSettings as $key => $value) {
+                        $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
+                        if ($existing) {
+                            update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
+                        } else {
+                            insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                        }
                     }
+                    AppLog('SETTINGS_SAVE_GENIEACS_SUCCESS', $workdir, "Pengaturan GenieACS berhasil disimpan", json_encode(['url' => $genieacsSettings['GENIEACS_URL']]));
+                    setFlash('success', 'Pengaturan GenieACS berhasil disimpan');
+                    logActivity('SAVE_GENIEACS_SETTINGS', "URL: {$genieacsSettings['GENIEACS_URL']}");
+                } catch (Exception $e) {
+                    AppLog('SETTINGS_SAVE_GENIEACS_FAILED', $workdir, "Exception: " . $e->getMessage(), json_encode(['url' => $genieacsSettings['GENIEACS_URL']]));
+                    setFlash('error', 'Gagal menyimpan pengaturan GenieACS: ' . $e->getMessage());
                 }
-                
-                setFlash('success', 'Pengaturan GenieACS berhasil disimpan');
                 redirect('settings.php');
                 break;
-            
+
             // ==================== SAVE WHATSAPP ====================
             case 'save_whatsapp_settings':
                 $whatsAppSettings = [
-                    'DEFAULT_WHATSAPP_GATEWAY' => sanitize($_POST['default_whatsapp_gateway']),
-                    'FONNTE_API_TOKEN' => sanitize($_POST['fonnte_api_token']),
-                    'WABLAS_API_TOKEN' => sanitize($_POST['wablas_api_token']),
-                    'MPWA_API_KEY' => sanitize($_POST['mpwa_api_key']),
-                    'MPWA_SENDER' => sanitize($_POST['mpwa_sender']),
-                    'MPWA_API_URL' => sanitize($_POST['mpwa_api_url'] ?? ''),
-                    'WHATSAPP_ADMIN_NUMBER' => sanitize($_POST['whatsapp_admin_number'])
+                        'DEFAULT_WHATSAPP_GATEWAY' => sanitize($_POST['default_whatsapp_gateway']),
+                        'FONNTE_API_TOKEN' => sanitize($_POST['fonnte_api_token']),
+                        'WABLAS_API_TOKEN' => sanitize($_POST['wablas_api_token']),
+                        'MPWA_API_KEY' => sanitize($_POST['mpwa_api_key']),
+                        'MPWA_SENDER' => sanitize($_POST['mpwa_sender']),
+                        'MPWA_API_URL' => sanitize($_POST['mpwa_api_url'] ?? ''),
+                        'WHATSAPP_ADMIN_NUMBER' => sanitize($_POST['whatsapp_admin_number'])
                 ];
+                AppLog('SETTINGS_SAVE_WHATSAPP_ATTEMPT', $workdir, "Mencoba menyimpan pengaturan WhatsApp", json_encode(['gateway' => $whatsAppSettings['DEFAULT_WHATSAPP_GATEWAY']]));
 
-                foreach ($whatsAppSettings as $key => $value) {
-                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
-                    if ($existing) {
-                        update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
-                    } else {
-                        insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                try {
+                    foreach ($whatsAppSettings as $key => $value) {
+                        $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
+                        if ($existing) {
+                            update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
+                        } else {
+                            insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                        }
                     }
+                    AppLog('SETTINGS_SAVE_WHATSAPP_SUCCESS', $workdir, "Pengaturan WhatsApp berhasil disimpan", json_encode(['gateway' => $whatsAppSettings['DEFAULT_WHATSAPP_GATEWAY']]));
+                    setFlash('success', 'Pengaturan WhatsApp berhasil disimpan');
+                    logActivity('SAVE_WHATSAPP_SETTINGS', "Gateway: {$whatsAppSettings['DEFAULT_WHATSAPP_GATEWAY']}");
+                } catch (Exception $e) {
+                    AppLog('SETTINGS_SAVE_WHATSAPP_FAILED', $workdir, "Exception: " . $e->getMessage(), json_encode(['gateway' => $whatsAppSettings['DEFAULT_WHATSAPP_GATEWAY']]));
+                    setFlash('error', 'Gagal menyimpan pengaturan WhatsApp: ' . $e->getMessage());
                 }
-                setFlash('success', 'Pengaturan WhatsApp berhasil disimpan');
                 redirect('settings.php');
                 break;
 
             // ==================== SAVE PAYMENT ====================
             case 'save_payment_settings':
                 $paymentSettings = [
-                    'TRIPAY_API_KEY' => sanitize($_POST['tripay_api_key']),
-                    'TRIPAY_PRIVATE_KEY' => sanitize($_POST['tripay_private_key']),
-                    'TRIPAY_MERCHANT_CODE' => sanitize($_POST['tripay_merchant_code']),
-                    'TRIPAY_MODE' => sanitize($_POST['tripay_mode'] ?? ''),
-                    'MIDTRANS_API_KEY' => sanitize($_POST['midtrans_api_key']),
-                    'MIDTRANS_MERCHANT_CODE' => sanitize($_POST['midtrans_merchant_code']),
-                    'DEFAULT_PAYMENT_GATEWAY' => sanitize($_POST['default_payment_gateway'])
+                        'TRIPAY_API_KEY' => sanitize($_POST['tripay_api_key']),
+                        'TRIPAY_PRIVATE_KEY' => sanitize($_POST['tripay_private_key']),
+                        'TRIPAY_MERCHANT_CODE' => sanitize($_POST['tripay_merchant_code']),
+                        'TRIPAY_MODE' => sanitize($_POST['tripay_mode'] ?? ''),
+                        'MIDTRANS_API_KEY' => sanitize($_POST['midtrans_api_key']),
+                        'MIDTRANS_MERCHANT_CODE' => sanitize($_POST['midtrans_merchant_code']),
+                        'DEFAULT_PAYMENT_GATEWAY' => sanitize($_POST['default_payment_gateway'])
                 ];
+                AppLog('SETTINGS_SAVE_PAYMENT_ATTEMPT', $workdir, "Mencoba menyimpan pengaturan Payment Gateway", json_encode(['default' => $paymentSettings['DEFAULT_PAYMENT_GATEWAY']]));
 
-                foreach ($paymentSettings as $key => $value) {
-                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
-                    if ($existing) {
-                        update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
-                    } else {
-                        insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                try {
+                    foreach ($paymentSettings as $key => $value) {
+                        $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
+                        if ($existing) {
+                            update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
+                        } else {
+                            insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                        }
                     }
+                    AppLog('SETTINGS_SAVE_PAYMENT_SUCCESS', $workdir, "Pengaturan Payment Gateway berhasil disimpan", json_encode(['default' => $paymentSettings['DEFAULT_PAYMENT_GATEWAY']]));
+                    setFlash('success', 'Pengaturan Payment Gateway berhasil disimpan');
+                    logActivity('SAVE_PAYMENT_SETTINGS', "Default: {$paymentSettings['DEFAULT_PAYMENT_GATEWAY']}");
+                } catch (Exception $e) {
+                    AppLog('SETTINGS_SAVE_PAYMENT_FAILED', $workdir, "Exception: " . $e->getMessage(), json_encode(['default' => $paymentSettings['DEFAULT_PAYMENT_GATEWAY']]));
+                    setFlash('error', 'Gagal menyimpan pengaturan Payment Gateway: ' . $e->getMessage());
                 }
-                setFlash('success', 'Pengaturan Payment Gateway berhasil disimpan');
                 redirect('settings.php');
                 break;
 
             // ==================== SAVE TELEGRAM ====================
             case 'save_telegram_settings':
                 $telegramSettings = [
-                    'TELEGRAM_BOT_TOKEN' => sanitize($_POST['telegram_bot_token'] ?? ''),
-                    'TELEGRAM_ADMIN_CHAT_ID' => sanitize($_POST['telegram_admin_chat_id'] ?? '')
+                        'TELEGRAM_BOT_TOKEN' => sanitize($_POST['telegram_bot_token'] ?? ''),
+                        'TELEGRAM_ADMIN_CHAT_ID' => sanitize($_POST['telegram_admin_chat_id'] ?? '')
                 ];
+                AppLog('SETTINGS_SAVE_TELEGRAM_ATTEMPT', $workdir, "Mencoba menyimpan pengaturan Telegram", json_encode(['chat_id' => $telegramSettings['TELEGRAM_ADMIN_CHAT_ID']]));
 
-                foreach ($telegramSettings as $key => $value) {
-                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
-                    if ($existing) {
-                        update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
-                    } else {
-                        insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                try {
+                    foreach ($telegramSettings as $key => $value) {
+                        $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
+                        if ($existing) {
+                            update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
+                        } else {
+                            insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                        }
                     }
+                    AppLog('SETTINGS_SAVE_TELEGRAM_SUCCESS', $workdir, "Pengaturan Telegram berhasil disimpan", json_encode(['chat_id' => $telegramSettings['TELEGRAM_ADMIN_CHAT_ID']]));
+                    setFlash('success', 'Pengaturan Telegram berhasil disimpan');
+                    logActivity('SAVE_TELEGRAM_SETTINGS', "Chat ID: {$telegramSettings['TELEGRAM_ADMIN_CHAT_ID']}");
+                } catch (Exception $e) {
+                    AppLog('SETTINGS_SAVE_TELEGRAM_FAILED', $workdir, "Exception: " . $e->getMessage(), json_encode(['chat_id' => $telegramSettings['TELEGRAM_ADMIN_CHAT_ID']]));
+                    setFlash('error', 'Gagal menyimpan pengaturan Telegram: ' . $e->getMessage());
                 }
-                setFlash('success', 'Pengaturan Telegram berhasil disimpan');
                 redirect('settings.php');
                 break;
 
             // ==================== SAVE LANDING ====================
             case 'save_landing':
                 $landingSettings = [
-                    'landing_template' => sanitize($_POST['landing_template']),
-                    'hero_title' => sanitize($_POST['hero_title']),
-                    'hero_description' => sanitize($_POST['hero_description']),
-                    'contact_phone' => sanitize($_POST['contact_phone']),
-                    'contact_email' => sanitize($_POST['contact_email']),
-                    'contact_address' => sanitize($_POST['contact_address']),
-                    'footer_about' => sanitize($_POST['footer_about']),
-                    'feature_1_title' => sanitize($_POST['feature_1_title']),
-                    'feature_1_desc' => sanitize($_POST['feature_1_desc']),
-                    'feature_2_title' => sanitize($_POST['feature_2_title']),
-                    'feature_2_desc' => sanitize($_POST['feature_2_desc']),
-                    'feature_3_title' => sanitize($_POST['feature_3_title']),
-                    'feature_3_desc' => sanitize($_POST['feature_3_desc']),
-                    'social_facebook' => sanitize($_POST['social_facebook']),
-                    'social_instagram' => sanitize($_POST['social_instagram']),
-                    'social_twitter' => sanitize($_POST['social_twitter']),
-                    'social_youtube' => sanitize($_POST['social_youtube']),
-                    'theme_color' => sanitize($_POST['theme_color'])
+                        'landing_template' => sanitize($_POST['landing_template']),
+                        'hero_title' => sanitize($_POST['hero_title']),
+                        'hero_description' => sanitize($_POST['hero_description']),
+                        'contact_phone' => sanitize($_POST['contact_phone']),
+                        'contact_email' => sanitize($_POST['contact_email']),
+                        'contact_address' => sanitize($_POST['contact_address']),
+                        'footer_about' => sanitize($_POST['footer_about']),
+                        'feature_1_title' => sanitize($_POST['feature_1_title']),
+                        'feature_1_desc' => sanitize($_POST['feature_1_desc']),
+                        'feature_2_title' => sanitize($_POST['feature_2_title']),
+                        'feature_2_desc' => sanitize($_POST['feature_2_desc']),
+                        'feature_3_title' => sanitize($_POST['feature_3_title']),
+                        'feature_3_desc' => sanitize($_POST['feature_3_desc']),
+                        'social_facebook' => sanitize($_POST['social_facebook']),
+                        'social_instagram' => sanitize($_POST['social_instagram']),
+                        'social_twitter' => sanitize($_POST['social_twitter']),
+                        'social_youtube' => sanitize($_POST['social_youtube']),
+                        'theme_color' => sanitize($_POST['theme_color'])
                 ];
-                
-                foreach ($landingSettings as $key => $value) {
-                    $existing = fetchOne("SELECT id FROM site_settings WHERE setting_key = ?", [$key]);
-                    if ($existing) {
-                        update('site_settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
-                    } else {
-                        insert('site_settings', ['setting_key' => $key, 'setting_value' => $value]);
+                AppLog('SETTINGS_SAVE_LANDING_ATTEMPT', $workdir, "Mencoba menyimpan pengaturan Landing Page", json_encode(['template' => $landingSettings['landing_template']]));
+
+                try {
+                    foreach ($landingSettings as $key => $value) {
+                        $existing = fetchOne("SELECT id FROM site_settings WHERE setting_key = ?", [$key]);
+                        if ($existing) {
+                            update('site_settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
+                        } else {
+                            insert('site_settings', ['setting_key' => $key, 'setting_value' => $value]);
+                        }
                     }
+                    AppLog('SETTINGS_SAVE_LANDING_SUCCESS', $workdir, "Pengaturan Landing Page berhasil disimpan", json_encode(['template' => $landingSettings['landing_template']]));
+                    setFlash('success', 'Pengaturan Landing Page berhasil disimpan');
+                    logActivity('SAVE_LANDING_SETTINGS', "Template: {$landingSettings['landing_template']}");
+                } catch (Exception $e) {
+                    AppLog('SETTINGS_SAVE_LANDING_FAILED', $workdir, "Exception: " . $e->getMessage(), json_encode(['template' => $landingSettings['landing_template']]));
+                    setFlash('error', 'Gagal menyimpan pengaturan Landing Page: ' . $e->getMessage());
                 }
-                
-                setFlash('success', 'Pengaturan Landing Page berhasil disimpan');
                 redirect('settings.php');
                 break;
 
             // ==================== MANAGE FAQ ====================
             case 'manage_faq':
                 $faq_action = trim((string) ($_POST['faq_action'] ?? ''));
-                
+                $logSubAction = $faq_action;
+                AppLog('SETTINGS_MANAGE_FAQ_ATTEMPT', $workdir, "Mencoba mengelola FAQ", json_encode(['faq_action' => $faq_action]));
+
                 if ($faq_action === 'add') {
                     $question = trim((string) sanitize($_POST['faq_question'] ?? ''));
                     $answer = trim((string) sanitize($_POST['faq_answer'] ?? ''));
                     if ($question !== '' && $answer !== '') {
                         if (saveFaq($question, $answer)) {
+                            AppLog('SETTINGS_FAQ_ADD_SUCCESS', $workdir, "FAQ berhasil ditambahkan", json_encode(['question' => $question]));
                             setFlash('success', 'FAQ berhasil ditambahkan');
+                            logActivity('ADD_FAQ', "Question: {$question}");
                         } else {
+                            AppLog('SETTINGS_FAQ_ADD_FAILED', $workdir, "Gagal menambahkan FAQ", json_encode(['question' => $question]));
                             setFlash('error', 'Gagal menambahkan FAQ');
                         }
                     } else {
+                        AppLog('SETTINGS_FAQ_ADD_FAILED', $workdir, "Pertanyaan atau jawaban kosong", json_encode(['question' => $question]));
                         setFlash('error', 'Pertanyaan dan jawaban wajib diisi');
                     }
                 } elseif ($faq_action === 'update') {
@@ -472,22 +551,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $is_active = isset($_POST['faq_active']) ? 1 : 0;
                     if ($faq_id > 0 && $question !== '' && $answer !== '') {
                         if (updateFaq($faq_id, $question, $answer, $is_active)) {
+                            AppLog('SETTINGS_FAQ_UPDATE_SUCCESS', $workdir, "FAQ berhasil diperbarui", json_encode(['faq_id' => $faq_id]));
                             setFlash('success', 'FAQ berhasil diperbarui');
+                            logActivity('UPDATE_FAQ', "ID: {$faq_id}");
                         } else {
+                            AppLog('SETTINGS_FAQ_UPDATE_FAILED', $workdir, "Gagal memperbarui FAQ", json_encode(['faq_id' => $faq_id]));
                             setFlash('error', 'Gagal memperbarui FAQ');
                         }
                     } else {
+                        AppLog('SETTINGS_FAQ_UPDATE_FAILED', $workdir, "Data tidak valid", json_encode(['faq_id' => $faq_id]));
                         setFlash('error', 'Data tidak valid');
                     }
                 } elseif ($faq_action === 'delete') {
                     $faq_id = (int) ($_POST['faq_id'] ?? 0);
                     if ($faq_id > 0) {
                         if (deleteFaq($faq_id)) {
+                            AppLog('SETTINGS_FAQ_DELETE_SUCCESS', $workdir, "FAQ berhasil dihapus", json_encode(['faq_id' => $faq_id]));
                             setFlash('success', 'FAQ berhasil dihapus');
+                            logActivity('DELETE_FAQ', "ID: {$faq_id}");
                         } else {
+                            AppLog('SETTINGS_FAQ_DELETE_FAILED', $workdir, "Gagal menghapus FAQ", json_encode(['faq_id' => $faq_id]));
                             setFlash('error', 'Gagal menghapus FAQ');
                         }
                     } else {
+                        AppLog('SETTINGS_FAQ_DELETE_FAILED', $workdir, "ID FAQ tidak valid", json_encode(['faq_id' => $faq_id]));
                         setFlash('error', 'ID FAQ tidak valid');
                     }
                 }
@@ -499,32 +586,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $currentPassword = $_POST['current_password'];
                 $newPassword = $_POST['new_password'];
                 $confirmPassword = $_POST['confirm_password'];
-                
                 $sessionAdmin = getCurrentAdmin();
                 $admin = getAdmin($sessionAdmin['id']);
-                
+                AppLog('SETTINGS_CHANGE_PASSWORD_ATTEMPT', $workdir, "Mencoba mengganti password admin", json_encode(['admin_id' => $admin['id'] ?? 0]));
+
                 if (!$admin || !password_verify($currentPassword, $admin['password'])) {
+                    AppLog('SETTINGS_CHANGE_PASSWORD_FAILED', $workdir, "Password saat ini salah", json_encode(['admin_id' => $admin['id'] ?? 0]));
                     setFlash('error', 'Password saat ini salah');
                     redirect('settings.php');
                     break;
                 }
-                
                 if ($newPassword !== $confirmPassword) {
+                    AppLog('SETTINGS_CHANGE_PASSWORD_FAILED', $workdir, "Password baru tidak sama", json_encode(['admin_id' => $admin['id']]));
                     setFlash('error', 'Password baru tidak sama');
                     redirect('settings.php');
                     break;
                 }
-                
                 if (strlen($newPassword) < 6) {
+                    AppLog('SETTINGS_CHANGE_PASSWORD_FAILED', $workdir, "Password terlalu pendek", json_encode(['admin_id' => $admin['id']]));
                     setFlash('error', 'Password minimal 6 karakter');
                     redirect('settings.php');
                     break;
                 }
-                
                 if (updateAdminPassword($admin['id'], $newPassword)) {
+                    AppLog('SETTINGS_CHANGE_PASSWORD_SUCCESS', $workdir, "Password berhasil diubah", json_encode(['admin_id' => $admin['id']]));
                     setFlash('success', 'Password berhasil diubah');
                     logActivity('CHANGE_PASSWORD', 'Admin ID: ' . $admin['id']);
                 } else {
+                    AppLog('SETTINGS_CHANGE_PASSWORD_FAILED', $workdir, "Gagal mengupdate password di DB", json_encode(['admin_id' => $admin['id']]));
                     setFlash('error', 'Gagal mengubah password');
                 }
                 redirect('settings.php');
@@ -535,19 +624,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $retentionDays = (int) ($_POST['backup_retention_days'] ?? 7);
                 if ($retentionDays < 1) $retentionDays = 1;
                 if ($retentionDays > 365) $retentionDays = 365;
-                
-                $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['BACKUP_RETENTION_DAYS']);
-                if ($existing) {
-                    update('settings', ['setting_value' => $retentionDays], 'setting_key = ?', ['BACKUP_RETENTION_DAYS']);
-                } else {
-                    insert('settings', ['setting_key' => 'BACKUP_RETENTION_DAYS', 'setting_value' => $retentionDays]);
+                AppLog('SETTINGS_SAVE_BACKUP_RETENTION_ATTEMPT', $workdir, "Mencoba menyimpan pengaturan retensi backup", json_encode(['retention_days' => $retentionDays]));
+
+                try {
+                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", ['BACKUP_RETENTION_DAYS']);
+                    if ($existing) {
+                        update('settings', ['setting_value' => $retentionDays], 'setting_key = ?', ['BACKUP_RETENTION_DAYS']);
+                    } else {
+                        insert('settings', ['setting_key' => 'BACKUP_RETENTION_DAYS', 'setting_value' => $retentionDays]);
+                    }
+                    AppLog('SETTINGS_SAVE_BACKUP_RETENTION_SUCCESS', $workdir, "Pengaturan retensi backup berhasil disimpan", json_encode(['retention_days' => $retentionDays]));
+                    setFlash('success', 'Pengaturan retensi backup berhasil disimpan');
+                    logActivity('SAVE_BACKUP_SETTINGS', "Retention days: {$retentionDays}");
+                } catch (Exception $e) {
+                    AppLog('SETTINGS_SAVE_BACKUP_RETENTION_FAILED', $workdir, "Exception: " . $e->getMessage(), json_encode(['retention_days' => $retentionDays]));
+                    setFlash('error', 'Gagal menyimpan pengaturan retensi backup: ' . $e->getMessage());
                 }
-                setFlash('success', 'Pengaturan retensi backup berhasil disimpan');
                 redirect('settings.php');
                 break;
 
             // ==================== BACKUP NOW ====================
             case 'backup_now':
+                AppLog('SETTINGS_BACKUP_NOW_ATTEMPT', $workdir, "Mencoba membuat backup database", json_encode([]));
                 $retentionDays = (int) getSettingValue('BACKUP_RETENTION_DAYS', 7);
                 $result = createDatabaseBackup($retentionDays);
                 if ($result['success']) {
@@ -556,9 +654,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($deletedCount > 0) {
                         $message .= " ({$deletedCount} backup lama dihapus)";
                     }
+                    AppLog('SETTINGS_BACKUP_NOW_SUCCESS', $workdir, "Backup berhasil dibuat", json_encode(['file' => $result['file_name'], 'deleted' => $deletedCount]));
                     setFlash('success', $message);
                     logActivity('BACKUP_NOW', 'File: ' . ($result['file_name'] ?? '-'));
                 } else {
+                    AppLog('SETTINGS_BACKUP_NOW_FAILED', $workdir, "Gagal membuat backup", json_encode(['error' => $result['message'] ?? 'unknown']));
                     setFlash('error', $result['message'] ?? 'Gagal membuat backup');
                 }
                 redirect('settings.php');
@@ -568,24 +668,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'restore_backup':
                 $backupFile = sanitizeBackupFilename($_POST['backup_file'] ?? '');
                 $confirmRestore = strtoupper(trim((string) ($_POST['confirm_restore'] ?? '')));
-                
+                AppLog('SETTINGS_RESTORE_BACKUP_ATTEMPT', $workdir, "Mencoba restore backup", json_encode(['file' => $backupFile]));
+
                 if ($backupFile === '') {
+                    AppLog('SETTINGS_RESTORE_BACKUP_FAILED', $workdir, "File backup tidak valid", json_encode(['file' => $backupFile]));
                     setFlash('error', 'Pilih file backup yang valid');
                     redirect('settings.php');
                     break;
                 }
                 if ($confirmRestore !== 'RESTORE') {
+                    AppLog('SETTINGS_RESTORE_BACKUP_FAILED', $workdir, "Konfirmasi restore tidak valid", json_encode(['file' => $backupFile, 'confirm' => $confirmRestore]));
                     setFlash('error', 'Konfirmasi restore tidak valid. Ketik RESTORE untuk melanjutkan.');
                     redirect('settings.php');
                     break;
                 }
-                
+
                 set_time_limit(0);
                 $result = restoreDatabaseBackup($backupFile);
                 if ($result['success']) {
+                    AppLog('SETTINGS_RESTORE_BACKUP_SUCCESS', $workdir, "Restore backup berhasil", json_encode(['file' => $backupFile]));
                     setFlash('success', 'Restore berhasil dari file: ' . $backupFile);
                     logActivity('RESTORE_BACKUP', 'File: ' . $backupFile);
                 } else {
+                    AppLog('SETTINGS_RESTORE_BACKUP_FAILED', $workdir, "Restore backup gagal", json_encode(['file' => $backupFile, 'error' => $result['message'] ?? 'unknown']));
                     setFlash('error', $result['message'] ?? 'Restore backup gagal');
                 }
                 redirect('settings.php');
@@ -597,14 +702,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($cronToken === '') {
                     $cronToken = bin2hex(random_bytes(16));
                 }
-                $key = 'CRON_TOKEN';
-                $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
-                if ($existing) {
-                    update('settings', ['setting_value' => $cronToken], 'setting_key = ?', [$key]);
-                } else {
-                    insert('settings', ['setting_key' => $key, 'setting_value' => $cronToken]);
+                AppLog('SETTINGS_SAVE_CRON_TOKEN_ATTEMPT', $workdir, "Mencoba menyimpan cron token", json_encode(['token_length' => strlen($cronToken)]));
+
+                try {
+                    $key = 'CRON_TOKEN';
+                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
+                    if ($existing) {
+                        update('settings', ['setting_value' => $cronToken], 'setting_key = ?', [$key]);
+                    } else {
+                        insert('settings', ['setting_key' => $key, 'setting_value' => $cronToken]);
+                    }
+                    AppLog('SETTINGS_SAVE_CRON_TOKEN_SUCCESS', $workdir, "Cron token berhasil disimpan", json_encode(['token_length' => strlen($cronToken)]));
+                    setFlash('success', 'Cron token berhasil disimpan');
+                    logActivity('SAVE_CRON_TOKEN', '');
+                } catch (Exception $e) {
+                    AppLog('SETTINGS_SAVE_CRON_TOKEN_FAILED', $workdir, "Exception: " . $e->getMessage(), json_encode([]));
+                    setFlash('error', 'Gagal menyimpan cron token: ' . $e->getMessage());
                 }
-                setFlash('success', 'Cron token berhasil disimpan');
                 redirect('settings.php');
                 break;
 
@@ -612,14 +726,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'test_whatsapp':
                 $testPhone = trim((string) ($_POST['test_whatsapp_phone'] ?? ''));
                 $testMessage = trim((string) ($_POST['test_whatsapp_message'] ?? ''));
-                
+                AppLog('SETTINGS_TEST_WHATSAPP_ATTEMPT', $workdir, "Mencoba test WhatsApp", json_encode(['phone' => $testPhone]));
+
                 if ($testPhone === '' || $testMessage === '') {
+                    AppLog('SETTINGS_TEST_WHATSAPP_FAILED', $workdir, "Nomor atau pesan kosong", json_encode(['phone' => $testPhone]));
                     setFlash('error', 'Nomor WhatsApp dan pesan test wajib diisi');
                     redirect('settings.php');
                     break;
                 }
-                
-                // Format nomor telepon
+
                 $digits = preg_replace('/\D+/', '', $testPhone);
                 if ($digits !== '') {
                     if (strpos($digits, '0') === 0) {
@@ -628,15 +743,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $digits = '62' . $digits;
                     }
                 }
-                
+
                 require_once '../includes/whatsapp.php';
                 $defaultGateway = getSetting('DEFAULT_WHATSAPP_GATEWAY', 'fonnte');
                 $result = sendWhatsAppMessage($digits, $testMessage, $defaultGateway);
-                
+
                 if (($result['success'] ?? false) === true) {
+                    AppLog('SETTINGS_TEST_WHATSAPP_SUCCESS', $workdir, "Test WhatsApp berhasil", json_encode(['phone' => $digits, 'gateway' => $defaultGateway]));
                     setFlash('success', 'Test WhatsApp berhasil dikirim (gateway: ' . strtoupper($defaultGateway) . ')');
                 } else {
                     $msg = $result['message'] ?? 'Test WhatsApp gagal';
+                    AppLog('SETTINGS_TEST_WHATSAPP_FAILED', $workdir, "Test WhatsApp gagal", json_encode(['phone' => $digits, 'gateway' => $defaultGateway, 'error' => $msg]));
                     setFlash('error', 'Test WhatsApp gagal (gateway: ' . strtoupper($defaultGateway) . '): ' . $msg);
                 }
                 redirect('settings.php');
@@ -646,7 +763,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'test_mpwa_connection':
                 $url = trim((string) getSetting('MPWA_API_URL', 'https://mpwa.official.id/api/send'));
                 if ($url === '') $url = 'https://mpwa.official.id/api/send';
-                
+                AppLog('SETTINGS_TEST_MPWA_ATTEMPT', $workdir, "Mencoba test koneksi MPWA", json_encode(['url' => $url]));
+
                 $ch = curl_init($url);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_NOBODY, true);
@@ -658,10 +776,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $curlErrno = (int) curl_errno($ch);
                 $curlError = (string) curl_error($ch);
                 curl_close($ch);
-                
+
                 if ($curlErrno !== 0 || $httpCode === 0) {
-                    setFlash('error', 'Koneksi MPWA gagal (HTTP ' . $httpCode . ', cURL ' . $curlErrno . '): ' . $curlError);
+                    $errorMsg = 'Koneksi MPWA gagal (HTTP ' . $httpCode . ', cURL ' . $curlErrno . '): ' . $curlError;
+                    AppLog('SETTINGS_TEST_MPWA_FAILED', $workdir, $errorMsg, json_encode(['url' => $url]));
+                    setFlash('error', $errorMsg);
                 } else {
+                    AppLog('SETTINGS_TEST_MPWA_SUCCESS', $workdir, "Koneksi MPWA OK", json_encode(['url' => $url, 'http_code' => $httpCode]));
                     setFlash('success', 'Koneksi MPWA OK (HTTP ' . $httpCode . ').');
                 }
                 redirect('settings.php');
@@ -671,20 +792,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'test_telegram':
                 $token = trim((string) getSetting('TELEGRAM_BOT_TOKEN', ''));
                 $chatId = trim((string) getSetting('TELEGRAM_ADMIN_CHAT_ID', ''));
-                
+                AppLog('SETTINGS_TEST_TELEGRAM_ATTEMPT', $workdir, "Mencoba test Telegram", json_encode(['chat_id' => $chatId]));
+
                 if ($token === '' || $chatId === '') {
+                    AppLog('SETTINGS_TEST_TELEGRAM_FAILED', $workdir, "Token atau Chat ID kosong", json_encode(['token' => (bool)$token, 'chat_id' => (bool)$chatId]));
                     setFlash('error', 'Telegram Bot Token dan Admin Chat ID wajib diisi untuk test.');
                     redirect('settings.php');
                     break;
                 }
-                
+
                 $url = 'https://api.telegram.org/bot' . $token . '/sendMessage';
                 $payload = [
-                    'chat_id' => $chatId,
-                    'text' => 'Test Telegram ' . date('Y-m-d H:i:s'),
-                    'parse_mode' => 'HTML'
+                        'chat_id' => $chatId,
+                        'text' => 'Test Telegram ' . date('Y-m-d H:i:s'),
+                        'parse_mode' => 'HTML'
                 ];
-                
                 $ch = curl_init($url);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_POST, true);
@@ -698,13 +820,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $curlError = (string) curl_error($ch);
                 curl_close($ch);
                 $decoded = json_decode((string) $response, true);
-                
+
                 if ($curlErrno !== 0 || $httpCode === 0) {
-                    setFlash('error', 'Test Telegram gagal (HTTP ' . $httpCode . ', cURL ' . $curlErrno . '): ' . $curlError);
+                    $errorMsg = 'Test Telegram gagal (HTTP ' . $httpCode . ', cURL ' . $curlErrno . '): ' . $curlError;
+                    AppLog('SETTINGS_TEST_TELEGRAM_FAILED', $workdir, $errorMsg, json_encode(['chat_id' => $chatId]));
+                    setFlash('error', $errorMsg);
                 } elseif (is_array($decoded) && ($decoded['ok'] ?? false) === true) {
+                    AppLog('SETTINGS_TEST_TELEGRAM_SUCCESS', $workdir, "Test Telegram berhasil", json_encode(['chat_id' => $chatId]));
                     setFlash('success', 'Test Telegram berhasil dikirim ke Chat ID: ' . $chatId);
                 } else {
                     $msg = is_array($decoded) ? (string) ($decoded['description'] ?? 'Unknown error') : 'Unknown error';
+                    AppLog('SETTINGS_TEST_TELEGRAM_FAILED', $workdir, "Test Telegram gagal: " . $msg, json_encode(['chat_id' => $chatId, 'response' => $decoded]));
                     setFlash('error', 'Test Telegram gagal (HTTP ' . $httpCode . '): ' . $msg);
                 }
                 redirect('settings.php');
@@ -713,22 +839,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // ==================== TELEGRAM SET WEBHOOK ====================
             case 'telegram_set_webhook':
                 $token = trim((string) getSetting('TELEGRAM_BOT_TOKEN', ''));
+                $webhookUrl = rtrim(APP_URL, '/') . '/webhooks/telegram.php';
+                AppLog('SETTINGS_TELEGRAM_SET_WEBHOOK_ATTEMPT', $workdir, "Mencoba set webhook Telegram", json_encode(['url' => $webhookUrl]));
+
                 if ($token === '') {
+                    AppLog('SETTINGS_TELEGRAM_SET_WEBHOOK_FAILED', $workdir, "Bot Token kosong", json_encode([]));
                     setFlash('error', 'Telegram Bot Token belum diisi.');
                     redirect('settings.php');
                     break;
                 }
-                
-                $webhookUrl = rtrim(APP_URL, '/') . '/webhooks/telegram.php';
                 if (stripos($webhookUrl, 'localhost') !== false || stripos($webhookUrl, '127.0.0.1') !== false) {
+                    AppLog('SETTINGS_TELEGRAM_SET_WEBHOOK_FAILED', $workdir, "Webhook URL masih localhost", json_encode(['url' => $webhookUrl]));
                     setFlash('error', 'APP_URL masih localhost. Telegram tidak bisa mengakses webhook lokal.');
                     redirect('settings.php');
                     break;
                 }
-                
+
                 $url = 'https://api.telegram.org/bot' . $token . '/setWebhook';
                 $payload = ['url' => $webhookUrl];
-                
                 $ch = curl_init($url);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_POST, true);
@@ -742,13 +870,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $curlError = (string) curl_error($ch);
                 curl_close($ch);
                 $decoded = json_decode((string) $response, true);
-                
+
                 if ($curlErrno !== 0 || $httpCode === 0) {
-                    setFlash('error', 'setWebhook gagal (HTTP ' . $httpCode . ', cURL ' . $curlErrno . '): ' . $curlError);
+                    $errorMsg = 'setWebhook gagal (HTTP ' . $httpCode . ', cURL ' . $curlErrno . '): ' . $curlError;
+                    AppLog('SETTINGS_TELEGRAM_SET_WEBHOOK_FAILED', $workdir, $errorMsg, json_encode(['url' => $webhookUrl]));
+                    setFlash('error', $errorMsg);
                 } elseif (is_array($decoded) && ($decoded['ok'] ?? false) === true) {
+                    AppLog('SETTINGS_TELEGRAM_SET_WEBHOOK_SUCCESS', $workdir, "Webhook berhasil di-set", json_encode(['url' => $webhookUrl]));
                     setFlash('success', 'Webhook Telegram berhasil di-set ke: ' . $webhookUrl);
                 } else {
                     $msg = is_array($decoded) ? (string) ($decoded['description'] ?? 'Unknown error') : 'Unknown error';
+                    AppLog('SETTINGS_TELEGRAM_SET_WEBHOOK_FAILED', $workdir, "setWebhook gagal: " . $msg, json_encode(['url' => $webhookUrl, 'response' => $decoded]));
                     setFlash('error', 'setWebhook gagal (HTTP ' . $httpCode . '): ' . $msg);
                 }
                 redirect('settings.php');
@@ -757,12 +889,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // ==================== TELEGRAM WEBHOOK INFO ====================
             case 'telegram_webhook_info':
                 $token = trim((string) getSetting('TELEGRAM_BOT_TOKEN', ''));
+                AppLog('SETTINGS_TELEGRAM_WEBHOOK_INFO_ATTEMPT', $workdir, "Mencoba get webhook info Telegram", json_encode([]));
+
                 if ($token === '') {
+                    AppLog('SETTINGS_TELEGRAM_WEBHOOK_INFO_FAILED', $workdir, "Bot Token kosong", json_encode([]));
                     setFlash('error', 'Telegram Bot Token belum diisi.');
                     redirect('settings.php');
                     break;
                 }
-                
+
                 $url = 'https://api.telegram.org/bot' . $token . '/getWebhookInfo';
                 $ch = curl_init($url);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -775,22 +910,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $curlError = (string) curl_error($ch);
                 curl_close($ch);
                 $decoded = json_decode((string) $response, true);
-                
+
                 if ($curlErrno !== 0 || $httpCode === 0) {
-                    setFlash('error', 'getWebhookInfo gagal (HTTP ' . $httpCode . ', cURL ' . $curlErrno . '): ' . $curlError);
+                    $errorMsg = 'getWebhookInfo gagal (HTTP ' . $httpCode . ', cURL ' . $curlErrno . '): ' . $curlError;
+                    AppLog('SETTINGS_TELEGRAM_WEBHOOK_INFO_FAILED', $workdir, $errorMsg, json_encode([]));
+                    setFlash('error', $errorMsg);
                 } elseif (!is_array($decoded) || ($decoded['ok'] ?? false) !== true) {
                     $msg = is_array($decoded) ? (string) ($decoded['description'] ?? 'Unknown error') : 'Unknown error';
+                    AppLog('SETTINGS_TELEGRAM_WEBHOOK_INFO_FAILED', $workdir, "getWebhookInfo gagal: " . $msg, json_encode(['response' => $decoded]));
                     setFlash('error', 'getWebhookInfo gagal (HTTP ' . $httpCode . '): ' . $msg);
                 } else {
                     $result = $decoded['result'] ?? [];
                     $currentUrl = (string) ($result['url'] ?? '');
                     $pending = (int) ($result['pending_update_count'] ?? 0);
                     $lastError = (string) ($result['last_error_message'] ?? '');
-                    $msg = 'Webhook URL: ' . ($currentUrl !== '' ? $currentUrl : '(kosong)') . ' | Pending: ' . $pending;
+                    $info = 'Webhook URL: ' . ($currentUrl !== '' ? $currentUrl : '(kosong)') . ' | Pending: ' . $pending;
                     if ($lastError !== '') {
-                        $msg .= ' | Last error: ' . $lastError;
+                        $info .= ' | Last error: ' . $lastError;
                     }
-                    setFlash('success', $msg);
+                    AppLog('SETTINGS_TELEGRAM_WEBHOOK_INFO_SUCCESS', $workdir, "Webhook info berhasil", json_encode(['url' => $currentUrl, 'pending' => $pending, 'last_error' => $lastError]));
+                    setFlash('success', $info);
+                }
+                redirect('settings.php');
+                break;
+
+            default:
+                if ($action !== '') {
+                    AppLog('SETTINGS_UNKNOWN_ACTION', $workdir, "Aksi tidak dikenali", json_encode(['action' => $action]));
+                    setFlash('error', 'Aksi tidak dikenali.');
+                } else {
+                    AppLog('SETTINGS_NO_ACTION', $workdir, "Tidak ada aksi yang dikirim", json_encode([]));
                 }
                 redirect('settings.php');
                 break;
