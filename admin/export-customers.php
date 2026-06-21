@@ -10,7 +10,7 @@ $pageTitle = 'Export Pelanggan';
 $workdir = 'admin/export-customers.php';
 // ==================== EXPORT EXCEL ====================
 if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
-    AppLog('EXPORT_CUSTOMERS_EXCEL_ATTEMPT', $workdir, "Mencoba export pelanggan ke Excel", json_encode([]));
+    actionLog('EXPORT_CUSTOMERS_EXCEL_ATTEMPT', $workdir, "Mencoba export pelanggan ke Excel", json_encode([]));
 
     try {
         $customers = fetchAll("
@@ -36,7 +36,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
         ");
 
         $count = count($customers);
-        AppLog('EXPORT_CUSTOMERS_EXCEL_SUCCESS', $workdir, "Export pelanggan ke Excel berhasil", json_encode(['total_customers' => $count]));
+        actionLog('EXPORT_CUSTOMERS_EXCEL_SUCCESS', $workdir, "Export pelanggan ke Excel berhasil", json_encode(['total_customers' => $count]));
         logActivity('EXPORT_CUSTOMERS_EXCEL', "Exported {$count} customers");
 
         header('Content-Type: application/vnd.ms-excel');
@@ -82,7 +82,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
         exit;
 
     } catch (Exception $e) {
-        AppLog('EXPORT_CUSTOMERS_EXCEL_FAILED', $workdir, "Gagal export pelanggan ke Excel", json_encode(['error' => $e->getMessage()]));
+        actionLog('EXPORT_CUSTOMERS_EXCEL_FAILED', $workdir, "Gagal export pelanggan ke Excel", json_encode(['error' => $e->getMessage()]));
         setFlash('error', 'Gagal export Excel: ' . $e->getMessage());
         header('Location: customers.php');
         exit;
@@ -91,7 +91,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
 
 // ==================== EXPORT CSV ====================
 if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
-    AppLog('EXPORT_CUSTOMERS_CSV_ATTEMPT', $workdir, "Mencoba export pelanggan ke CSV", json_encode([]));
+    actionLog('EXPORT_CUSTOMERS_CSV_ATTEMPT', $workdir, "Mencoba export pelanggan ke CSV", json_encode([]));
 
     try {
         $customers = fetchAll("
@@ -117,7 +117,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
         ");
 
         $count = count($customers);
-        AppLog('EXPORT_CUSTOMERS_CSV_SUCCESS', $workdir, "Export pelanggan ke CSV berhasil", json_encode(['total_customers' => $count]));
+        actionLog('EXPORT_CUSTOMERS_CSV_SUCCESS', $workdir, "Export pelanggan ke CSV berhasil", json_encode(['total_customers' => $count]));
         logActivity('EXPORT_CUSTOMERS_CSV', "Exported {$count} customers");
 
         header('Content-Type: text/csv');
@@ -165,7 +165,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
         exit;
 
     } catch (Exception $e) {
-        AppLog('EXPORT_CUSTOMERS_CSV_FAILED', $workdir, "Gagal export pelanggan ke CSV", json_encode(['error' => $e->getMessage()]));
+        actionLog('EXPORT_CUSTOMERS_CSV_FAILED', $workdir, "Gagal export pelanggan ke CSV", json_encode(['error' => $e->getMessage()]));
         setFlash('error', 'Gagal export CSV: ' . $e->getMessage());
         header('Location: customers.php');
         exit;

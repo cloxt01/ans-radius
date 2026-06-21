@@ -90,7 +90,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
             'customer_name'   => $_GET['customer_name'] ?? null,
             'package_id'      => $_GET['package_id'] ?? null,
     ]);
-    AppLog('EXPORT_INVOICES_ATTEMPT', $workdir, "Mencoba export invoice ke Excel", json_encode($logFilters));
+    actionLog('EXPORT_INVOICES_ATTEMPT', $workdir, "Mencoba export invoice ke Excel", json_encode($logFilters));
 
     // Validasi tanggal dari URL
     $errors = [];
@@ -102,7 +102,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
     }
 
     if (!empty($errors)) {
-        AppLog('EXPORT_INVOICES_FAILED', $workdir, "Validasi tanggal gagal", json_encode(['errors' => $errors, 'filters' => $logFilters]));
+        actionLog('EXPORT_INVOICES_FAILED', $workdir, "Validasi tanggal gagal", json_encode(['errors' => $errors, 'filters' => $logFilters]));
         setFlash('error', implode('<br>', $errors));
         header('Location: export-invoices.php?' . http_build_query(array_diff_key($_GET, ['action' => ''])));
         exit;
@@ -121,7 +121,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
     $count = count($invoices);
 
     // Log sukses sebelum output
-    AppLog('EXPORT_INVOICES_SUCCESS', $workdir, "Export invoice berhasil", json_encode([
+    actionLog('EXPORT_INVOICES_SUCCESS', $workdir, "Export invoice berhasil", json_encode([
             'total_invoices' => $count,
             'filters' => $filters
     ]));

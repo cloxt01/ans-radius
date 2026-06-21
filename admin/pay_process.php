@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $selectedYear = (int) $_POST['year'];
 
     // Log awal percobaan pembayaran
-    AppLog('PAYMENT_PROCESS_ATTEMPT', $workdir, "Mencoba memproses pembayaran pelanggan", json_encode([
+    actionLog('PAYMENT_PROCESS_ATTEMPT', $workdir, "Mencoba memproses pembayaran pelanggan", json_encode([
             'customer_id' => $id,
             'selected_months' => $selectedMonths,
             'year' => $selectedYear,
@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]));
 
     if (empty($selectedMonths)) {
-        AppLog('PAYMENT_PROCESS_FAILED', $workdir, "Tidak ada bulan yang dipilih", json_encode(['customer_id' => $id]));
+        actionLog('PAYMENT_PROCESS_FAILED', $workdir, "Tidak ada bulan yang dipilih", json_encode(['customer_id' => $id]));
         setFlash('error', 'Pilih minimal 1 bulan.');
         redirect("pay_process.php?id=$id&year=$selectedYear");
     }
@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Unisolate customer if they were isolated
         if ($customer['status'] === 'isolated') {
-            AppLog('PAYMENT_PROCESS_UNISOLATE', $workdir, "Membuka isolir pelanggan karena pembayaran", json_encode(['customer_id' => $id]));
+            actionLog('PAYMENT_PROCESS_UNISOLATE', $workdir, "Membuka isolir pelanggan karena pembayaran", json_encode(['customer_id' => $id]));
             unisolateCustomer($id);
         }
 
@@ -177,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         logActivity('RENEW USER', "Customer ID: $id, Months: $monthsCount, Total: $totalBill, Next Isolation: $newIsolationDate");
 
         // Log sukses
-        AppLog('PAYMENT_PROCESS_SUCCESS', $workdir, "Berhasil memproses pembayaran", json_encode([
+        actionLog('PAYMENT_PROCESS_SUCCESS', $workdir, "Berhasil memproses pembayaran", json_encode([
                 'customer_id' => $id,
                 'months_count' => $monthsCount,
                 'total_bill' => $totalBill,
@@ -193,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         $pdo->rollBack();
         // Log error
-        AppLog('PAYMENT_PROCESS_FAILED', $workdir, "Gagal memproses pembayaran", json_encode([
+        actionLog('PAYMENT_PROCESS_FAILED', $workdir, "Gagal memproses pembayaran", json_encode([
                 'customer_id' => $id,
                 'error' => $e->getMessage()
         ]));

@@ -14,14 +14,14 @@ $technicians = fetchAll("SELECT * FROM technician_users WHERE status = 'active' 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
-        AppLog('TROUBLE_CSRF_FAILED', $workdir, "CSRF token tidak valid", json_encode(['ip' => $_SERVER['REMOTE_ADDR']]));
+        actionLog('TROUBLE_CSRF_FAILED', $workdir, "CSRF token tidak valid", json_encode(['ip' => $_SERVER['REMOTE_ADDR']]));
         setFlash('error', 'Invalid CSRF token');
         redirect('trouble.php');
     }
 
     if (isset($_POST['action'])) {
         $action = $_POST['action'];
-        AppLog('TROUBLE_ACTION_RECEIVED', $workdir, "Menerima aksi trouble ticket", json_encode(['action' => $action]));
+        actionLog('TROUBLE_ACTION_RECEIVED', $workdir, "Menerima aksi trouble ticket", json_encode(['action' => $action]));
 
         switch ($action) {
             case 'add':
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $priority = sanitize($_POST['priority']);
                 $technicianId = !empty($_POST['technician_id']) ? (int)$_POST['technician_id'] : null;
                 $logData = ['customer_id' => $customerId, 'priority' => $priority, 'technician_id' => $technicianId];
-                AppLog('TROUBLE_ADD_ATTEMPT', $workdir, "Mencoba menambahkan tiket gangguan", json_encode($logData));
+                actionLog('TROUBLE_ADD_ATTEMPT', $workdir, "Mencoba menambahkan tiket gangguan", json_encode($logData));
 
                 $ticketData = [
                         'customer_id' => $customerId,
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (insert('trouble_tickets', $ticketData)) {
                     $pdo = getDB();
                     $ticketId = $pdo->lastInsertId();
-                    AppLog('TROUBLE_ADD_SUCCESS', $workdir, "Tiket gangguan berhasil ditambahkan", json_encode(['ticket_id' => $ticketId] + $logData));
+                    actionLog('TROUBLE_ADD_SUCCESS', $workdir, "Tiket gangguan berhasil ditambahkan", json_encode(['ticket_id' => $ticketId] + $logData));
 
                     $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
                     if ($customer && $customer['phone']) {
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setFlash('success', 'Laporan gangguan berhasil ditambahkan');
                     logActivity('ADD_TROUBLE_TICKET', "Ticket #{$ticketId}");
                 } else {
-                    AppLog('TROUBLE_ADD_FAILED', $workdir, "Gagal menambahkan tiket gangguan ke DB", json_encode($logData));
+                    actionLog('TROUBLE_ADD_FAILED', $workdir, "Gagal menambahkan tiket gangguan ke DB", json_encode($logData));
                     setFlash('error', 'Gagal menambahkan laporan');
                 }
                 redirect('trouble.php');
@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $notes = sanitize($_POST['notes'] ?? '');
                 $technicianId = !empty($_POST['technician_id']) ? (int)$_POST['technician_id'] : null;
                 $logData = ['ticket_id' => $ticketId, 'status' => $status, 'technician_id' => $technicianId];
-                AppLog('TROUBLE_UPDATE_STATUS_ATTEMPT', $workdir, "Mencoba mengupdate status tiket", json_encode($logData));
+                actionLog('TROUBLE_UPDATE_STATUS_ATTEMPT', $workdir, "Mencoba mengupdate status tiket", json_encode($logData));
 
                 $ticket = fetchOne("SELECT * FROM trouble_tickets WHERE id = ?", [$ticketId]);
 
@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     update('trouble_tickets', $updateData, 'id = ?', [$ticketId]);
-                    AppLog('TROUBLE_UPDATE_STATUS_SUCCESS', $workdir, "Status tiket berhasil diperbarui", json_encode($logData));
+                    actionLog('TROUBLE_UPDATE_STATUS_SUCCESS', $workdir, "Status tiket berhasil diperbarui", json_encode($logData));
 
                     $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$ticket['customer_id']]);
                     if ($customer && $customer['phone']) {
@@ -136,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setFlash('success', 'Status tiket berhasil diperbarui');
                     logActivity('UPDATE_TROUBLE_TICKET', "Ticket #{$ticketId} - Status: {$status}");
                 } else {
-                    AppLog('TROUBLE_UPDATE_STATUS_FAILED', $workdir, "Tiket tidak ditemukan", json_encode($logData));
+                    actionLog('TROUBLE_UPDATE_STATUS_FAILED', $workdir, "Tiket tidak ditemukan", json_encode($logData));
                     setFlash('error', 'Tiket tidak ditemukan');
                 }
                 redirect('trouble.php');
@@ -144,23 +144,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'delete':
                 $ticketId = (int)$_POST['ticket_id'];
-                AppLog('TROUBLE_DELETE_ATTEMPT', $workdir, "Mencoba menghapus tiket", json_encode(['ticket_id' => $ticketId]));
+                actionLog('TROUBLE_DELETE_ATTEMPT', $workdir, "Mencoba menghapus tiket", json_encode(['ticket_id' => $ticketId]));
 
                 delete('trouble_tickets', 'id = ?', [$ticketId]);
-                AppLog('TROUBLE_DELETE_SUCCESS', $workdir, "Tiket berhasil dihapus", json_encode(['ticket_id' => $ticketId]));
+                actionLog('TROUBLE_DELETE_SUCCESS', $workdir, "Tiket berhasil dihapus", json_encode(['ticket_id' => $ticketId]));
                 setFlash('success', 'Tiket berhasil dihapus');
                 logActivity('DELETE_TROUBLE_TICKET', "Ticket #{$ticketId}");
                 redirect('trouble.php');
                 break;
 
             default:
-                AppLog('TROUBLE_UNKNOWN_ACTION', $workdir, "Aksi tidak dikenali", json_encode(['action' => $action]));
+                actionLog('TROUBLE_UNKNOWN_ACTION', $workdir, "Aksi tidak dikenali", json_encode(['action' => $action]));
                 setFlash('error', 'Aksi tidak dikenali.');
                 redirect('trouble.php');
                 break;
         }
     } else {
-        AppLog('TROUBLE_NO_ACTION', $workdir, "Tidak ada aksi yang dikirim", json_encode([]));
+        actionLog('TROUBLE_NO_ACTION', $workdir, "Tidak ada aksi yang dikirim", json_encode([]));
         // optional redirect? original does not redirect; we can leave as is.
         redirect('trouble.php');
     }

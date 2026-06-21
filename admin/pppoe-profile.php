@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     // Log aksi yang diterima (untuk tracing umum)
-    AppLog('PPPOE_PROFILE_ACTION_RECEIVED', $workdir, "Menerima aksi PPPoE Profile", json_encode(['action' => $action]));
+    actionLog('PPPOE_PROFILE_ACTION_RECEIVED', $workdir, "Menerima aksi PPPoE Profile", json_encode(['action' => $action]));
 
     switch ($action) {
         case 'add':
@@ -53,20 +53,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name = $data['name'] ?? '';
 
             if ($name === '') {
-                AppLog('PPPOE_PROFILE_VALIDATION_FAILED', $workdir, "Nama profile kosong", json_encode(['action' => $action]));
+                actionLog('PPPOE_PROFILE_VALIDATION_FAILED', $workdir, "Nama profile kosong", json_encode(['action' => $action]));
                 setFlash('error', 'Nama profile wajib diisi.');
                 redirect('pppoe-profile.php');
             }
 
             if ($action === 'add') {
-                AppLog('PPPOE_PROFILE_ADD_ATTEMPT', $workdir, "Mencoba menambahkan profile PPPoE", json_encode($data));
+                actionLog('PPPOE_PROFILE_ADD_ATTEMPT', $workdir, "Mencoba menambahkan profile PPPoE", json_encode($data));
 
                 $ok = radiusUpsertPppoeProfileCloud(null, $data);
                 if ($ok) {
-                    AppLog('PPPOE_PROFILE_ADD_SUCCESS', $workdir, "Berhasil menambahkan profile PPPoE", json_encode(['name' => $name, 'data' => $data]));
+                    actionLog('PPPOE_PROFILE_ADD_SUCCESS', $workdir, "Berhasil menambahkan profile PPPoE", json_encode(['name' => $name, 'data' => $data]));
                     setFlash('success', "Profile {$name} berhasil ditambahkan.");
                 } else {
-                    AppLog('PPPOE_PROFILE_ADD_FAILED', $workdir, "Gagal menambahkan profile PPPoE", json_encode(['name' => $name, 'data' => $data]));
+                    actionLog('PPPOE_PROFILE_ADD_FAILED', $workdir, "Gagal menambahkan profile PPPoE", json_encode(['name' => $name, 'data' => $data]));
                     setFlash('error', 'Gagal menambahkan profile (pastikan mikrotik terhubung dan konfigurasi benar).');
                 }
                 redirect('pppoe-profile.php');
@@ -75,19 +75,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Edit
             $id = pppoeProfileResolveIdFromPost();
             if ($id === '') {
-                AppLog('PPPOE_PROFILE_EDIT_FAILED', $workdir, "ID profile tidak valid untuk edit", json_encode(['id' => $id, 'name' => $name]));
+                actionLog('PPPOE_PROFILE_EDIT_FAILED', $workdir, "ID profile tidak valid untuk edit", json_encode(['id' => $id, 'name' => $name]));
                 setFlash('error', 'ID profile tidak valid.');
                 redirect('pppoe-profile.php');
             }
 
-            AppLog('PPPOE_PROFILE_EDIT_ATTEMPT', $workdir, "Mencoba mengupdate profile PPPoE", json_encode(['id' => $id, 'data' => $data]));
+            actionLog('PPPOE_PROFILE_EDIT_ATTEMPT', $workdir, "Mencoba mengupdate profile PPPoE", json_encode(['id' => $id, 'data' => $data]));
 
             $ok = radiusUpsertPppoeProfileCloud($id, $data);
             if ($ok) {
-                AppLog('PPPOE_PROFILE_EDIT_SUCCESS', $workdir, "Berhasil mengupdate profile PPPoE", json_encode(['id' => $id, 'name' => $name, 'data' => $data]));
+                actionLog('PPPOE_PROFILE_EDIT_SUCCESS', $workdir, "Berhasil mengupdate profile PPPoE", json_encode(['id' => $id, 'name' => $name, 'data' => $data]));
                 setFlash('success', "Profile {$name} berhasil diperbarui.");
             } else {
-                AppLog('PPPOE_PROFILE_EDIT_FAILED', $workdir, "Gagal mengupdate profile PPPoE", json_encode(['id' => $id, 'name' => $name, 'data' => $data]));
+                actionLog('PPPOE_PROFILE_EDIT_FAILED', $workdir, "Gagal mengupdate profile PPPoE", json_encode(['id' => $id, 'name' => $name, 'data' => $data]));
                 setFlash('error', 'Gagal memperbarui profile (pastikan mikrotik terhubung dan konfigurasi benar).');
             }
             redirect('pppoe-profile.php');
@@ -96,19 +96,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'delete':
             $id = pppoeProfileResolveIdFromPost();
             if ($id === '') {
-                AppLog('PPPOE_PROFILE_DELETE_FAILED', $workdir, "ID profile tidak valid untuk hapus", json_encode(['id' => $id]));
+                actionLog('PPPOE_PROFILE_DELETE_FAILED', $workdir, "ID profile tidak valid untuk hapus", json_encode(['id' => $id]));
                 setFlash('error', 'ID profile tidak valid.');
                 redirect('pppoe-profile.php');
             }
 
-            AppLog('PPPOE_PROFILE_DELETE_ATTEMPT', $workdir, "Mencoba menghapus profile PPPoE", json_encode(['id' => $id]));
+            actionLog('PPPOE_PROFILE_DELETE_ATTEMPT', $workdir, "Mencoba menghapus profile PPPoE", json_encode(['id' => $id]));
 
             $ok = ($id !== '') ? radiusDeletePppoeProfileCloud($id) : false;
             if ($ok) {
-                AppLog('PPPOE_PROFILE_DELETE_SUCCESS', $workdir, "Berhasil menghapus profile PPPoE", json_encode(['id' => $id]));
+                actionLog('PPPOE_PROFILE_DELETE_SUCCESS', $workdir, "Berhasil menghapus profile PPPoE", json_encode(['id' => $id]));
                 setFlash('success', 'Profile berhasil dihapus.');
             } else {
-                AppLog('PPPOE_PROFILE_DELETE_FAILED', $workdir, "Gagal menghapus profile PPPoE", json_encode(['id' => $id]));
+                actionLog('PPPOE_PROFILE_DELETE_FAILED', $workdir, "Gagal menghapus profile PPPoE", json_encode(['id' => $id]));
                 setFlash('error', 'Gagal menghapus profile.');
             }
             redirect('pppoe-profile.php');
@@ -116,10 +116,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         default:
             if ($action !== '') {
-                AppLog('PPPOE_PROFILE_UNKNOWN_ACTION', $workdir, "Aksi tidak dikenali", json_encode(['action' => $action]));
+                actionLog('PPPOE_PROFILE_UNKNOWN_ACTION', $workdir, "Aksi tidak dikenali", json_encode(['action' => $action]));
                 setFlash('error', 'Aksi tidak dikenali.');
             } else {
-                AppLog('PPPOE_PROFILE_NO_ACTION', $workdir, "Tidak ada aksi yang dikirim", json_encode([]));
+                actionLog('PPPOE_PROFILE_NO_ACTION', $workdir, "Tidak ada aksi yang dikirim", json_encode([]));
                 // optional: no flash if empty action, but maybe set a general error?
                 // Could set flash if needed, but we follow original logic (only flash for unknown action)
             }

@@ -483,7 +483,7 @@ function logActivity($action, $details = '')
     file_put_contents($logFile, $logMessage, FILE_APPEND);
 }
 
-function AppLog($action, string $workdir, string $msg, ?string $data) {
+function actionlog($action, string $workdir, string $msg, ?string $data) {
     $logFile = __DIR__ . '/../logs/action.log';
     $logDir = dirname($logFile);
 
