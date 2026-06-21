@@ -266,7 +266,7 @@ ob_start();
                                 <strong>Rp <?php echo number_format($a['fee'], 0, ',', '.'); ?></strong>
                             </td>
                             <td data-label="Total Pelanggan">
-                                <span class="badge badge-info"><?php echo($count_c[$a['id']])?></span>
+                                <span class="badge badge-info"><?php echo($count_c[$a['id']]) ?? 0?></span>
                             </td>
                             <td data-label="Status & Login">
                                 <div>
