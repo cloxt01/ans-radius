@@ -102,6 +102,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 //        readfile($fullPath);
 //        exit;
 //    }
+    if (isset($_GET['get_nas']) && isset($_GET['id'])) {
+        header('Content-Type: application/json');
+        $nasId = (int)$_GET['id'];
+        actionLog('GET_NAS_ATTEMPT', $workdir, "Mencoba mengambil data nas", $nasId);
+        $nas = radiusGetNasById($nasId);
+        if ($nas) {
+            actionLog('GET_NAS_SUCCESS', $workdir, "Berhasil mengambil data nas", ['nas_id' => $nasId, 'data' => $nas]);
+            echo json_encode(['success' => true, 'data' => $nas]);
+        } else {
+            actionLog('GET_NAS_FAILED' , $workdir, 'Gagal mengambil data nas', ['nas_id' => $nasId, 'data' => $nas]);
+            echo json_encode(['success' => false, 'message' => 'NAS tidak ditemukan']);
+        }
+        exit;
+    }
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // CSRF Validation
