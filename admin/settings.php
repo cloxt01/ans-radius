@@ -6,7 +6,6 @@
  * @author ANS Team
  */
 
-
 require_once '../includes/auth.php';
 requireAdminLogin();
 
