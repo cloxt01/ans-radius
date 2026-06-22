@@ -108,10 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         actionLog('GET_NAS_ATTEMPT', $workdir, "Mencoba mengambil data nas", $nasId);
         $nas = radiusGetNasById($nasId);
         if ($nas) {
-            actionLog('GET_NAS_SUCCESS', $workdir, "Berhasil mengambil data nas", ['nas_id' => $nasId, 'data' => json_encode($nas)]);
+            actionLog('GET_NAS_SUCCESS', $workdir, "Berhasil mengambil data nas", json_encode(['nas_id' => $nasId, 'data' => $nas]));
             echo json_encode(['success' => true, 'data' => $nas]);
         } else {
-            actionLog('GET_NAS_FAILED' , $workdir, 'Gagal mengambil data nas', ['nas_id' => $nasId, 'data' => json_encode($nas)]);
+            actionLog('GET_NAS_FAILED' , $workdir, 'Gagal mengambil data nas', json_encode(['nas_id' => $nasId, 'data' => $nas]));
             echo json_encode(['success' => false, 'message' => 'NAS tidak ditemukan']);
         }
         exit;
