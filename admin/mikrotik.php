@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 sanitize($_POST['service'])
             );
             
-            if ($result['success']) {
+            if ($result) {
                 setFlash('success', 'User PPPoE berhasil ditambahkan');
                 logActivity('ADD_PPPOE_USER', "Username: " . $_POST['username']);
             } else {
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'service' => sanitize($_POST['service'])
             ];
             
-            $result = mikrotikUpdateSecret($id, $data);
+            $result = radiusUpdateUser($id, $data);
             
             if ($result['success']) {
                 setFlash('success', 'User PPPoE berhasil diperbarui');
@@ -57,13 +57,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
         case 'delete':
             $id = $_POST['user_id'];
-            $result = mikrotikDeleteSecret($id);
+            $result = radiusDeleteuser($id);
             
-            if ($result['success']) {
+            if ($result) {
                 setFlash('success', 'User PPPoE berhasil dihapus');
                 logActivity('DELETE_PPPOE_USER', "ID: $id");
             } else {
-                setFlash('error', 'Gagal menghapus user: ' . $result['message']);
+                setFlash('error', 'Gagal menghapus user');
             }
             redirect('mikrotik.php');
             break;
@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $currentStatus = $_POST['current_status'] ?? 'false';
             $newStatus = ($currentStatus === 'true') ? 'false' : 'true';
             
-            $result = mikrotikUpdateSecret($id, ['disabled' => $newStatus]);
+            $result = radiusUpdateUser($id, ['disabled' => $newStatus]);
             
             if ($result['success']) {
                 $status = ($newStatus === 'true') ? 'disabled' : 'enabled';
@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get MikroTik users (secrets)
-$mikrotikUsers = mikrotikGetPppoeUsers();
+$mikrotikUsers = radiusGetUsers();
 $totalUsers = count($mikrotikUsers);
 
 $poolConfig = [
@@ -173,7 +173,7 @@ $disabledCount = count(array_filter($mikrotikUsers, fn($u) => ($u['disabled'] ??
 $offlineCount = $onlineCount <= $totalUsers ? $totalUsers - $onlineCount : 0;
 
 // Get MikroTik profiles
-$mikrotikProfiles = mikrotikGetProfiles();
+$mikrotikProfiles = radiusGetPppoeProfiles();
 if (empty($mikrotikProfiles)) {
     $mikrotikProfiles = [['name' => 'default']];
 }

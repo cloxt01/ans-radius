@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get MikroTik profiles
-$profiles = mikrotikGetProfiles();
+$profiles = radiusGetPppoeProfiles();
 $mikrotikConnected = !empty($profiles);
 
 // Get hotspot user profiles (for hotspot, not PPPoE)

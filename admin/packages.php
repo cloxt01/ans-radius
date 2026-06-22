@@ -122,7 +122,7 @@ $packages = fetchAll("
 ");
 
 $mikrotikConnected = true;
-$mikrotikProfiles = mikrotikGetProfiles();
+$mikrotikProfiles = radiusGetPppoeProfiles();
 
 if (empty($mikrotikProfiles)) {
     $mikrotikConnected = false;

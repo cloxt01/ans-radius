@@ -708,45 +708,45 @@ function mikrotikSetProfile($username, $profile, $routerId = null)
     return true;
 }
 
-function mikrotikGetPppoeUsers()
-{
-    if (radiusUserProvisioningReady()) {
-        $users = radiusGetUsersByService('Framed-User');
-        return array_values(array_filter($users, function ($user) {
-            return !radiusLooksLikeHotspotUser($user);
-        }));
-    }
-
-    $socket = getMikrotikConnection();
-    if (!$socket) {
-        return [];
-    }
-
-    mikrotikWrite($socket, '/ppp/secret/print');
-    mikrotikWrite($socket, ''); // End sentence
-
-    // Read ALL sentences until !done
-    $allWords = [];
-    $done = false;
-    $timeout = time() + 30; // 30 second timeout for large user lists
-
-    while (!$done && time() < $timeout) {
-        $words = mikrotikReadSentence($socket);
-        if (empty($words)) {
-            break;
-        }
-
-        foreach ($words as $word) {
-            $allWords[] = $word;
-            if ($word === '!done') {
-                $done = true;
-                break;
-            }
-        }
-    }
-
-    return mikrotikParseUsers($allWords);
-}
+//function mikrotikGetPppoeUsers()
+//{
+//    if (radiusUserProvisioningReady()) {
+//        $users = radiusGetUsersByService('Framed-User');
+//        return array_values(array_filter($users, function ($user) {
+//            return !radiusLooksLikeHotspotUser($user);
+//        }));
+//    }
+//
+//    $socket = getMikrotikConnection();
+//    if (!$socket) {
+//        return [];
+//    }
+//
+//    mikrotikWrite($socket, '/ppp/secret/print');
+//    mikrotikWrite($socket, ''); // End sentence
+//
+//    // Read ALL sentences until !done
+//    $allWords = [];
+//    $done = false;
+//    $timeout = time() + 30; // 30 second timeout for large user lists
+//
+//    while (!$done && time() < $timeout) {
+//        $words = mikrotikReadSentence($socket);
+//        if (empty($words)) {
+//            break;
+//        }
+//
+//        foreach ($words as $word) {
+//            $allWords[] = $word;
+//            if ($word === '!done') {
+//                $done = true;
+//                break;
+//            }
+//        }
+//    }
+//
+//    return mikrotikParseUsers($allWords);
+//}
 
 function mikrotikParseUsers($response)
 {
@@ -783,102 +783,102 @@ function mikrotikParseUsers($response)
 }
 
 // Add PPPoE Secret
-function mikrotikAddSecret($name, $password, $profile = 'default', $service = 'pppoe')
-{
-    if (radiusUserProvisioningReady()) {
-        $serviceType = (strtolower((string) $service) === 'pppoe') ? 'Framed-User' : 'Login-User';
-        $ok = radiusSetUser($name, $password, $profile, $serviceType);
-        logActivity('Add PPPoE User', "User: {$name}, Profile: {$profile}, Service: {$serviceType}, Result: " . ($ok ? 'Success' : 'Failure'));
-        return [
-            'success' => $ok,
-            'message' => $ok ? 'User saved to Radius DB' : 'Failed to save user to Radius DB',
-        ];
-    }
+//function mikrotikAddSecret($name, $password, $profile = 'default', $service = 'pppoe')
+//{
+//    if (radiusUserProvisioningReady()) {
+//        $serviceType = (strtolower((string) $service) === 'pppoe') ? 'Framed-User' : 'Login-User';
+//        $ok = radiusSetUser($name, $password, $profile, $serviceType);
+//        logActivity('Add PPPoE User', "User: {$name}, Profile: {$profile}, Service: {$serviceType}, Result: " . ($ok ? 'Success' : 'Failure'));
+//        return [
+//            'success' => $ok,
+//            'message' => $ok ? 'User saved to Radius DB' : 'Failed to save user to Radius DB',
+//        ];
+//    }
+//
+//    return ['success' => false, 'message' => 'Radius DB is not ready. Cannot add PPPoE secret.'];
+//}
 
-    return ['success' => false, 'message' => 'Radius DB is not ready. Cannot add PPPoE secret.'];
-}
 
 // Update PPPoE Secret
-function mikrotikUpdateSecret($id, $data)
-{
-    // Radius
-    if (radiusUserProvisioningReady()) {
-        $oldUsername = radiusResolveUsernameById($id);
-        if ($oldUsername === null || $oldUsername === '') {
-            return ['success' => false, 'message' => 'User not found in Radius DB'];
-        }
-
-        $newUsername = trim((string) ($data['name'] ?? $oldUsername));
-        if ($newUsername === '') {
-            return ['success' => false, 'message' => 'Username is required'];
-        }
-
-        if ($newUsername !== $oldUsername) {
-            customerRenameUsernameByUsername($oldUsername, $newUsername);
-            radiusRenameUser($oldUsername, $newUsername);
-            
-        }
-
-        $password = isset($data['password']) ? (string) $data['password'] : '';
-        if ($password === '') {
-            $radcheck = radiusQualifiedTable('radcheck');
-            $pwd = fetchOne("SELECT value FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password') ORDER BY id DESC LIMIT 1", [$newUsername]);
-            $password = (string) ($pwd['value'] ?? '');
-        }
-
-        // Data yang sudah ada di database untuk dipertahankan jika tidak dikirim dalam $data
-        $radusergroup = radiusQualifiedTable('radusergroup');
-        $existingProfile = fetchOne("SELECT groupname FROM {$radusergroup} WHERE username = ? LIMIT 1", [$newUsername]);
-        
-        $profile = isset($data['profile']) ? trim((string)$data['profile']) : ($existingProfile['groupname'] ?? 'default');
-        $serviceType = isset($data['service']) ? (strtolower((string)$data['service']) === 'pppoe' ? 'Framed-User' : 'Login-User') : 'Framed-User';
-        
-        $reply = [];
-        if (isset($data['disabled'])) {
-            $radcheck = radiusQualifiedTable('radcheck');
-            $existingReject = fetchOne("SELECT id FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type' LIMIT 1", [$newUsername]);
-
-            if (strtolower((string) $data['disabled']) === 'true') {
-                if (!$existingReject) {
-                    fetchOne("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Auth-Type', ':=', 'Reject')", [$newUsername]);
-                } else {
-                    fetchOne("UPDATE {$radcheck} SET value = 'Reject' WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
-                }
-            } else {
-                fetchOne("DELETE FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
-            }
-            mikrotikRemoveActiveSessionByName($newUsername);
-        }
-
-        $ok = radiusSetUser($newUsername, $password, $profile, $serviceType, $reply);
-        return [
-            'success' => $ok,
-            'message' => $ok ? 'User updated in Radius DB' : 'Failed to update user in Radius DB',
-        ];
-    }
-    logError('PPPoE blocked: Radius DB is not ready.');
-    return false;
-}
+//function mikrotikUpdateSecret($id, $data)
+//{
+//    // Radius
+//    if (radiusUserProvisioningReady()) {
+//        $oldUsername = radiusResolveUsernameById($id);
+//        if ($oldUsername === null || $oldUsername === '') {
+//            return ['success' => false, 'message' => 'User not found in Radius DB'];
+//        }
+//
+//        $newUsername = trim((string) ($data['name'] ?? $oldUsername));
+//        if ($newUsername === '') {
+//            return ['success' => false, 'message' => 'Username is required'];
+//        }
+//
+//        if ($newUsername !== $oldUsername) {
+//            customerRenameUsernameByUsername($oldUsername, $newUsername);
+//            radiusRenameUser($oldUsername, $newUsername);
+//
+//        }
+//
+//        $password = isset($data['password']) ? (string) $data['password'] : '';
+//        if ($password === '') {
+//            $radcheck = radiusQualifiedTable('radcheck');
+//            $pwd = fetchOne("SELECT value FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password') ORDER BY id DESC LIMIT 1", [$newUsername]);
+//            $password = (string) ($pwd['value'] ?? '');
+//        }
+//
+//        // Data yang sudah ada di database untuk dipertahankan jika tidak dikirim dalam $data
+//        $radusergroup = radiusQualifiedTable('radusergroup');
+//        $existingProfile = fetchOne("SELECT groupname FROM {$radusergroup} WHERE username = ? LIMIT 1", [$newUsername]);
+//
+//        $profile = isset($data['profile']) ? trim((string)$data['profile']) : ($existingProfile['groupname'] ?? 'default');
+//        $serviceType = isset($data['service']) ? (strtolower((string)$data['service']) === 'pppoe' ? 'Framed-User' : 'Login-User') : 'Framed-User';
+//
+//        $reply = [];
+//        if (isset($data['disabled'])) {
+//            $radcheck = radiusQualifiedTable('radcheck');
+//            $existingReject = fetchOne("SELECT id FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type' LIMIT 1", [$newUsername]);
+//
+//            if (strtolower((string) $data['disabled']) === 'true') {
+//                if (!$existingReject) {
+//                    fetchOne("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Auth-Type', ':=', 'Reject')", [$newUsername]);
+//                } else {
+//                    fetchOne("UPDATE {$radcheck} SET value = 'Reject' WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
+//                }
+//            } else {
+//                fetchOne("DELETE FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
+//            }
+//            mikrotikRemoveActiveSessionByName($newUsername);
+//        }
+//
+//        $ok = radiusSetUser($newUsername, $password, $profile, $serviceType, $reply);
+//        return [
+//            'success' => $ok,
+//            'message' => $ok ? 'User updated in Radius DB' : 'Failed to update user in Radius DB',
+//        ];
+//    }
+//    logError('PPPoE blocked: Radius DB is not ready.');
+//    return false;
+//}
 
 // Delete PPPoE Secret
-function mikrotikDeleteSecret($id)
-{
-    // Radius
-    if (radiusUserProvisioningReady()) {
-        $username = radiusResolveUsernameById($id);
-        if ($username === null || $username === '') {
-            return ['success' => false, 'message' => 'User not found in Radius DB'];
-        }
-
-        $ok = radiusDeleteUser($username);
-        return [
-            'success' => $ok,
-            'message' => $ok ? 'User deleted from Radius DB' : 'Failed to delete user from Radius DB',
-        ];
-    }
-    logError('PPPoE blocked: Radius DB is not ready.');
-    return false;
-}
+//function mikrotikDeleteSecret($id)
+//{
+//    if (radiusUserProvisioningReady()) {
+//        $username = radiusResolveUsernameById($id);
+//        if ($username === null || $username === '') {
+//            return ['success' => false, 'message' => 'User not found in Radius DB'];
+//        }
+//
+//        $ok = radiusDeleteUser($username);
+//        return [
+//            'success' => $ok,
+//            'message' => $ok ? 'User deleted from Radius DB' : 'Failed to delete user from Radius DB',
+//        ];
+//    }
+//    logError('PPPoE blocked: Radius DB is not ready.');
+//    return false;
+//}
 
 // Get Active PPPoE Sessions (users currently connected)
 
@@ -956,14 +956,9 @@ function mikrotikGetActiveSessions($routerId = null)
 
     return $active;
 }
-function mikrotikGetProfiles()
-{
-    if (radiusUserProvisioningReady()) {
-        return radiusGetPppoeProfilesCloud() ?? [];
-    }
-}
 
-function mikrotikGetProfilesMikrotik($socket)
+
+function mikrotikGetProfiles($socket)
 {
     if (!$socket) {
         return [];
@@ -1078,7 +1073,7 @@ function pppoeNormalizeProfileData($data)
 
 function pppoeGetProfiles()
 {
-    $profiles = mikrotikGetProfiles();
+    $profiles = radiusGetPppoeProfiles();
     if (!is_array($profiles) || empty($profiles)) {
         return [];
     }
@@ -1586,151 +1581,13 @@ function bulkDeleteUsers($usernames) {
 // NAS MANAGEMENT
 // ============================================
 
-/**
- * Add or Update NAS
- */
-function addNas($name, $ip, $secret) {
-    if (!radiusUserProvisioningReady()) {
-        return false;
-    }
-    
-    $pdo = radiusDbConnection();
-    $sql = "INSERT INTO nas (nasname, shortname, secret, type) 
-            VALUES (?, ?, ?, 'other')
-            ON DUPLICATE KEY UPDATE shortname = ?, secret = ?";
-    $stmt = $pdo->prepare($sql);
-    return $stmt->execute([$ip, $name, $secret, $name, $secret]);
-}
 
-/**
- * Delete NAS by ID
- */
-function deleteNas($id) {
-    if (!radiusUserProvisioningReady()) {
-        return false;
-    }
-    
-    $pdo = radiusDbConnection();
-    $stmt = $pdo->prepare("DELETE FROM nas WHERE id = ?");
-    return $stmt->execute([$id]);
-}
-
-/**
- * Get All NAS
- */
-function getNasList() {
-    if (!radiusUserProvisioningReady()) {
-        return [];
-    }
-    
-    $pdo = radiusDbConnection();
-    $stmt = $pdo->query("SELECT id, shortname, nasname, secret FROM nas ORDER BY id");
-    return $stmt->fetchAll();
-}
 
 // ============================================
 // QUERY/GETTER FUNCTIONS
 // ============================================
 
-/**
- * Get Hotspot User by Username
- */
-function getHotspotUser($username) {
-    if (!radiusUserProvisioningReady()) {
-        // Fallback to MikroTik
-        $users = mikrotikGetHotspotUsers();
-        foreach ($users as $user) {
-            if ($user['name'] === $username) {
-                return $user;
-            }
-        }
-        return null;
-    }
-    
-    $pdo = radiusDbConnection();
-    $sql = "SELECT c.id, c.username, c.value as password, ug.groupname as profile
-            FROM radcheck c
-            LEFT JOIN radusergroup ug ON ug.username = c.username
-            WHERE c.username = ? AND c.attribute IN ('Cleartext-Password', 'User-Password')
-            LIMIT 1";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$username]);
-    return $stmt->fetch();
-}
 
-/**
- * Get All Hotspot Users
- */
-function getAllHotspotUsers() {
-    if (!radiusUserProvisioningReady()) {
-        return mikrotikGetHotspotUsers();
-    }
-    
-    $pdo = radiusDbConnection();
-    $sql = "SELECT c.id, c.username, c.value as password, ug.groupname as profile,
-                    rgr.value as rate_limit, rgr2.value as session_timeout
-            FROM radcheck c
-            LEFT JOIN radusergroup ug ON ug.username = c.username
-            LEFT JOIN radgroupreply rgr ON rgr.groupname = ug.groupname AND rgr.attribute = 'Mikrotik-Rate-Limit'
-            LEFT JOIN radgroupreply rgr2 ON rgr2.groupname = ug.groupname AND rgr2.attribute = 'Session-Timeout'
-            WHERE c.attribute IN ('Cleartext-Password', 'User-Password')
-            ORDER BY c.id DESC";
-    $stmt = $pdo->query($sql);
-    return $stmt->fetchAll();
-}
-
-/**
- * Get Profile Names List
- */
-function getProfileNames() {
-    if (!radiusUserProvisioningReady()) {
-        $profiles = mikrotikGetHotspotProfiles();
-        return array_column($profiles, 'name');
-    }
-    
-    $pdo = radiusDbConnection();
-    $stmt = $pdo->query("SELECT profile_name FROM hotspot_profiles ORDER BY profile_name");
-    return $stmt->fetchAll(PDO::FETCH_COLUMN);
-}
-
-/**
- * Get Profile by Username
- */
-function getProfileByUser($username) {
-    if (!radiusUserProvisioningReady()) {
-        $users = mikrotikGetHotspotUsers();
-        foreach ($users as $user) {
-            if ($user['name'] === $username) {
-                return $user['profile'] ?? null;
-            }
-        }
-        return null;
-    }
-    
-    $pdo = radiusDbConnection();
-    $stmt = $pdo->prepare("SELECT groupname FROM radusergroup WHERE username = ? LIMIT 1");
-    $stmt->execute([$username]);
-    $result = $stmt->fetch();
-    return $result['groupname'] ?? null;
-}
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-/**
- * Duration to seconds (reuse existing function)
- */
-function durationToSeconds($duration) {
-    return mikrotikDurationToSeconds($duration);
-}
-
-/**
- * Bytes to integer (reuse existing function)
- */
-function bytesToInt($bytes) {
-    return mikrotikBytesToInteger($bytes);
-}
 
 function buildHotspotVoucherPrintData($generatedVouchers, $hotspotName = 'ANS Radius', $dnsName = 'hotspot.net')
 {
@@ -1811,11 +1668,14 @@ function buildHotspotVoucherPrintData($generatedVouchers, $hotspotName = 'ANS Ra
 }
 
 // Get MikroTik Hotspot Users
-function mikrotikGetHotspotUsers()
+function mikrotikGetHotspotUsers($radius = null)
 {
-    return radiusGetHotspotUsers();
+
+    if($radius){
+        return radiusGetHotspotUsers();
+    }
+    return [];
 }
-// Update MikroTik Hotspot User
 function mikrotikUpdateHotspotUser($id, $data)
 {
     if (radiusUserProvisioningReady()) {
@@ -1852,8 +1712,6 @@ function mikrotikUpdateHotspotUser($id, $data)
     logError('Hotspot update blocked: Radius DB is not ready.');
     return ['success' => false, 'message' => 'Radius DB is not ready'];
 }
-
-// Get Active Hotspot Users
 function mikrotikGetHotspotActive()
 {
     $socket = getMikrotikConnection();
@@ -1910,22 +1768,16 @@ function mikrotikGetHotspotActive()
 
     return $active;
 }
-
-// Update Hotspot Profile
 function mikrotikUpdateHotspotProfile($id, $data)
 {
     return radiusUpsertHotspotProfileCloud($id, $data);
 
 }
-
-// Add Hotspot Profile
 function mikrotikAddHotspotProfile($data)
 {
     return radiusUpsertHotspotProfileCloud(null, $data);
 
 }
-
-// Delete Hotspot Profile
 function mikrotikDeleteHotspotProfile($id)
 {
     return radiusDeleteHotspotProfileCloud($id);
@@ -2013,8 +1865,6 @@ function parseMikhmonOnLogin($onLoginScript)
 
     return $data;
 }
-
-// Get MikroTik System Resource (CPU, Memory, Uptime, Board Name, etc.)
 function mikrotikGetSystemResource()
 {
     $socket = getMikrotikConnection();
@@ -2071,8 +1921,6 @@ function mikrotikGetSystemResource()
         'architecture-name' => $resource['architecture-name'] ?? '-',
     ];
 }
-
-// Get list of MikroTik interfaces
 function mikrotikGetInterfaces()
 {
     $socket = getMikrotikConnection();
@@ -2121,8 +1969,6 @@ function mikrotikGetInterfaces()
 
     return $interfaces;
 }
-
-// Monitor traffic on a specific interface (one-shot read)
 function mikrotikMonitorTraffic($interfaceName)
 {
     $socket = getMikrotikConnection();
@@ -2253,7 +2099,6 @@ function mikrotikGetPppoeLog($limit = 20)
 
     return array_slice(array_reverse($logs), 0, $limit);
 }
-// Get MikroTik Address Pools
 function mikrotikGetAddressPools()
 {
     $socket = getMikrotikConnection();
@@ -2297,7 +2142,6 @@ function mikrotikGetAddressPools()
     return $pools;
 }
 
-// Get MikroTik Parent Queues
 function mikrotikGetParentQueues()
 {
     $socket = getMikrotikConnection();
@@ -2341,7 +2185,6 @@ function mikrotikGetParentQueues()
     return $queues;
 }
 
-// Record Hotspot Sale in Database
 function recordHotspotSale($username, $profile, $price, $sellingPrice, $prefix = '', $salesUserId = null)
 {
     $data = [
@@ -2362,7 +2205,6 @@ function recordHotspotSale($username, $profile, $price, $sellingPrice, $prefix =
     }
 }
 
-// Kick (remove) an active hotspot user session
 function mikrotikKickHotspotUser($username)
 {
     $socket = getMikrotikConnection();
@@ -2414,7 +2256,6 @@ function mikrotikKickHotspotUser($username)
     return true;
 }
 
-// Get MikroTik Hotspot Cookies
 function mikrotikGetHotspotCookies()
 {
     $socket = getMikrotikConnection();
@@ -2458,7 +2299,6 @@ function mikrotikGetHotspotCookies()
     return $cookies;
 }
 
-// Delete a hotspot cookie
 function mikrotikDeleteHotspotCookie($id)
 {
     $socket = getMikrotikConnection();
@@ -2477,7 +2317,6 @@ function mikrotikDeleteHotspotCookie($id)
     return true;
 }
 
-// Get MikroTik Hotspot Hosts (connected devices)
 function mikrotikGetHotspotHosts()
 {
     $socket = getMikrotikConnection();
@@ -2521,7 +2360,6 @@ function mikrotikGetHotspotHosts()
     return $hosts;
 }
 
-// Get MikroTik System Schedulers
 function mikrotikGetSchedulers()
 {
     $socket = getMikrotikConnection();
@@ -2565,7 +2403,6 @@ function mikrotikGetSchedulers()
     return $schedulers;
 }
 
-// Get MikroTik Resource
 function mikrotikGetResource() {
     $socket = getMikrotikConnection();
     if (!$socket) {
@@ -2608,7 +2445,6 @@ function mikrotikGetResource() {
     return $resource;
 }
 
-// Ping from MikroTik
 function mikrotikPing($target, $count = 4) {
     $socket = getMikrotikConnection();
     if (!$socket) {
@@ -2666,7 +2502,6 @@ function mikrotikPing($target, $count = 4) {
     ];
 }
 
-// Remove Active Session by Name
 function mikrotikRemoveActiveSessionByName($username) {
     $socket = getMikrotikConnection();
     if (!$socket) {

@@ -17,7 +17,7 @@ try {
     if ($method === 'GET') {
         if ($action === 'users') {
             // Get all PPPoE users
-            $users = mikrotikGetPppoeUsers();
+            $users = radiusGetUsers();
 
             echo json_encode([
                 'success' => true,
@@ -39,7 +39,7 @@ try {
             ]);
         } elseif ($action === 'profiles') {
             // Get PPPoE profiles using shared helper
-            $profiles = mikrotikGetProfiles();
+            $profiles = radiusGetPppoeProfiles();
 
             echo json_encode([
                 'success' => true,
@@ -63,9 +63,9 @@ try {
                 echo json_encode(['success' => false, 'message' => 'Username and password required']);
                 exit;
             }
-            $result = mikrotikAddSecret($username, $password, $profile, $service);
+            $result = radiusSetUser($username, $password, $profile, $service);
 
-            echo json_encode($result);
+            echo json_encode($result ? json_encode(['success' => true]) : json_encode(['success' => false]));
         }
     }
 

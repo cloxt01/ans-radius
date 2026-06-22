@@ -56,7 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             logError('Failed to sync RADIUS for new customer - profile not found. Customer ID: ' . $customerId);
                         }
                         # Add ke RADIUS
-                        $ok = mikrotikAddSecret($data['pppoe_username'], $pppoePassword, $profile);
+
+                        $ok = radiusSetUser($data['pppoe_username'], $pppoePassword, $profile);
                         if ($ok) {
                             actionLog('ADD_RADIUS_SUCCESS', $workdir, "Berhasil menambahkan pelanggan", json_encode(['username' => $data['pppoe_username'], 'password' => $pppoePassword, 'profile' => $profile]));
                         } else {

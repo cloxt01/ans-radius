@@ -53,10 +53,6 @@ function radiusQualifiedTable($table)
 function radiusDisplayNas()
 {
     try {
-        if (function_exists('getNasList')) {
-            return getNasList();
-        }
-
         $pdo = radiusDbConnection();
         $stmt = $pdo->query('SELECT id, shortname, nasname, secret FROM nas ORDER BY id');
         return $stmt->fetchAll();
@@ -131,10 +127,6 @@ function radiusDeleteNas($id)
     }
 
     try {
-        if (function_exists('deleteNas')) {
-            return (bool) deleteNas($id);
-        }
-
         $pdo = radiusDbConnection();
         $stmt = $pdo->prepare('DELETE FROM nas WHERE id = ?');
         return $stmt->execute([$id]);
@@ -176,8 +168,14 @@ function radiusRenameUser($oldUsername, $newUsername)
     return true;
 }
 
-function radiusSetUser($username, $password, $profile, $serviceType = 'Login-User', $replyAttributes = [])
+function radiusSetUser($username, $password, $profile, $serviceType = 'pppoe', $replyAttributes = [])
 {
+
+//    $service = match($serviceType) {
+//        'pppoe' => 'Framed-User',
+//        'hotspot' => 'Login-User',
+//        default => null,
+//    };
     if (!radiusUserProvisioningReady()) {
         return false;
     }
@@ -345,10 +343,18 @@ function radiusLooksLikeHotspotUser($user)
         return true;
     }
 
-    return $serviceType !== 'framed-user';
+    return $serviceType === 'login-user';
+}
+function radiusLooksLikePppoeUser($user) {
+    $serviceType = strtolower(trim((string) ($user['service-type'] ?? $user['service_type'] ?? '')));
+    if ($serviceType === '') {
+        return true;
+    }
+
+    return $serviceType === 'framed-user';
 }
 
-function radiusGetUsersByService($serviceType)
+function radiusGetUsersByService($serviceType = 'Framed-User')
 {
     if (!radiusUserProvisioningReady()) {
         return [];
@@ -418,8 +424,9 @@ function radiusGetUsersByService($serviceType)
             'bytes-out' => 0,
         ];
     }
-
-    return $users;
+    return array_values(array_filter($users, function ($user) {
+        return radiusLooksLikePppoeUser($user);
+    }));
 }
 function radiusGetUserPassword($username)
 {
@@ -452,6 +459,63 @@ function radiusHotspotProfileUsageCount($profileName)
     $row = fetchOne("SELECT COUNT(*) AS total FROM {$radusergroup} WHERE groupname = ?", [$profileName]);
 
     return (int) ($row['total'] ?? 0);
+}
+
+function radiusUpdateUser($id, $data)
+{
+    if (radiusUserProvisioningReady()) {
+        $oldUsername = radiusResolveUsernameById($id);
+        if ($oldUsername === null || $oldUsername === '') {
+            return ['success' => false, 'message' => 'User not found in Radius DB'];
+        }
+
+        $newUsername = trim((string) ($data['name'] ?? $oldUsername));
+        if ($newUsername === '') {
+            return ['success' => false, 'message' => 'Username is required'];
+        }
+
+        if ($newUsername !== $oldUsername) {
+            customerRenameUsernameByUsername($oldUsername, $newUsername);
+            radiusRenameUser($oldUsername, $newUsername);
+        }
+
+        $password = isset($data['password']) ? (string) $data['password'] : '';
+        if ($password === '') {
+            $radcheck = radiusQualifiedTable('radcheck');
+            $pwd = fetchOne("SELECT value FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password') ORDER BY id DESC LIMIT 1", [$newUsername]);
+            $password = (string) ($pwd['value'] ?? '');
+        }
+
+        $radusergroup = radiusQualifiedTable('radusergroup');
+        $existingProfile = fetchOne("SELECT groupname FROM {$radusergroup} WHERE username = ? LIMIT 1", [$newUsername]);
+
+        $profile = isset($data['profile']) ? trim((string)$data['profile']) : ($existingProfile['groupname'] ?? 'default');
+        $serviceType = isset($data['service']) ? (strtolower((string)$data['service']) === 'pppoe' ? 'Framed-User' : 'Login-User') : 'Framed-User';
+
+        $reply = [];
+        if (isset($data['disabled'])) {
+            $radcheck = radiusQualifiedTable('radcheck');
+            $existingReject = fetchOne("SELECT id FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type' LIMIT 1", [$newUsername]);
+
+            if (strtolower((string) $data['disabled']) === 'true') {
+                if (!$existingReject) {
+                    fetchOne("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Auth-Type', ':=', 'Reject')", [$newUsername]);
+                } else {
+                    fetchOne("UPDATE {$radcheck} SET value = 'Reject' WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
+                }
+            } else {
+                fetchOne("DELETE FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
+            }
+            mikrotikRemoveActiveSessionByName($newUsername);
+        }
+
+        $ok = radiusSetUser($newUsername, $password, $profile, $serviceType, $reply);
+        return [
+            'success' => $ok,
+            'message' => $ok ? 'User updated in Radius DB' : 'Failed to update user in Radius DB',
+        ];
+    }
+    return false;
 }
 
 function radiusGetHotspotProfilesCloud()
@@ -716,7 +780,7 @@ function radiusDeleteHotspotProfileCloud($id)
     }
 }
 
-function radiusGetPppoeProfilesCloud()
+function radiusGetPppoeProfiles()
 {
     try {
         $pdo = radiusDbConnection();
@@ -765,7 +829,7 @@ function radiusGetPppoeProfilesCloud()
     }
 }
 
-function radiusUpsertPppoeProfileCloud($id, $data)
+function radiusUpsertPppoeProfile($id, $data)
 {
     $payload = pppoeNormalizeProfileData($data);
     $targetName = '';
@@ -839,7 +903,7 @@ function radiusUpsertPppoeProfileCloud($id, $data)
     }
 }
 
-function radiusDeletePppoeProfileCloud($id)
+function radiusDeletePppoeProfile($id)
 {
     $name = trim((string) $id);
     if ($name === '') {

@@ -760,7 +760,7 @@ function handleWhatsAppPppoeProfileList($phone) {
         return;
     }
     
-    $profiles = mikrotikGetProfiles();
+    $profiles = radiusGetPppoeProfiles();
     if (empty($profiles)) {
         sendWhatsAppResponse($phone, "Tidak ada profile PPPoE atau gagal mengambil data.");
         return;
@@ -908,7 +908,7 @@ function handleWhatsAppPppoeList($phone) {
         return;
     }
     
-    $users = mikrotikGetPppoeUsers();
+    $users = radiusGetUsers();
     if (empty($users)) {
         sendWhatsAppResponse($phone, "Tidak ada user PPPoE atau gagal mengambil data.");
         return;
@@ -952,7 +952,7 @@ function handleWhatsAppPppoeAdd($phone, $args) {
     $pass = $parts[1];
     $profile = $parts[2];
     
-    $result = mikrotikAddSecret($user, $pass, $profile, 'pppoe');
+    $result = radiusSetUser($user, $pass, $profile, 'pppoe');
     if ($result['success']) {
         sendWhatsAppResponse($phone, "User PPPoE {$user} berhasil ditambahkan dengan profile {$profile}.");
     } else {
@@ -982,7 +982,7 @@ function handleWhatsAppPppoeEdit($phone, $args) {
         return;
     }
     
-    $result = mikrotikUpdateSecret($secret['.id'], ['password' => $pass, 'profile' => $profile]);
+    $result = radiusUpdateUser($secret['.id'], ['password' => $pass, 'profile' => $profile]);
     if ($result['success']) {
         mikrotikRemoveActiveSessionByName($user);
         sendWhatsAppResponse($phone, "User PPPoE {$user} berhasil diperbarui.");
@@ -1009,8 +1009,8 @@ function handleWhatsAppPppoeDel($phone, $args) {
         return;
     }
     
-    $result = mikrotikDeleteSecret($secret['.id']);
-    if ($result['success']) {
+    $result = radiusDeleteUser($secret['.id']);
+    if ($result) {
         sendWhatsAppResponse($phone, "User PPPoE {$user} berhasil dihapus.");
     } else {
         sendWhatsAppResponse($phone, "Gagal menghapus user PPPoE {$user}: {$result['message']}");
@@ -1035,7 +1035,7 @@ function handleWhatsAppPppoeDisable($phone, $args) {
         return;
     }
     
-    $result = mikrotikUpdateSecret($secret['.id'], ['disabled' => 'true']);
+    $result = radiusUpdateUser($secret['.id'], ['disabled' => 'true']);
     if ($result['success']) {
         mikrotikRemoveActiveSessionByName($user);
         sendWhatsAppResponse($phone, "User PPPoE {$user} berhasil dinonaktifkan.");
@@ -1062,7 +1062,7 @@ function handleWhatsAppPppoeEnable($phone, $args) {
         return;
     }
     
-    $result = mikrotikUpdateSecret($secret['.id'], ['disabled' => 'false']);
+    $result = radiusUpdateUser($secret['.id'], ['disabled' => 'false']);
     if ($result['success']) {
         sendWhatsAppResponse($phone, "User PPPoE {$user} berhasil diaktifkan.");
     } else {

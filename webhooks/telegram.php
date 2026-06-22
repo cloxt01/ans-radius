@@ -1026,7 +1026,7 @@ function handleInvoiceDelete($chatId, $args) {
 
 function handlePppoeProfileList($chatId) {
     if (!isAdminChat($chatId)) return;
-    $profiles = mikrotikGetProfiles();
+    $profiles = radiusGetPppoeProfiles();
     if (empty($profiles)) {
         sendMessage($chatId, "Gagal ambil profile.");
         return;
@@ -1391,7 +1391,7 @@ function handleHotspotVoucherGenerateCallback($chatId, $data, $callbackQuery) {
 
 function handlePppoeList($chatId) {
     if (!isAdminChat($chatId)) return;
-    $users = mikrotikGetPppoeUsers();
+    $users = radiusGetUsers();
     if (empty($users)) {
         sendMessage($chatId, "Tidak ada user PPPoE.");
         return;
@@ -1423,7 +1423,7 @@ function handlePppoeAdd($chatId, $args) {
         return;
     }
     
-    $res = mikrotikAddSecret($parts[0], $parts[1], $parts[2]);
+    $res = radiusSetUser($parts[0], $parts[1], $parts[2]);
     sendMessage($chatId, $res['success'] ? "User ditambahkan." : "Gagal: " . $res['message']);
 }
 
@@ -1441,7 +1441,7 @@ function handlePppoeEdit($chatId, $args) {
         return;
     }
     
-    $res = mikrotikUpdateSecret($secret['.id'], ['password' => $parts[1], 'profile' => $parts[2]]);
+    $res = radiusUpdateUser($secret['.id'], ['password' => $parts[1], 'profile' => $parts[2]]);
     if ($res['success']) {
         mikrotikRemoveActiveSessionByName($parts[0]);
         sendMessage($chatId, "User diperbarui.");
@@ -1459,8 +1459,8 @@ function handlePppoeDel($chatId, $args, $silent = false) {
         return;
     }
     
-    $res = mikrotikDeleteSecret($secret['.id']);
-    if (!$silent) sendMessage($chatId, $res['success'] ? "User dihapus." : "Gagal.");
+    $res = radiusDeleteUser($secret['.id']);
+    if (!$silent) sendMessage($chatId, $res ? "User dihapus." : "Gagal.");
 }
 
 function handlePppoeDisable($chatId, $args) {
@@ -1472,7 +1472,7 @@ function handlePppoeDisable($chatId, $args) {
         return;
     }
     
-    $res = mikrotikUpdateSecret($secret['.id'], ['disabled' => 'true']);
+    $res = radiusUpdateUser($secret['.id'], ['disabled' => 'true']);
     if ($res['success']) {
         mikrotikRemoveActiveSessionByName($user);
         sendMessage($chatId, "User dinonaktifkan.");
@@ -1490,7 +1490,7 @@ function handlePppoeEnable($chatId, $args) {
         return;
     }
     
-    $res = mikrotikUpdateSecret($secret['.id'], ['disabled' => 'false']);
+    $res = radiusUpdateUser($secret['.id'], ['disabled' => 'false']);
     sendMessage($chatId, $res['success'] ? "User diaktifkan." : "Gagal.");
 }
 
