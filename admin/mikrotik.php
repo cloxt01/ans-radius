@@ -378,94 +378,94 @@ ob_start();
 <!--                        <td data-label="Aksi">-->
 <!--                            <div class="action-buttons">-->
 <!--                                <button class="btn-icon" onclick='editUser(--><?php //echo json_encode($user); ?>//)' title="Edit">
-//                                    <i class="fas fa-edit"></i>
-//                                </button>
-//
-//                                <form method="POST" class="inline-form" onsubmit="return confirmToggle('<?php //echo htmlspecialchars($user['name'] ?? ''); ?>//', <?php //echo $isDisabled ? 'true' : 'false'; ?>//)">
-//                                    <input type="hidden" name="action" value="toggle">
-//                                    <input type="hidden" name="user_id" value="<?php //echo htmlspecialchars($user['.id'] ?? ''); ?><!--">-->
+<!--                                    <i class="fas fa-edit"></i>-->
+<!--                                </button>-->
+
+<!--                                <form method="POST" class="inline-form" onsubmit="return confirmToggle('--><?php ////echo htmlspecialchars($user['name'] ?? ''); ?> <?php ////echo $isDisabled ? 'true' : 'false'; ?>
+<!--                                    <input type="hidden" name="action" value="toggle">-->
+<!--                                    <input type="hidden" name="user_id" value="--><?php ////echo htmlspecialchars($user['.id'] ?? ''); ?>
 <!--                                    <input type="hidden" name="current_status" value="--><?php //echo $user['disabled'] ?? 'false'; ?><!--">-->
-<!--                                    <button type="submit" class="btn-icon --><?php //echo $isDisabled ? 'success' : 'warning'; ?><!--" title="--><?php //echo $isDisabled ? 'Enable' : 'Disable'; ?><!--">-->
+<!--                                    <button type="submit" class="btn-icon --><?php //echo $isDisabled ? 'success' : 'warning'; ?><!--" title="--><?php //echo $isDisabled ? 'Enable' : 'Disable'; ?>
 <!--                                        <i class="fas fa---><?php //echo $isDisabled ? 'play' : 'pause'; ?><!--"></i>-->
 <!--                                    </button>-->
 <!--                                </form>-->
 <!--                                -->
-<!--                                <form method="POST" class="inline-form" onsubmit="return confirmDelete('--><?php //echo htmlspecialchars($user['name'] ?? ''); ?>//')">
-//                                    <input type="hidden" name="action" value="delete">
-//                                    <input type="hidden" name="user_id" value="<?php //echo htmlspecialchars($user['.id'] ?? ''); ?><!--">-->
+<!--                                <form method="POST" class="inline-form" onsubmit="return confirmDelete('--><?php //echo htmlspecialchars($user['name'] ?? ''); ?>
+<!--                                   <input type="hidden" name="action" value="delete">-->
+<!--                                    <input type="hidden" name="user_id" value="--><?php ////echo htmlspecialchars($user['.id'] ?? ''); ?>
 <!--                                    <button type="submit" class="btn-icon danger" title="Hapus">-->
 <!--                                        <i class="fas fa-trash-alt"></i>-->
 <!--                                    </button>-->
 <!--                                </form>-->
 <!--                            </div>-->
 <!--                        </td>-->
-                    </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
+<!--                    </tr>-->
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+<!--            </tbody>-->
+<!--        </table>-->
+<!--    </div>-->
+<!--</div>-->
 
 <!-- Edit Modal -->
-<div id="editModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3><i class="fas fa-edit"></i> Edit PPPoE User</h3>
-            <button class="close" onclick="closeEditModal()">&times;</button>
-        </div>
-        <form method="POST">
-            <input type="hidden" name="action" value="edit">
-            <input type="hidden" name="user_id" id="edit_user_id">
-            
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Username</label>
-                    <input type="text" name="username" id="edit_username" class="form-control" readonly required>
-                    <small class="form-hint">
-                        <i class="fas fa-info-circle"></i> Username hanya dapat diubah melalui halaman 
-                        <a href="<?php echo APP_URL; ?>/admin/customers.php">pelanggan</a>
-                    </small>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <input type="text" name="password" id="edit_password" class="form-control" required>
-                    <small class="form-hint">Masukkan password baru untuk mengubah</small>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Profile</label>
-                        <select name="profile" id="edit_profile" class="form-control" required>
-                            <?php foreach ($mikrotikProfiles as $profile): ?>
-                                <option value="<?php echo htmlspecialchars($profile['name']); ?>">
-                                    <?php echo htmlspecialchars($profile['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <div id="edit_profile_info" class="profile-info"></div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Service</label>
-                        <select name="service" id="edit_service" class="form-control" required>
-                            <option value="pppoe">PPPoE</option>
-                            <option value="any">Any</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Batal</button>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i> Simpan Perubahan
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
+<!--<div id="editModal" class="modal">-->
+<!--    <div class="modal-content">-->
+<!--        <div class="modal-header">-->
+<!--            <h3><i class="fas fa-edit"></i> Edit PPPoE User</h3>-->
+<!--            <button class="close" onclick="closeEditModal()">&times;</button>-->
+<!--        </div>-->
+<!--        <form method="POST">-->
+<!--            <input type="hidden" name="action" value="edit">-->
+<!--            <input type="hidden" name="user_id" id="edit_user_id">-->
+<!--            -->
+<!--            <div class="modal-body">-->
+<!--                <div class="form-group">-->
+<!--                    <label class="form-label">Username</label>-->
+<!--                    <input type="text" name="username" id="edit_username" class="form-control" readonly required>-->
+<!--                    <small class="form-hint">-->
+<!--                        <i class="fas fa-info-circle"></i> Username hanya dapat diubah melalui halaman -->
+<!--                        <a href="--><?php //echo APP_URL; ?><!--/admin/customers.php">pelanggan</a>-->
+<!--                    </small>-->
+<!--                </div>-->
+<!--                -->
+<!--                <div class="form-group">-->
+<!--                    <label class="form-label">Password</label>-->
+<!--                    <input type="text" name="password" id="edit_password" class="form-control" required>-->
+<!--                    <small class="form-hint">Masukkan password baru untuk mengubah</small>-->
+<!--                </div>-->
+<!--                -->
+<!--                <div class="form-row">-->
+<!--                    <div class="form-group">-->
+<!--                        <label class="form-label">Profile</label>-->
+<!--                        <select name="profile" id="edit_profile" class="form-control" required>-->
+<!--                            --><?php //foreach ($mikrotikProfiles as $profile): ?>
+<!--                                <option value="--><?php //echo htmlspecialchars($profile['name']); ?><!--">-->
+<!--                                    --><?php //echo htmlspecialchars($profile['name']); ?>
+<!--                                </option>-->
+<!--                            --><?php //endforeach; ?>
+<!--                        </select>-->
+<!--                        <div id="edit_profile_info" class="profile-info"></div>-->
+<!--                    </div>-->
+<!--                    -->
+<!--                    <div class="form-group">-->
+<!--                        <label class="form-label">Service</label>-->
+<!--                        <select name="service" id="edit_service" class="form-control" required>-->
+<!--                            <option value="pppoe">PPPoE</option>-->
+<!--                            <option value="any">Any</option>-->
+<!--                        </select>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            -->
+<!--            <div class="modal-footer">-->
+<!--                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Batal</button>-->
+<!--                <button type="submit" class="btn btn-primary">-->
+<!--                    <i class="fas fa-save"></i> Simpan Perubahan-->
+<!--                </button>-->
+<!--            </div>-->
+<!--        </form>-->
+<!--    </div>-->
+<!--</div>-->
 
 <style>
 /* Additional styles for mikrotik page */
@@ -741,3 +741,4 @@ document.addEventListener('keydown', function(e) {
 <?php
 $content = ob_get_clean();
 require_once '../includes/layout.php';
+?>
