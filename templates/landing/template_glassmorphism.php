@@ -1,571 +1,1680 @@
 ﻿<?php
 /**
- * Template 5: Glassmorphism Theme
- * Modern glassmorphism design with blur effects and transparency
+ * Landing Page — Premium Glass Theme
+ * Modern, dark, glassmorphism, startup-style
  */
+
+$defaultPackageServices = [];
+$defaultPackageServiceTypes = [
+        'router_2'       => 'router',
+        'member_2'       => 'pppoe',
+        'voucher_5000'   => 'voucher',
+        'online_250'     => 'online',
+        'vpn_radius'     => 'vpn',
+        'vpn_remote'     => 'vpn',
+        'wa_notif'       => 'general',
+        'payment_gateway'=> 'general',
+        'client_area'    => 'general',
+        'custom_domain'  => 'general',
+        'annual_12m'     => 'general',
+];
+$packageFeatureList  = $defaultPackageServices;
+$packageFeatureTypes = $defaultPackageServiceTypes;
+
+if (!function_exists('modernUltraPackageServices')) {
+    function modernUltraPackageServices($pkg) {
+        $raw = (string)($pkg['package_services'] ?? '');
+        if ($raw === '') return [];
+        $d = json_decode($raw, true);
+        return is_array($d) ? array_values(array_filter(array_map('strval', $d))) : [];
+    }
+}
+if (!function_exists('modernUltraServiceActive')) {
+    function modernUltraServiceActive($pkg, $key) {
+        return in_array($key, modernUltraPackageServices($pkg), true);
+    }
+}
+if (!function_exists('modernUltraNormalizeType')) {
+    function modernUltraNormalizeType($raw) {
+        $t = strtolower(trim((string)$raw));
+        $t = preg_replace('/[^a-z0-9_]+/', '_', $t);
+        return trim($t, '_') ?: 'general';
+    }
+}
+if (!function_exists('modernUltraResolveServiceType')) {
+    function modernUltraResolveServiceType($key, $map) {
+        if (isset($map[$key])) return modernUltraNormalizeType($map[$key]);
+        $p = explode('_', (string)$key);
+        return modernUltraNormalizeType($p[0] ?? 'general');
+    }
+}
+if (!function_exists('modernUltraServiceWeight')) {
+    function modernUltraServiceWeight($key, $name) {
+        $src = $name . ' ' . $key;
+        if (preg_match('/\d[\d\.,]*/', $src, $m)) {
+            $n = preg_replace('/[^0-9]/', '', $m[0]);
+            return $n !== '' ? (int)$n : 0;
+        }
+        return 0;
+    }
+}
+if (!function_exists('modernUltraBuildVisibleServiceMap')) {
+    function modernUltraBuildVisibleServiceMap($pkg, $featureList, $featureTypes) {
+        $groups = [];
+        foreach ($featureList as $key => $name) {
+            $type = modernUltraResolveServiceType($key, $featureTypes);
+            $groups[$type][] = [
+                    'key'      => (string)$key,
+                    'name'     => (string)$name,
+                    'weight'   => modernUltraServiceWeight($key, $name),
+                    'included' => modernUltraServiceActive($pkg, $key),
+            ];
+        }
+        $visible = [];
+        foreach ($groups as $items) {
+            $pool = array_values(array_filter($items, fn($i) => !empty($i['included'])));
+            if (empty($pool)) $pool = $items;
+            usort($pool, fn($a, $b) => ($b['weight'] <=> $a['weight']) ?: strcmp($a['name'], $b['name']));
+            if (!empty($pool[0]['key'])) $visible[$pool[0]['key']] = true;
+        }
+        return $visible;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $appName; ?> - Internet Service Provider</title>
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#6366f1">
+    <title><?php echo APP_NAME; ?> — Internet Lokal</title>
+    <meta name="description" content="<?php echo APP_NAME; ?> — ISP lokal, koneksi stabil, harga transparan.">
+    <meta name="theme-color" content="#050816">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="<?php echo $appName; ?>">
+    <meta name="apple-mobile-web-app-title" content="<?php echo APP_NAME; ?>">
     <link rel="manifest" href="<?php echo APP_URL; ?>/manifest.json">
-    <link rel="apple-touch-icon" href="<?php echo APP_URL; ?>/assets/icons/icon-180x180.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="<?php echo APP_URL; ?>/assets/icons/icon-32x32.png">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
+    <link rel="icon" type="image/png" href="<?php echo APP_URL; ?>/assets/icons/icon.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
     <style>
+        /* ============================================================
+           DESIGN TOKENS — GLASS DARK THEME
+           ============================================================ */
         :root {
-            --primary: #6366f1;
-            --primary-light: #818cf8;
-            --secondary: #a855f7;
-            --accent: #ec4899;
-            --dark: #0f172a;
-            --light: #f8fafc;
-            --gray: #94a3b8;
-            --glass-bg: rgba(255, 255, 255, 0.1);
-            --glass-border: rgba(255, 255, 255, 0.2);
-            --gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+            --bg: #050816;
+            --bg2: #0f172a;
+
+            --glass: rgba(255,255,255,.06);
+            --glass-border: rgba(255,255,255,.12);
+
+            --text: #ffffff;
+            --muted: rgba(255,255,255,.65);
+
+            --primary: #3b82f6;
+            --secondary: #06b6d4;
+
+            --radius: 28px;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Outfit', sans-serif; 
-            background: var(--dark);
-            color: var(--light);
+        /* ============================================================
+           RESET & BASE
+           ============================================================ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Geist', sans-serif;
+            color: var(--text);
+            background:
+                    radial-gradient(circle at top left,
+                    rgba(59,130,246,.25),
+                    transparent 35%),
+                    radial-gradient(circle at bottom right,
+                    rgba(6,182,212,.20),
+                    transparent 35%),
+                    radial-gradient(circle at center,
+                    rgba(124,58,237,.15),
+                    transparent 40%),
+                    #050816;
             overflow-x: hidden;
-            min-height: 100vh;
+        }
+        a { color: var(--text); text-decoration: none; }
+        a:hover { color: var(--primary); }
+        img { display: block; }
+
+        .container {
+            width: min(1080px, 90vw);
+            margin-inline: auto;
         }
 
-        /* Animated Background */
-        .bg-animated {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            z-index: -2;
-        }
-
-        .bg-orb {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.5;
-            animation: float 20s ease-in-out infinite;
-            z-index: -1;
-        }
-
-        .orb-1 {
-            width: 400px;
-            height: 400px;
-            background: var(--primary);
-            top: -200px;
-            left: -200px;
-        }
-
-        .orb-2 {
-            width: 500px;
-            height: 500px;
-            background: var(--secondary);
-            bottom: -250px;
-            right: -250px;
-            animation-delay: -5s;
-        }
-
-        .orb-3 {
-            width: 300px;
-            height: 300px;
-            background: var(--accent);
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            animation-delay: -10s;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(30px, -50px) scale(1.1); }
-            66% { transform: translate(-20px, 20px) scale(0.9); }
-        }
-
-        /* Glass Card */
-        .glass {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-        }
-
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 5%;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            z-index: 1000;
-        }
-
-        .logo { 
-            font-size: 1.5rem; 
-            font-weight: 700; 
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-decoration: none;
-        }
-
-        .nav-links { display: flex; gap: 30px; }
-        .nav-links a { 
-            color: var(--light); 
-            text-decoration: none; 
-            font-weight: 500;
-            transition: 0.3s;
-            position: relative;
-        }
-        .nav-links a::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--gradient);
-            transition: 0.3s;
-        }
-        .nav-links a:hover::after { width: 100%; }
-
-        .nav-toggle {
-            display: none;
-            width: 44px;
-            height: 44px;
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+        .btn {
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            color: var(--light);
+            gap: 0.5rem;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 500;
+            line-height: 1;
+            padding: 0.5625rem 1rem;
             border-radius: 12px;
+            border: 1px solid transparent;
             cursor: pointer;
-            font-size: 18px;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-        }
-        
-        /* Dropdown Menu */
-        .dropdown { position: relative; display: inline-block; }
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            min-width: 200px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-            z-index: 1;
-            border-radius: 15px;
-            border: 1px solid var(--glass-border);
-            top: 100%;
-            right: 0;
-            overflow: hidden;
-            margin-top: 10px;
-        }
-        .dropdown-content a {
-            color: var(--light);
-            padding: 12px 16px;
+            transition: background 120ms, border-color 120ms, color 120ms;
+            white-space: nowrap;
+            outline: none;
             text-decoration: none;
-            display: block;
-            text-align: left;
-            transition: 0.3s;
         }
-        .dropdown-content a:hover {
-            background: rgba(255,255,255,0.15);
-        }
-        .dropdown:hover .dropdown-content { display: block; }
-        
-        .login-btn {
-            background: var(--gradient);
-            padding: 12px 28px;
-            border-radius: 50px;
-            color: #fff !important;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: 0.3s;
-            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
-        }
-        .login-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 40px rgba(99, 102, 241, 0.4);
+        .btn:focus-visible {
+            box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px rgba(255,255,255,.2);
         }
 
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+            border-color: #2563eb;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border-color: rgba(255,255,255,.2);
+        }
+        .btn-secondary:hover {
+            background: rgba(255,255,255,.08);
+            border-color: rgba(255,255,255,.4);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--muted);
+            border-color: transparent;
+        }
+        .btn-ghost:hover {
+            background: rgba(255,255,255,.08);
+            color: var(--text);
+        }
+
+        .btn-sm  { padding: 0.4375rem 0.75rem; font-size: 0.8125rem; }
+        .btn-lg  { padding: 0.6875rem 1.375rem; font-size: 0.9375rem; }
+        .btn-full { width: 100%; }
+
+        /* ============================================================
+           BADGE
+           ============================================================ */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.06);
+            color: var(--muted);
+            line-height: 1;
+        }
+        .badge-ok {
+            background: rgba(59,130,246,.15);
+            border-color: rgba(59,130,246,.3);
+            color: var(--primary);
+        }
+
+        /* ============================================================
+           GLASS CARD
+           ============================================================ */
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: 0 20px 50px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);
+            transition: transform .35s, box-shadow .35s;
+        }
+        .glass-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 30px 60px rgba(0,0,0,.4);
+        }
+        .glass-card.large {
+            min-height: 240px;
+        }
+
+        /* ============================================================
+           HEADER — PILL NAVBAR
+           ============================================================ */
+        .site-header {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: auto;
+            min-width: 900px;
+            z-index: 999;
+            background: rgba(255,255,255,.05);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 999px;
+            box-shadow:
+                    0 10px 40px rgba(0,0,0,.3),
+                    inset 0 1px 0 rgba(255,255,255,.08);
+        }
+        .header-inner {
+            width: min(1080px, 90vw);
+            margin-inline: auto;
+            height: 3.25rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 0 1.5rem;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+            flex-shrink: 0;
+            letter-spacing: -0.01em;
+        }
+        .brand-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+        }
+        .brand-logo {
+            width: 54px;
+            height: 54px;
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 0.125rem;
+            flex: 1;
+        }
+        .nav-links a {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--muted);
+            padding: 0.375rem 0.625rem;
+            border-radius: 8px;
+            transition: color 120ms, background 120ms;
+        }
+        .nav-links a:hover {
+            color: var(--text);
+            background: rgba(255,255,255,.08);
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+        .menu-toggle {
+            display: none;
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            width: 2rem; height: 2rem;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 0.875rem;
+        }
+        .mobile-nav {
+            display: none;
+            border-top: 1px solid var(--glass-border);
+            background: rgba(5,8,22,0.92);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            margin-top: 8px;
+            padding: 0.625rem;
+            flex-direction: column;
+            gap: 0.125rem;
+        }
+        .mobile-nav.open { display: flex; }
+        .mobile-nav a {
+            font-size: 0.875rem;
+            color: var(--muted);
+            padding: 0.5625rem 0.75rem;
+            border-radius: 8px;
+            display: block;
+            transition: color 120ms, background 120ms;
+        }
+        .mobile-nav a:hover { color: var(--text); background: rgba(255,255,255,.08); }
+        .mobile-nav .mob-sep { height: 1px; background: var(--glass-border); margin: 0.5rem 0; }
+        .mobile-nav-btns { display: flex; gap: 0.5rem; padding: 0.25rem 0; }
+
+        /* ============================================================
+           HERO
+           ============================================================ */
         .hero {
             min-height: 100vh;
             display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 120px 5% 60px;
-            text-align: center;
+            position: relative;
+            padding: 120px 0 4rem;
         }
-
-        .hero-content { max-width: 900px; }
-        .hero h1 { 
-            font-size: 3.5rem; 
-            line-height: 1.2; 
+        .hero-bg-glow {
+            position: absolute;
+            width: 900px;
+            height: 900px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, rgba(59,130,246,.25), transparent 70%);
+            filter: blur(120px);
+            pointer-events: none;
+        }
+        .hero-content {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 80px;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+        .hero h1 {
+            font-size: clamp(4rem, 8vw, 7rem);
+            line-height: .95;
+            font-weight: 800;
             margin-bottom: 30px;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.04em;
         }
-        .hero p { font-size: 1.2rem; color: var(--gray); margin-bottom: 40px; line-height: 1.8; }
-        .cta-buttons { display: flex; gap: 20px; justify-content: center; }
-        .btn { 
-            padding: 14px 32px; 
-            border-radius: 50px; 
-            text-decoration: none; 
-            font-weight: 600;
-            transition: 0.3s;
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--muted);
+            max-width: 650px;
+            line-height: 1.8;
         }
-        .btn-primary { 
-            background: var(--gradient); 
-            color: #fff;
-            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+        .hero-actions {
+            display: flex;
+            gap: 0.625rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
         }
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 40px rgba(99, 102, 241, 0.4);
+        .hero-trust {
+            display: flex;
+            gap: 2.5rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
         }
-        .btn-outline { 
-            border: 2px solid var(--glass-border);
-            color: var(--light);
+        .hero-trust div {
+            text-align: left;
         }
-        .btn-outline:hover {
-            background: var(--glass-bg);
-            border-color: var(--primary);
-        }
-
-        .features { padding: 100px 5%; }
-        .section-title { 
-            font-size: 2.5rem; 
-            margin-bottom: 60px; 
-            text-align: center;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .feature-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-            gap: 30px; 
-        }
-        .feature-card {
-            padding: 40px;
-            transition: 0.3s;
-        }
-        .feature-card:hover {
-            transform: translateY(-10px);
-            background: rgba(255, 255, 255, 0.15);
-        }
-        .feature-icon { 
-            font-size: 3rem; 
-            margin-bottom: 20px;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .feature-card h3 { font-size: 1.4rem; margin-bottom: 15px; }
-        .feature-card p { color: var(--gray); line-height: 1.6; }
-
-        .packages { padding: 100px 5%; text-align: center; }
-        .package-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-            gap: 30px; 
-            margin-top: 60px; 
-        }
-        .package-card { 
-            padding: 50px; 
-            transition: 0.3s;
-        }
-        .package-card:hover {
-            transform: translateY(-10px);
-            background: rgba(255, 255, 255, 0.15);
-        }
-        .package-card h3 { font-size: 1.5rem; margin-bottom: 20px; }
-        .package-price { 
-            font-size: 3rem; 
+        .hero-trust h3 {
+            font-size: 1.5rem;
             font-weight: 700;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 20px;
+            line-height: 1;
+        }
+        .hero-trust span {
+            font-size: 0.8125rem;
+            color: var(--muted);
+            display: block;
+            margin-top: 0.25rem;
         }
 
-        .contact { padding: 100px 5%; text-align: center; }
-        .contact-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
-            gap: 30px; 
-            margin-top: 60px; 
+        .hero-right {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
         }
-        .contact-item { padding: 30px; }
-        .contact-item i { 
-            font-size: 2.5rem; 
-            margin-bottom: 15px;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .hero-right .glass-card.large {
+            grid-row: span 2;
         }
-        .contact-item h3 { margin-bottom: 10px; }
-        .contact-item p { color: var(--gray); }
+        .hero-right .glass-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .hero-right .glass-card p {
+            font-size: 0.875rem;
+            color: var(--muted);
+        }
+        .hero-right .glass-card h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .hero-right .glass-card span {
+            font-size: 0.875rem;
+            color: var(--muted);
+        }
 
-        .footer { 
-            padding: 40px 5%; 
-            text-align: center;
+        /* ============================================================
+           STATS
+           ============================================================ */
+        .stats-row {
+            padding: 3rem 0;
             border-top: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(255,255,255,.02);
         }
-        .social-links { 
-            display: flex; 
-            justify-content: center; 
-            gap: 20px; 
-            margin-bottom: 20px; 
+        .stats-inner {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
         }
-        .social-links a { 
-            color: var(--gray); 
-            font-size: 1.5rem; 
-            transition: 0.3s;
-            width: 50px;
-            height: 50px;
+        .stat-cell {
+            padding: 0 2rem;
+            text-align: center;
+            position: relative;
+        }
+        .stat-cell + .stat-cell::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 15%; bottom: 15%;
+            width: 1px;
+            background: var(--glass-border);
+        }
+        .stat-n {
+            font-size: 1.875rem;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--text);
+            line-height: 1;
+            margin-bottom: 0.375rem;
+            font-family: 'Geist Mono', monospace;
+        }
+        .stat-n em {
+            color: var(--muted);
+            font-style: normal;
+            font-weight: 400;
+            font-size: 1.125rem;
+        }
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            letter-spacing: 0.02em;
+        }
+
+        /* ============================================================
+           SECTION STRUCTURE
+           ============================================================ */
+        section { padding: 5rem 0; }
+        .section-muted { background: rgba(255,255,255,.02); }
+
+        .section-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 1rem;
+            font-family: 'Geist Mono', monospace;
+        }
+        .section-tag::before {
+            content: '';
+            width: 1.25rem;
+            height: 1px;
+            background: rgba(255,255,255,.2);
+            flex-shrink: 0;
+        }
+        .section-head { margin-bottom: 3rem; }
+        .section-head.center { text-align: center; }
+        .section-head.center .section-tag { justify-content: center; }
+        .section-head h2 {
+            font-size: clamp(1.625rem, 3.5vw, 2.375rem);
+            font-weight: 800;
+            letter-spacing: -0.035em;
+            line-height: 1.1;
+            color: var(--text);
+            margin-bottom: 0.75rem;
+        }
+        .section-head p {
+            font-size: 0.9375rem;
+            color: var(--muted);
+            max-width: 500px;
+            line-height: 1.75;
+        }
+        .section-head.center p { margin-inline: auto; }
+
+        /* ============================================================
+           FEATURES — BENTO GRID
+           ============================================================ */
+        .bento-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 24px;
+        }
+        .bento {
+            background: var(--glass);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-radius: var(--radius);
+            padding: 40px;
+            min-height: 220px;
+            border: 1px solid var(--glass-border);
+            transition: transform .3s, box-shadow .3s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .bento:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,.3);
+        }
+        .bento.large {
+            grid-row: span 2;
+        }
+        .bento.wide {
+            grid-column: span 2;
+        }
+        .bento h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .bento p {
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        /* ============================================================
+           STEPS
+           ============================================================ */
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .step-cell {
+            background: var(--glass);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 2rem 1.75rem;
+            transition: transform .3s;
+        }
+        .step-cell:hover {
+            transform: translateY(-4px);
+        }
+        .step-num {
+            font-family: 'Geist Mono', monospace;
+            font-size: 0.6875rem;
+            font-weight: 500;
+            color: var(--muted);
+            letter-spacing: 0.08em;
+            margin-bottom: 1.25rem;
             display: flex;
             align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            background: var(--glass-bg);
+            gap: 0.625rem;
         }
-        .social-links a:hover { 
-            color: var(--light);
-            background: var(--gradient);
-            transform: translateY(-5px);
+        .step-num::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--glass-border);
+        }
+        .step-cell h3 {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.01em;
+        }
+        .step-cell p {
+            font-size: 0.8125rem;
+            color: var(--muted);
+            line-height: 1.7;
         }
 
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 2.5rem; }
-            .navbar { padding: 15px 20px; }
-            .nav-toggle { display: inline-flex; }
-            .nav-links {
-                display: none;
-                position: absolute;
-                left: 0;
-                right: 0;
-                top: 100%;
-                padding: 14px 20px 18px;
-                background: rgba(0, 0, 0, 0.35);
-                border-bottom: 1px solid var(--glass-border);
-                flex-direction: column;
-                gap: 14px;
-                align-items: stretch;
-                backdrop-filter: blur(20px);
-                -webkit-backdrop-filter: blur(20px);
+        /* ============================================================
+           TESTIMONIALS
+           ============================================================ */
+        .testi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        .quote-card {
+            background: var(--glass);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            transition: transform .3s;
+        }
+        .quote-card:hover {
+            transform: translateY(-4px);
+        }
+        .quote-text {
+            font-size: 0.9375rem;
+            color: var(--text);
+            line-height: 1.75;
+            margin-bottom: 1.25rem;
+            font-style: italic;
+        }
+        .quote-author {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .author-init {
+            width: 2rem; height: 2rem;
+            border-radius: 50%;
+            background: rgba(255,255,255,.1);
+            border: 1px solid var(--glass-border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            color: var(--muted);
+            font-family: 'Geist Mono', monospace;
+            flex-shrink: 0;
+        }
+        .author-name {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .author-role { font-size: 0.75rem; color: var(--muted); }
+
+        /* ============================================================
+           PRICING
+           ============================================================ */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 24px;
+        }
+        .plan-cell {
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 2rem 1.75rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            transition: transform .3s, box-shadow .3s;
+            overflow: hidden;
+        }
+        .plan-cell::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,.12), transparent 40%);
+            pointer-events: none;
+        }
+        .plan-cell:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px rgba(0,0,0,.4);
+        }
+        .plan-cell.featured {
+            border-color: var(--primary);
+            background: rgba(59,130,246,.1);
+        }
+        .plan-featured-tag {
+            font-family: 'Geist Mono', monospace;
+            font-size: 0.625rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+        .plan-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: -0.02em;
+            margin-bottom: 0.25rem;
+        }
+        .plan-price {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            color: var(--text);
+            line-height: 1;
+            margin: 1rem 0 0.375rem;
+            font-family: 'Geist Mono', monospace;
+        }
+        .plan-per {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--muted);
+            letter-spacing: 0;
+            font-family: inherit;
+        }
+        .plan-desc {
+            font-size: 0.8125rem;
+            color: var(--muted);
+            line-height: 1.65;
+            margin-bottom: 1.5rem;
+        }
+        .plan-sep {
+            margin: 1.25rem 0;
+            border: 0;
+            height: 1px;
+            background: var(--glass-border);
+        }
+        .plan-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1.75rem;
+            flex: 1;
+        }
+        .plan-features li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            font-size: 0.8125rem;
+            color: var(--text);
+            line-height: 1.5;
+        }
+        .plan-features li.f-miss { color: var(--muted); }
+        .plan-features li i { font-size: 0.75rem; margin-top: 0.2rem; flex-shrink: 0; }
+        .plan-features li:not(.f-miss) i { color: var(--primary); }
+        .plan-features li.f-miss i { color: rgba(255,255,255,.15); }
+
+        /* ============================================================
+           FAQ
+           ============================================================ */
+        .faq-cols {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0 3rem;
+        }
+        .faq-list { display: flex; flex-direction: column; }
+        .faq-item {
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .faq-item:first-child { border-top: 1px solid var(--glass-border); }
+        .faq-item summary {
+            padding: 1.125rem 0;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--text);
+            list-style: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            user-select: none;
+            letter-spacing: -0.01em;
+        }
+        .faq-item summary::-webkit-details-marker { display: none; }
+        .faq-chevron {
+            font-size: 0.75rem;
+            color: var(--muted);
+            transition: transform 200ms;
+            flex-shrink: 0;
+        }
+        .faq-item[open] .faq-chevron { transform: rotate(180deg); }
+        .faq-item p {
+            padding: 0 0 1.125rem;
+            font-size: 0.875rem;
+            color: var(--muted);
+            line-height: 1.75;
+        }
+
+        /* ============================================================
+           CTA
+           ============================================================ */
+        .cta-wrap { padding: 5rem 0; }
+        .cta-box {
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 4rem 3rem;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,.25);
+        }
+        .cta-box h2 {
+            font-size: clamp(1.75rem, 3vw, 2.5rem);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--text);
+            margin-bottom: 0.75rem;
+        }
+        .cta-box p {
+            color: var(--muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+        }
+        .cta-actions {
+            display: flex;
+            gap: 0.625rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ============================================================
+           FOOTER
+           ============================================================ */
+        footer {
+            border-top: 1px solid var(--glass-border);
+            padding: 3rem 0 0;
+            margin-top: 2rem;
+        }
+        .footer-top {
+            display: flex;
+            align-items: flex-start;
+            gap: 2rem;
+            padding-bottom: 2.5rem;
+        }
+        .footer-about {
+            font-size: 0.8125rem;
+            color: var(--muted);
+            line-height: 1.75;
+            max-width: 460px;
+            padding-top: 0.125rem;
+        }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            padding: 2rem 0;
+            border-top: 1px solid var(--glass-border);
+        }
+        .footer-col h4 {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 1rem;
+            font-family: 'Geist Mono', monospace;
+        }
+        .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+        .footer-col ul li, .footer-col ul a {
+            font-size: 0.8125rem;
+            color: var(--muted);
+            text-decoration: none;
+            transition: color 120ms;
+        }
+        .footer-col ul a:hover { color: var(--text); }
+        .footer-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.25rem 0;
+            border-top: 1px solid var(--glass-border);
+            flex-wrap: wrap;
+        }
+        .footer-copy {
+            font-size: 0.75rem;
+            color: var(--muted);
+            font-family: 'Geist Mono', monospace;
+        }
+        .footer-links ul {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .footer-links li + li::before {
+            content: '·';
+            color: var(--muted);
+            padding-right: 0.25rem;
+            pointer-events: none;
+            opacity: 0.4;
+        }
+        .footer-links a {
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-decoration: none;
+            padding: 0.25rem 0.375rem;
+            border-radius: 8px;
+            transition: color 120ms, background 120ms;
+        }
+        .footer-links a:hover { color: var(--text); background: rgba(255,255,255,.08); }
+
+        /* ============================================================
+           DIALOG
+           ============================================================ */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .overlay.open { display: flex; }
+        .dialog {
+            background: var(--bg2);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            width: min(440px, 100%);
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: dlgIn 0.15s ease;
+        }
+        .dialog.dialog-lg { width: min(520px, 100%); }
+        @keyframes dlgIn {
+            from { opacity: 0; transform: translateY(6px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .dlg-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.375rem 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .dlg-title {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: -0.02em;
+        }
+        .dlg-sub {
+            font-size: 0.8125rem;
+            color: var(--muted);
+            margin-top: 0.25rem;
+        }
+        .dlg-close {
+            width: 1.75rem; height: 1.75rem;
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem;
+            color: var(--muted);
+            transition: background 120ms, color 120ms;
+            flex-shrink: 0;
+        }
+        .dlg-close:hover { background: rgba(255,255,255,.1); color: var(--text); }
+        .dlg-body { padding: 1.375rem 1.5rem; }
+        .dlg-foot {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            padding: 0 1.5rem 1.5rem;
+        }
+
+        .role-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .role-item {
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+            padding: 0.875rem 1rem;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            text-decoration: none;
+            color: var(--text);
+            background: rgba(255,255,255,.04);
+            transition: border-color 150ms, background 150ms;
+        }
+        .role-item:hover {
+            border-color: rgba(255,255,255,.3);
+            background: rgba(255,255,255,.08);
+        }
+        .role-ico {
+            width: 2.25rem; height: 2.25rem;
+            border-radius: 8px;
+            background: rgba(255,255,255,.08);
+            border: 1px solid var(--glass-border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.875rem;
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+        .role-name { font-size: 0.875rem; font-weight: 600; }
+        .role-desc { font-size: 0.75rem; color: var(--muted); }
+        .role-arr { margin-left: auto; color: var(--muted); font-size: 0.75rem; }
+
+        /* Form */
+        .form-row { margin-bottom: 1rem; }
+        .form-label {
+            display: block;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--muted);
+            margin-bottom: 0.375rem;
+        }
+        .form-ctrl {
+            width: 100%;
+            padding: 0.5625rem 0.75rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            background: rgba(255,255,255,.06);
+            color: var(--text);
+            transition: border-color 120ms, box-shadow 120ms;
+            outline: none;
+            line-height: 1.5;
+        }
+        .form-ctrl:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59,130,246,.2);
+        }
+        .form-ctrl::placeholder { color: var(--muted); }
+        textarea.form-ctrl { resize: vertical; min-height: 4.5rem; }
+        select.form-ctrl option { background: var(--bg2); }
+
+        /* ============================================================
+           REVEAL
+           ============================================================ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.45s ease, transform 0.45s ease;
+        }
+        .reveal.on { opacity: 1; transform: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .reveal { transition: none; opacity: 1; transform: none; }
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+        @media (max-width: 1100px) {
+            .site-header {
+                min-width: unset;
+                width: 90%;
+                top: 16px;
             }
-            .nav-links.open { display: flex; }
-            .dropdown:hover .dropdown-content { display: none; }
-            .dropdown.open .dropdown-content {
-                display: block;
-                position: static;
-                margin-top: 10px;
-                width: 100%;
+            .header-inner { padding: 0 1rem; }
+        }
+
+        @media (max-width: 900px) {
+            .hero-content {
+                grid-template-columns: 1fr;
+                gap: 40px;
             }
-            .nav-links a { width: 100%; }
-            .nav-links .dropdown { width: 100%; }
-            .nav-links .dropdown-content { width: 100%; box-sizing: border-box; }
-            .login-btn { width: 100%; text-align: center; display: inline-flex; justify-content: center; }
-            .features, .packages, .contact { padding: 60px 20px; }
-            .cta-buttons { flex-direction: column; }
+            .hero h1 { font-size: clamp(2.5rem, 10vw, 4rem); }
+            .hero p { font-size: 1rem; }
+            .hero-right {
+                grid-template-columns: 1fr 1fr;
+            }
+            .hero-right .glass-card.large {
+                grid-row: auto;
+            }
+            .testi-grid, .faq-cols, .footer-grid {
+                grid-template-columns: 1fr;
+            }
+            .stats-inner { grid-template-columns: repeat(2, 1fr); }
+            .stat-cell:nth-child(3)::before { display: none; }
+            .steps-grid { grid-template-columns: 1fr; }
+            .bento-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .bento.large, .bento.wide {
+                grid-row: auto;
+                grid-column: auto;
+            }
+            .nav-links, .header-actions { display: none; }
+            .menu-toggle { display: flex; }
+            .hero-trust { gap: 1.5rem; }
+            .hero {
+                padding-top: 100px; /* sedikit dikurangi di layar sedang */
+            }
+        }
+
+        @media (max-width: 600px) {
+            .bento-grid {
+                grid-template-columns: 1fr;
+            }
+            .pricing-grid { grid-template-columns: 1fr; }
+            .cta-box { padding: 2.5rem 1.5rem; }
+            .hero { padding: 80px 0 2rem; }
+            section { padding: 3rem 0; }
+            .footer-bar { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+            .footer-top { flex-direction: column; gap: 0.75rem; }
+            .hero-right {
+                grid-template-columns: 1fr;
+            }
+            .site-header { width: 95%; top: 12px; }
         }
     </style>
 </head>
 <body>
-    <div class="bg-animated"></div>
-    <div class="bg-orb orb-1"></div>
-    <div class="bg-orb orb-2"></div>
-    <div class="bg-orb orb-3"></div>
 
-    <nav class="navbar glass">
-        <a href="#" class="logo"><i class="fas fa-wifi"></i> <?php echo $appName; ?></a>
-        <button class="nav-toggle" type="button" onclick="window.__gembokToggleNav && window.__gembokToggleNav()"><i class="fas fa-bars"></i></button>
-        <div class="nav-links">
-            <a href="#features">Fitur</a>
-            <a href="#packages">Paket</a>
-            <a href="voucher-order.php">Voucher</a>
-            <a href="#" onclick="window.__gembokOpenRegisterModal && window.__gembokOpenRegisterModal(); return false;">Daftar</a>
-            <a href="#contact">Kontak</a>
-            <div class="dropdown">
-                <a href="#" class="login-btn" onclick="window.__gembokToggleLogin && window.__gembokToggleLogin(event)">Login <i class="fas fa-chevron-down"></i></a>
-                <div class="dropdown-content">
-                    <a href="portal/login.php"><i class="fas fa-user"></i> Pelanggan</a>
-                    <a href="sales/login.php"><i class="fas fa-user-tie"></i> Sales / Agen</a>
-                    <a href="technician/login.php"><i class="fas fa-tools"></i> Teknisi</a>
-                    <a href="admin/login.php"><i class="fas fa-user-shield"></i> Admin</a>
+<!-- HEADER -->
+<header class="site-header">
+    <div class="header-inner">
+        <a href="#home" class="brand">
+            <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" class="brand-icon" alt="">
+        </a>
+        <nav class="nav-links" aria-label="Utama">
+            <a href="#fitur">Fitur</a>
+            <a href="#cara-kerja">Cara Kerja</a>
+            <a href="#paket">Paket</a>
+            <a href="#faq">FAQ</a>
+        </nav>
+        <div class="header-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="openLogin">Masuk</button>
+            <button type="button" class="btn btn-primary btn-sm" id="openReg">Daftar</button>
+        </div>
+        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Menu">
+            <i class="fas fa-bars" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div class="mobile-nav" id="mobileNav" aria-hidden="true">
+        <a href="#fitur">Fitur</a>
+        <a href="#cara-kerja">Cara Kerja</a>
+        <a href="#paket">Paket</a>
+        <a href="#faq">FAQ</a>
+        <div class="mob-sep"></div>
+        <div class="mobile-nav-btns">
+            <button type="button" class="btn btn-secondary btn-sm" style="flex:1" id="openLoginMob">Masuk</button>
+            <button type="button" class="btn btn-primary btn-sm" style="flex:1" id="openRegMob">Daftar</button>
+        </div>
+    </div>
+</header>
+
+<main id="home">
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="hero-bg-glow"></div>
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-left">
+                    <div class="badge badge-ok" style="margin-bottom:1.5rem;">
+                        <i class="fas fa-circle" style="font-size:0.4rem" aria-hidden="true"></i>
+                        Active
+                    </div>
+                    <h1><?php echo strip_tags($heroTitle); ?></h1>
+                    <p>
+                        Streaming 4K, gaming, meeting, dan kebutuhan bisnis
+                        tanpa gangguan dengan jaringan fiber generasi terbaru.
+                    </p>
+                    <div class="hero-actions">
+                        <button class="btn btn-primary btn-lg" id="heroReg">
+                            Berlangganan Sekarang
+                            <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                        </button>
+                        <a href="<?php echo htmlspecialchars($s_wa ?? '#'); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
+                            <i class="fab fa-whatsapp" aria-hidden="true"></i>
+                            WhatsApp
+                        </a>
+                    </div>
+                    <div class="hero-trust">
+                        <div>
+                            <h3>99.9%</h3>
+                            <span>Uptime</span>
+                        </div>
+                        <div>
+                            <h3>5000+</h3>
+                            <span>Pelanggan</span>
+                        </div>
+                        <div>
+                            <h3>24/7</h3>
+                            <span>Support</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-right">
+                    <div class="glass-card large">
+                        <h3>Coverage Area</h3>
+                        <p>Jaringan Fiber Optic</p>
+                        <div style="margin-top:1rem;font-size:0.875rem;color:var(--muted);">
+                            <i class="fas fa-check-circle" style="color:var(--primary);"></i> 20+ kota
+                        </div>
+                    </div>
+                    <div class="glass-card">
+                        <h2>99.9%</h2>
+                        <span>Network Availability</span>
+                    </div>
+                    <div class="glass-card">
+                        <h2>24/7</h2>
+                        <span>Technical Support</span>
+                    </div>
                 </div>
             </div>
         </div>
-    </nav>
+    </section>
 
-    <section class="hero">
-        <div class="hero-content">
-            <h1><?php echo strip_tags($heroTitle); ?></h1>
-            <p><?php echo $heroDesc; ?></p>
-            <div class="cta-buttons">
-                <a href="#packages" class="btn btn-primary">Mulai Sekarang</a>
-                <a href="#contact" class="btn btn-outline">Hubungi Kami</a>
+    <!-- STATS -->
+    <div class="stats-row">
+        <div class="container">
+            <div class="stats-inner">
+                <div class="stat-cell reveal">
+                    <div class="stat-n">99<em>.8%</em></div>
+                    <div class="stat-label">uptime jaringan</div>
+                </div>
+                <div class="stat-cell reveal">
+                    <div class="stat-n">&lt;24<em>j</em></div>
+                    <div class="stat-label">estimasi aktivasi</div>
+                </div>
+                <div class="stat-cell reveal">
+                    <div class="stat-n">24<em>/7</em></div>
+                    <div class="stat-label">dukungan teknis</div>
+                </div>
+                <div class="stat-cell reveal">
+                    <div class="stat-n">Fiber</div>
+                    <div class="stat-label">teknologi akses</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FEATURES — BENTO GRID -->
+    <section id="fitur" class="section-muted">
+        <div class="container">
+            <div class="section-head center reveal">
+                <div class="section-tag">Layanan</div>
+                <h2>Dirancang untuk kebutuhan nyata</h2>
+                <p>Bukan sekadar angka di speedtest — infrastruktur yang stabil untuk aktivitas harian yang penting.</p>
+            </div>
+            <div class="bento-grid reveal">
+                <div class="bento large">
+                    <h3>Fiber Optic Berkecepatan Tinggi</h3>
+                    <p>Koneksi simetris dengan latensi rendah, ideal untuk streaming 4K, gaming, dan work from home.</p>
+                </div>
+                <div class="bento">
+                    <h3>24/7 Support</h3>
+                    <p>Teknisi lokal siap membantu kapan pun Anda butuh.</p>
+                </div>
+                <div class="bento">
+                    <h3>99.9% Uptime</h3>
+                    <p>Jaringan stabil dengan monitoring aktif 24 jam.</p>
+                </div>
+                <div class="bento wide">
+                    <h3>Coverage Luas</h3>
+                    <p>Jangkauan fiber optic terus diperluas ke berbagai wilayah.</p>
+                </div>
             </div>
         </div>
     </section>
 
-    <section class="features" id="features">
-        <h2 class="section-title">Kenapa Memilih Kami</h2>
-        <div class="feature-grid">
-            <div class="feature-card glass">
-                <i class="fas fa-tachometer-alt feature-icon"></i>
-                <h3><?php echo $f1_title; ?></h3>
-                <p><?php echo $f1_desc; ?></p>
+    <!-- HOW IT WORKS -->
+    <section id="cara-kerja">
+        <div class="container">
+            <div class="section-head reveal">
+                <div class="section-tag">Cara Berlangganan</div>
+                <h2>Tiga langkah sampai online</h2>
+                <p>Daftar online, kami yang datang. Tidak perlu ke kantor.</p>
             </div>
-            <div class="feature-card glass">
-                <i class="fas fa-infinity feature-icon"></i>
-                <h3><?php echo $f2_title; ?></h3>
-                <p><?php echo $f2_desc; ?></p>
-            </div>
-            <div class="feature-card glass">
-                <i class="fas fa-headset feature-icon"></i>
-                <h3><?php echo $f3_title; ?></h3>
-                <p><?php echo $f3_desc; ?></p>
-            </div>
-        </div>
-    </section>
-
-    <section class="packages" id="packages">
-        <h2 class="section-title">Paket Internet</h2>
-        <div class="package-grid">
-            <?php foreach ($packages as $pkg): ?>
-            <div class="package-card glass">
-                <h3><?php echo htmlspecialchars($pkg['name']); ?></h3>
-                <div class="package-price"><?php echo formatCurrency($pkg['price']); ?></div>
-                <p style="color: var(--gray);"><?php echo htmlspecialchars($pkg['description'] ?? ''); ?></p>
-                <br>
-                <a href="?reg=open&pkg=<?php echo rawurlencode((string) $pkg['name']); ?>#register" class="btn btn-primary" style="width: 100%;" onclick="try { window.__gembokOpenRegisterModalWithPackage && window.__gembokOpenRegisterModalWithPackage(<?php echo json_encode((string) $pkg['name']); ?>); return false; } catch (e) { return true; }">Pilih Paket</a>
-            </div>
-            <?php endforeach; ?>
-        </div>
-    </section>
-
-    <section class="contact" id="contact">
-        <h2 class="section-title">Hubungi Kami</h2>
-        <div class="contact-grid">
-            <div class="contact-item glass">
-                <i class="fas fa-phone"></i>
-                <h3>Telepon</h3>
-                <p><?php echo $contactPhone; ?></p>
-            </div>
-            <div class="contact-item glass">
-                <i class="fas fa-envelope"></i>
-                <h3>Email</h3>
-                <p><?php echo $contactEmail; ?></p>
-            </div>
-            <div class="contact-item glass">
-                <i class="fas fa-map-marker-alt"></i>
-                <h3>Alamat</h3>
-                <p><?php echo $contactAddress; ?></p>
+            <div class="steps-grid reveal">
+                <div class="step-cell">
+                    <div class="step-num">01</div>
+                    <h3>Daftar & Pilih Paket</h3>
+                    <p>Isi formulir pendaftaran, pilih paket yang sesuai. Data langsung masuk ke sistem kami.</p>
+                </div>
+                <div class="step-cell">
+                    <div class="step-num">02</div>
+                    <h3>Verifikasi & Survey</h3>
+                    <p>Tim kami menghubungi via WhatsApp untuk konfirmasi data dan survey lokasi pemasangan.</p>
+                </div>
+                <div class="step-cell">
+                    <div class="step-num">03</div>
+                    <h3>Instalasi & Aktif</h3>
+                    <p>Teknisi datang, instalasi selesai, akun aktif. Langsung online.</p>
+                </div>
             </div>
         </div>
     </section>
 
-    <footer class="footer glass">
-        <div class="social-links">
-            <a href="<?php echo $s_fb; ?>"><i class="fab fa-facebook"></i></a>
-            <a href="<?php echo $s_ig; ?>"><i class="fab fa-instagram"></i></a>
-            <a href="<?php echo $s_tw; ?>"><i class="fab fa-twitter"></i></a>
-            <a href="<?php echo $s_yt; ?>"><i class="fab fa-youtube"></i></a>
+    <!-- TESTIMONIALS -->
+    <section class="section-muted">
+        <div class="container">
+            <div class="section-head center reveal">
+                <div class="section-tag">Pelanggan</div>
+                <h2>Kata mereka yang sudah pakai</h2>
+            </div>
+            <div class="testi-grid">
+                <div class="quote-card reveal">
+                    <p class="quote-text">"Sejak pakai internet ini, kerja WFA jadi jauh lebih lancar. Kalau ada gangguan, teknisinya bisa datang hari itu juga."</p>
+                    <div class="quote-author">
+                        <div class="author-init" aria-hidden="true">AW</div>
+                        <div>
+                            <div class="author-name">Andi Wijaya</div>
+                            <div class="author-role">Pengusaha · 2 tahun</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="quote-card reveal">
+                    <p class="quote-text">"Harga bersaing, jaringan stabil, notif tagihan WhatsApp sangat membantu. Tidak pernah tiba-tiba putus karena lupa bayar."</p>
+                    <div class="quote-author">
+                        <div class="author-init" aria-hidden="true">SN</div>
+                        <div>
+                            <div class="author-name">Siti Nurhaliza</div>
+                            <div class="author-role">Freelancer · 1 tahun</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <p><?php echo $footerAbout; ?></p>
-    </footer>
+    </section>
 
-    <script>
-        // Register Service Worker for PWA
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(function(registration) {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    })
-                    .catch(function(error) {
-                        console.log('ServiceWorker registration failed: ', error);
-                    });
+    <!-- PRICING -->
+    <section id="paket">
+        <div class="container">
+            <div class="section-head center reveal">
+                <div class="section-tag">Paket</div>
+                <h2>Harga transparan</h2>
+                <p>Tidak ada biaya setup tersembunyi. Semua paket sudah termasuk instalasi dan perangkat dasar.</p>
+            </div>
+            <div class="pricing-grid reveal">
+                <?php foreach ($packages as $idx => $pkg):
+                    $featured = $idx === 1;
+                    $vm = modernUltraBuildVisibleServiceMap($pkg, $packageFeatureList, $packageFeatureTypes);
+                    ?>
+                    <div class="plan-cell <?php echo $featured ? 'featured' : ''; ?>">
+                        <?php if ($featured): ?>
+                            <div class="plan-featured-tag">— Paling Populer</div>
+                        <?php endif; ?>
+                        <div class="plan-name"><?php echo htmlspecialchars($pkg['name']); ?></div>
+                        <div class="plan-price">
+                            <?php echo formatCurrency($pkg['price']); ?>
+                            <span class="plan-per">/bln</span>
+                        </div>
+                        <p class="plan-desc"><?php echo htmlspecialchars($pkg['description'] ?? 'Koneksi stabil untuk rumah dan bisnis.'); ?></p>
+                        <hr class="plan-sep">
+                        <?php if (!empty($packageFeatureList)): ?>
+                            <ul class="plan-features">
+                                <?php foreach ($packageFeatureList as $key => $name):
+                                    if (empty($vm[$key])) continue;
+                                    $inc = modernUltraServiceActive($pkg, $key);
+                                    ?>
+                                    <li class="<?php echo $inc ? '' : 'f-miss'; ?>">
+                                        <i class="fas <?php echo $inc ? 'fa-check' : 'fa-minus'; ?>" aria-hidden="true"></i>
+                                        <?php echo htmlspecialchars($name); ?>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php else: ?>
+                            <ul class="plan-features">
+                                <li><i class="fas fa-check" aria-hidden="true"></i> Koneksi fiber optic stabil</li>
+                                <li><i class="fas fa-check" aria-hidden="true"></i> Dukungan teknis responsif</li>
+                                <li><i class="fas fa-check" aria-hidden="true"></i> Notifikasi tagihan WhatsApp</li>
+                                <li><i class="fas fa-check" aria-hidden="true"></i> Portal pelanggan mandiri</li>
+                                <li><i class="fas fa-check" aria-hidden="true"></i> Monitoring berkala</li>
+                            </ul>
+                        <?php endif; ?>
+                        <button type="button"
+                                class="btn btn-full <?php echo $featured ? 'btn-primary' : 'btn-secondary'; ?>"
+                                onclick="openRegWithPkg('<?php echo addslashes(htmlspecialchars($pkg['name'])); ?>')">
+                            Pilih Paket
+                        </button>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <?php if (!empty($faqs) && is_array($faqs)): ?>
+        <section id="faq" class="section-muted">
+            <div class="container">
+                <div class="section-head reveal">
+                    <div class="section-tag">FAQ</div>
+                    <h2>Pertanyaan yang sering ditanya</h2>
+                </div>
+                <div class="faq-cols">
+                    <?php
+                    $mid = (int)ceil(count($faqs) / 2);
+                    foreach ([array_slice($faqs, 0, $mid), array_slice($faqs, $mid)] as $col): ?>
+                        <div class="faq-list">
+                            <?php foreach ($col as $f): ?>
+                                <details class="faq-item">
+                                    <summary>
+                                        <?php echo htmlspecialchars($f['question'] ?? ''); ?>
+                                        <i class="fas fa-chevron-down faq-chevron" aria-hidden="true"></i>
+                                    </summary>
+                                    <p><?php echo nl2br(htmlspecialchars($f['answer'] ?? '')); ?></p>
+                                </details>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <!-- CTA -->
+    <div class="cta-wrap">
+        <div class="container">
+            <div class="cta-box reveal">
+                <h2>Siap beralih ke internet yang lebih stabil?</h2>
+                <p>Daftar sekarang — survey hingga aktivasi gratis, tim kami yang urus semuanya.</p>
+                <div class="cta-actions">
+                    <button type="button" class="btn btn-primary btn-lg" id="ctaReg">Daftar Berlangganan</button>
+                    <a href="<?php echo htmlspecialchars($s_wa ?? '#'); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
+                        <i class="fab fa-whatsapp" aria-hidden="true"></i>
+                        Tanya via WhatsApp
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+    <div class="container">
+        <div class="footer-top">
+            <a href="#" class="brand">
+                <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" class="brand-logo" alt="">
+            </a>
+            <p class="footer-about"><?php echo htmlspecialchars($footerAbout ?? 'ISP lokal dengan fokus pada stabilitas jaringan dan kepuasan pelanggan.'); ?></p>
+        </div>
+        <div class="footer-grid">
+            <div class="footer-col">
+                <h4>Kontak</h4>
+                <ul>
+                    <li><?php echo htmlspecialchars($contactPhone ?? ''); ?></li>
+                    <li><?php echo htmlspecialchars($contactEmail ?? ''); ?></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Media Sosial</h4>
+                <ul>
+                    <?php if (!empty($s_fb)): ?><li><a href="<?php echo htmlspecialchars($s_fb); ?>" target="_blank" rel="noopener">Facebook</a></li><?php endif; ?>
+                    <?php if (!empty($s_ig)): ?><li><a href="<?php echo htmlspecialchars($s_ig); ?>" target="_blank" rel="noopener">Instagram</a></li><?php endif; ?>
+                    <?php if (!empty($s_tw)): ?><li><a href="<?php echo htmlspecialchars($s_tw); ?>" target="_blank" rel="noopener">Twitter / X</a></li><?php endif; ?>
+                    <?php if (!empty($s_yt)): ?><li><a href="<?php echo htmlspecialchars($s_yt); ?>" target="_blank" rel="noopener">YouTube</a></li><?php endif; ?>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Navigasi</h4>
+                <ul>
+                    <li><a href="#fitur">Fitur</a></li>
+                    <li><a href="#paket">Paket Internet</a></li>
+                    <li><a href="#cara-kerja">Cara Berlangganan</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bar">
+            <span class="footer-copy">&copy; <?php echo date('Y'); ?> <?php echo APP_NAME; ?>. All rights reserved.</span>
+            <nav class="footer-links" aria-label="Tautan kebijakan">
+                <ul>
+                    <li><a href="terms.php">Syarat & Ketentuan</a></li>
+                    <li><a href="privacy.php">Privasi</a></li>
+                    <li><a href="about.php">Tentang</a></li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</footer>
+
+<!-- DIALOG: Login -->
+<div class="overlay" id="loginOverlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <div class="dialog">
+        <div class="dlg-head">
+            <div>
+                <div class="dlg-title" id="loginTitle">Pilih portal masuk</div>
+                <div class="dlg-sub">Pilih sesuai peran Anda.</div>
+            </div>
+            <button class="dlg-close" id="closeLogin" aria-label="Tutup"><i class="fas fa-times" aria-hidden="true"></i></button>
+        </div>
+        <div class="dlg-body">
+            <div class="role-list">
+                <a class="role-item" href="portal/login.php">
+                    <div class="role-ico"><i class="fas fa-user" aria-hidden="true"></i></div>
+                    <div>
+                        <div class="role-name">Portal Pelanggan</div>
+                        <div class="role-desc">Tagihan, riwayat, dan status koneksi</div>
+                    </div>
+                    <i class="fas fa-arrow-right role-arr" aria-hidden="true"></i>
+                </a>
+                <a class="role-item" href="technician/login.php">
+                    <div class="role-ico"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i></div>
+                    <div>
+                        <div class="role-name">Portal Teknisi</div>
+                        <div class="role-desc">Tiket dan jadwal kunjungan</div>
+                    </div>
+                    <i class="fas fa-arrow-right role-arr" aria-hidden="true"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DIALOG: Register -->
+<div class="overlay" id="regOverlay" role="dialog" aria-modal="true" aria-labelledby="regTitle">
+    <div class="dialog dialog-lg">
+        <div class="dlg-head">
+            <div>
+                <div class="dlg-title" id="regTitle">Daftar berlangganan</div>
+                <div class="dlg-sub">Isi data berikut, kami hubungi via WhatsApp segera.</div>
+            </div>
+            <button class="dlg-close" id="closeReg" aria-label="Tutup"><i class="fas fa-times" aria-hidden="true"></i></button>
+        </div>
+        <div class="dlg-body">
+            <form id="regForm" novalidate>
+                <div class="form-row">
+                    <label class="form-label" for="r-name">Nama lengkap</label>
+                    <input type="text" id="r-name" name="name" class="form-ctrl" placeholder="Nama sesuai KTP" required autocomplete="name">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="r-phone">Nomor WhatsApp</label>
+                    <input type="tel" id="r-phone" name="phone" class="form-ctrl" placeholder="08xx xxxx xxxx" required autocomplete="tel">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="r-address">Alamat pemasangan</label>
+                    <textarea id="r-address" name="address" class="form-ctrl" rows="2" placeholder="Nama jalan, RT/RW, patokan lokasi" required></textarea>
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="r-pkg">Paket yang diminati</label>
+                    <select id="r-pkg" name="package" class="form-ctrl">
+                        <option value="">Pilih paket (opsional)</option>
+                        <?php foreach ($packages as $pkg): ?>
+                            <option value="<?php echo htmlspecialchars($pkg['name']); ?>">
+                                <?php echo htmlspecialchars($pkg['name']); ?> — <?php echo formatCurrency($pkg['price']); ?>/bln
+                            </option>
+                        <?php endforeach; ?>
+                        <option value="Lainnya">Belum tahu, minta rekomendasi</option>
+                    </select>
+                </div>
+                <div class="form-row" style="margin-bottom:0">
+                    <label class="form-label" for="r-notes">Catatan (opsional)</label>
+                    <input type="text" id="r-notes" name="notes" class="form-ctrl" placeholder="Jam bisa dihubungi, dll.">
+                </div>
+            </form>
+        </div>
+        <div class="dlg-foot">
+            <button type="button" class="btn btn-ghost" id="cancelReg">Batal</button>
+            <button type="button" class="btn btn-primary" id="submitReg">Kirim Pendaftaran</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        'use strict';
+
+        /* Scroll reveal */
+        var obs = new IntersectionObserver(function(entries){
+            entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('on'); obs.unobserve(e.target); } });
+        }, {threshold: 0.07});
+        document.querySelectorAll('.reveal').forEach(function(el){ obs.observe(el); });
+
+        /* Mobile nav */
+        var toggle = document.getElementById('menuToggle');
+        var mob    = document.getElementById('mobileNav');
+        if (toggle && mob) {
+            toggle.addEventListener('click', function(){
+                var open = mob.classList.toggle('open');
+                mob.setAttribute('aria-hidden', !open);
+                toggle.querySelector('i').className = open ? 'fas fa-xmark' : 'fas fa-bars';
+            });
+            mob.querySelectorAll('a').forEach(function(a){
+                a.addEventListener('click', function(){ mob.classList.remove('open'); mob.setAttribute('aria-hidden','true'); toggle.querySelector('i').className='fas fa-bars'; });
             });
         }
 
-        (function() {
-            const navLinks = document.querySelector('.nav-links');
-            const dropdown = document.querySelector('.dropdown');
+        /* Dialog utils */
+        function open(id){ var el=document.getElementById(id); if(el) el.classList.add('open'); }
+        function close(id){ var el=document.getElementById(id); if(el) el.classList.remove('open'); }
+        document.querySelectorAll('.overlay').forEach(function(o){
+            o.addEventListener('click', function(e){ if(e.target===o) o.classList.remove('open'); });
+        });
+        document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ close('loginOverlay'); close('regOverlay'); } });
 
-            window.__gembokToggleNav = function() {
-                if (!navLinks) return;
-                navLinks.classList.toggle('open');
-                if (!navLinks.classList.contains('open') && dropdown) {
-                    dropdown.classList.remove('open');
-                }
-            };
+        /* Login */
+        ['openLogin','openLoginMob'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('click', function(){ open('loginOverlay'); }); });
+        var cl=document.getElementById('closeLogin'); if(cl) cl.addEventListener('click', function(){ close('loginOverlay'); });
 
-            window.__gembokToggleLogin = function(e) {
-                if (e) e.preventDefault();
-                if (!dropdown) return;
-                dropdown.classList.toggle('open');
-                if (navLinks && !navLinks.classList.contains('open')) {
-                    navLinks.classList.add('open');
-                }
-            };
+        /* Register */
+        function openReg(){ open('regOverlay'); }
+        window.openRegWithPkg = function(pkg){
+            var sel=document.getElementById('r-pkg');
+            if(sel && pkg){ for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===pkg){ sel.selectedIndex=i; break; } } }
+            openReg();
+        };
+        ['openReg','openRegMob','heroReg','ctaReg'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('click', openReg); });
+        ['closeReg','cancelReg'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('click', function(){ close('regOverlay'); }); });
 
-            document.addEventListener('click', function(e) {
-                const target = e.target;
-                if (!target) return;
-                const inNav = navLinks && navLinks.contains(target);
-                const inDropdown = dropdown && dropdown.contains(target);
-                const isToggle = target.closest && target.closest('.nav-toggle');
-                if (!inNav && !inDropdown && !isToggle) {
-                    if (navLinks) navLinks.classList.remove('open');
-                    if (dropdown) dropdown.classList.remove('open');
-                }
-            });
-
-            if (navLinks) {
-                navLinks.addEventListener('click', function(e) {
-                    const a = e.target && e.target.closest ? e.target.closest('a') : null;
-                    const href = a && a.getAttribute ? a.getAttribute('href') : null;
-                    if (a && href && href.startsWith('#') && href !== '#' && !a.closest('.dropdown')) {
-                        navLinks.classList.remove('open');
-                        if (dropdown) dropdown.classList.remove('open');
-                    }
+        /* Form submit */
+        var sb = document.getElementById('submitReg');
+        if (sb) {
+            sb.addEventListener('click', function(){
+                var form = document.getElementById('regForm');
+                var ok = true;
+                form.querySelectorAll('[required]').forEach(function(f){
+                    if(!f.value.trim()){ f.style.borderColor='rgba(239,68,68,0.6)'; ok=false; }
+                    else f.style.borderColor='';
                 });
-            }
-        })();
-    </script>
+                if(!ok) return;
+                sb.disabled=true; sb.textContent='Mengirim...';
+                fetch('<?php echo APP_URL; ?>/register-handler.php', {method:'POST', body:new FormData(form)})
+                    .then(function(r){ return r.json(); })
+                    .then(function(d){
+                        if(d.success){ close('regOverlay'); form.reset(); alert('Pendaftaran berhasil! Tim kami akan menghubungi Anda via WhatsApp.'); }
+                        else { alert('Gagal: '+(d.message||'Terjadi kesalahan.')); }
+                    })
+                    .catch(function(){ alert('Gagal terhubung ke server.'); })
+                    .finally(function(){ sb.disabled=false; sb.textContent='Kirim Pendaftaran'; });
+            });
+        }
+    })();
+</script>
 </body>
 </html>
-
