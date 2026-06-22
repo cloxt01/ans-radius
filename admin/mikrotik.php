@@ -430,6 +430,33 @@ ob_start();
             }).format(date);
         }
 
+        // Fungsi copy diperbarui untuk menerima data lengkap
+        window.copyUserInfo = function(btn, encName, encPass, encProf, status) {
+            // Decode data agar kembali normal
+            const username = decodeURIComponent(encName);
+            const password = decodeURIComponent(encPass);
+            const profile = decodeURIComponent(encProf);
+
+            // Format teks yang akan disalin
+            const textToCopy = `Username: ${username}, Password: ${password || '-'}, Profile: ${profile}, Status: ${status}`;
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const icon = btn.querySelector('i');
+                const originalClass = icon.className;
+
+                icon.className = 'fas fa-check';
+                icon.style.color = 'var(--accent-green)';
+
+                setTimeout(() => {
+                    icon.className = originalClass;
+                    icon.style.color = '';
+                }, 1500);
+            }).catch(err => {
+                console.error('Gagal menyalin: ', err);
+                alert('Gagal menyalin teks ke clipboard');
+            });
+        };
+
         function renderUsers(users) {
             if (!users || users.length === 0) {
                 usersTableBody.innerHTML = `
@@ -447,12 +474,26 @@ ob_start();
                 let avatarClass = user.isDisabled ? 'disabled' : (user.isOnline ? 'online' : 'offline');
 
                 let statusBadge = '';
-                if (user.isDisabled) statusBadge = '<span class="badge badge-danger"><i class="fas fa-ban"></i> Disabled</span>';
-                else if (user.isOnline) statusBadge = '<span class="badge badge-success"><i class="fas fa-circle"></i> Online</span>';
-                else statusBadge = '<span class="badge badge-warning"><i class="fas fa-circle"></i> Offline</span>';
+                let statusText = 'Offline';
+
+                if (user.isDisabled) {
+                    statusBadge = '<span class="badge badge-danger"><i class="fas fa-ban"></i> Disabled</span>';
+                    statusText = 'Disabled';
+                } else if (user.isOnline) {
+                    statusBadge = '<span class="badge badge-success"><i class="fas fa-circle"></i> Online</span>';
+                    statusText = 'Online';
+                } else {
+                    statusBadge = '<span class="badge badge-warning"><i class="fas fa-circle"></i> Offline</span>';
+                    statusText = 'Offline';
+                }
 
                 let activeBadge = user.isDisabled ? '<span class="badge badge-muted">Tidak</span>' : '<span class="badge badge-success">Ya</span>';
                 let passHtml = user.password ? `<small><i class="fas fa-lock"></i> ••••••••</small>` : '';
+
+                // Data aman yang disiapkan untuk dikirim ke fungsi copyUserInfo()
+                const safeName = encodeURIComponent(user.name || '');
+                const safePass = encodeURIComponent(user.password || '');
+                const safeProf = encodeURIComponent(user.profile || 'default');
 
                 return `
         <tr>
@@ -460,7 +501,14 @@ ob_start();
                 <div class="user-avatar">
                     <div class="avatar ${avatarClass}">${initial}</div>
                     <div class="user-details">
-                        <strong>${escapeHtml(user.name)}</strong>
+                        <strong style="display: flex; align-items: center; gap: 6px;">
+                            ${escapeHtml(user.name)}
+                            <button class="btn-icon" style="padding: 2px 6px; border: none; background: transparent; box-shadow: none;"
+                                    onclick="copyUserInfo(this, '${safeName}', '${safePass}', '${safeProf}', '${statusText}')"
+                                    title="Salin Detail User">
+                                <i class="fas fa-copy" style="color: var(--text-muted); font-size: 13px;"></i>
+                            </button>
+                        </strong>
                         ${passHtml}
                     </div>
                 </div>
