@@ -84,16 +84,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-
+    
     switch ($action) {
         case 'add':
             $result = radiusSetUser(
-                    sanitize($_POST['username']),
-                    sanitize($_POST['password']),
-                    sanitize($_POST['profile']),
-                    sanitize($_POST['service'])
+                sanitize($_POST['username']),
+                sanitize($_POST['password']),
+                sanitize($_POST['profile']),
+                sanitize($_POST['service'])
             );
-
+            
             if ($result) {
                 setFlash('success', 'User PPPoE berhasil ditambahkan');
                 logActivity('ADD_PPPOE_USER', "Username: " . $_POST['username']);
@@ -102,18 +102,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             redirect('mikrotik.php');
             break;
-
+            
         case 'edit':
             $id = $_POST['user_id'];
             $data = [
-                    'name' => sanitize($_POST['username']),
-                    'password' => sanitize($_POST['password']),
-                    'profile' => sanitize($_POST['profile']),
-                    'service' => sanitize($_POST['service'])
+                'name' => sanitize($_POST['username']),
+                'password' => sanitize($_POST['password']),
+                'profile' => sanitize($_POST['profile']),
+                'service' => sanitize($_POST['service'])
             ];
-
+            
             $result = radiusUpdateUser($id, $data);
-
+            
             if ($result['success']) {
                 setFlash('success', 'User PPPoE berhasil diperbarui');
                 logActivity('UPDATE_PPPOE_USER', "ID: $id");
@@ -122,11 +122,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             redirect('mikrotik.php');
             break;
-
+            
         case 'delete':
             $id = $_POST['user_id'];
             $result = radiusDeleteuser($id);
-
+            
             if ($result) {
                 setFlash('success', 'User PPPoE berhasil dihapus');
                 logActivity('DELETE_PPPOE_USER', "ID: $id");
@@ -135,14 +135,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             redirect('mikrotik.php');
             break;
-
+            
         case 'toggle':
             $id = $_POST['user_id'];
             $currentStatus = $_POST['current_status'] ?? 'false';
             $newStatus = ($currentStatus === 'true') ? 'false' : 'true';
-
+            
             $result = radiusUpdateUser($id, ['disabled' => $newStatus]);
-
+            
             if ($result['success']) {
                 $status = ($newStatus === 'true') ? 'disabled' : 'enabled';
                 setFlash('success', "User PPPoE berhasil di-$status");
@@ -160,10 +160,10 @@ $mikrotikUsers = radiusGetPppoeUsers();
 $totalUsers = count($mikrotikUsers);
 
 $poolConfig = [
-        'start_subnet' => '11.7.1',   // subnet awal (3 oktet pertama)
-        'end_subnet'   => '11.7.10',  // subnet akhir
-        'start_ip'     => 2,          // oktet ke-4 minimal (biasanya 2, karena .1 untuk gateway)
-        'end_ip'       => 254         // oktet ke-4 maksimal
+    'start_subnet' => '11.7.1',   // subnet awal (3 oktet pertama)
+    'end_subnet'   => '11.7.10',  // subnet akhir
+    'start_ip'     => 2,          // oktet ke-4 minimal (biasanya 2, karena .1 untuk gateway)
+    'end_ip'       => 254         // oktet ke-4 maksimal
 ];
 
 if ($isConnected) {
@@ -195,7 +195,7 @@ if ($isConnected) {
         $prefix = $startParts[0] . '.' . $startParts[1];
         $startThird = (int)$startParts[2];
         $endThird = (int)$endParts[2];
-
+        
         for ($third = $startThird; $third <= $endThird; $third++) {
             $subnet = $prefix . '.' . $third;
             for ($ip = $config['start_ip']; $ip <= $config['end_ip']; $ip++) {
@@ -206,13 +206,13 @@ if ($isConnected) {
     }
 
     $allPoolIPs = generatePoolIPs($poolConfig);
-
+    
     // Filter IP yang belum terpakai (tidak ada di sesi asli)
     $availableIPs = array_values(array_diff($allPoolIPs, $usedIPs));
-
+    
     // Acak urutan IP agar penyebaran lebih natural
     shuffle($availableIPs);
-
+    
     // Tambahkan sesi fiktif dari getFiktifCustomers()
     $fiktifData = getFiktifCustomers();
     if (is_array($fiktifData)) {
@@ -222,10 +222,10 @@ if ($isConnected) {
             }
             $newIP = array_shift($availableIPs); // ambil IP pertama dari yang tersedia
             $activeSessions[] = [
-                    'name'    => $user['name'],
-                    'address' => $newIP,
-                    'uptime'  => rand(3600, 86400),
-                    'radius'  => 'true'
+                'name'    => $user['name'],
+                'address' => $newIP,
+                'uptime'  => rand(3600, 86400),
+                'radius'  => 'true'
             ];
         }
     }
@@ -249,118 +249,118 @@ if (empty($mikrotikProfiles)) {
 ob_start();
 ?>
 
-    <!-- Warning Connection -->
+<!-- Warning Connection -->
 <?php if (!$isConnected): ?>
-    <div class="alert alert-warning" style="margin-bottom: 24px;">
-        <i class="fas fa-exclamation-triangle"></i>
-        <div>
-            <strong>Gagal terhubung ke MikroTik!</strong>
-            <p style="margin: 4px 0 0 0; font-size: 13px;">
-                Profile yang ditampilkan adalah profil default.
-                Silakan periksa pengaturan MikroTik di <a href="settings.php" style="color: var(--accent-blue);">Settings</a>.
-            </p>
-        </div>
+<div class="alert alert-warning" style="margin-bottom: 24px;">
+    <i class="fas fa-exclamation-triangle"></i>
+    <div>
+        <strong>Gagal terhubung ke MikroTik!</strong>
+        <p style="margin: 4px 0 0 0; font-size: 13px;">
+            Profile yang ditampilkan adalah profil default. 
+            Silakan periksa pengaturan MikroTik di <a href="settings.php" style="color: var(--accent-blue);">Settings</a>.
+        </p>
     </div>
+</div>
 <?php endif; ?>
 
-    <!-- Stats Grid -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3><?php echo $totalUsers; ?></h3>
-                <p>Total User</p>
-            </div>
-            <div class="stat-icon blue">
-                <i class="fas fa-users"></i>
-            </div>
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3><?php echo $totalUsers; ?></h3>
+            <p>Total User</p>
         </div>
-
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3><?php echo $onlineCount; ?></h3>
-                <p>Online</p>
-            </div>
-            <div class="stat-icon green">
-                <i class="fas fa-signal"></i>
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3><?php echo $offlineCount; ?></h3>
-                <p>Offline</p>
-            </div>
-            <div class="stat-icon orange">
-                <i class="fas fa-circle"></i>
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3><?php echo $disabledCount; ?></h3>
-                <p>Disabled</p>
-            </div>
-            <div class="stat-icon red">
-                <i class="fas fa-ban"></i>
-            </div>
+        <div class="stat-icon blue">
+            <i class="fas fa-users"></i>
         </div>
     </div>
-
-    <!-- Add User Form -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-plus-circle"></i> Tambah PPPoE User</h3>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3><?php echo $onlineCount; ?></h3>
+            <p>Online</p>
         </div>
-        <div class="card-body">
-            <form method="POST">
-                <input type="hidden" name="action" value="add">
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Username</label>
-                        <input type="text" name="username" class="form-control" required placeholder="Contoh: pelanggan001">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Password</label>
-                        <input type="text" name="password" class="form-control" required placeholder="Password PPPoE">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Profile</label>
-                        <select name="profile" id="add_profile" class="form-control" required>
-                            <?php foreach ($mikrotikProfiles as $profile): ?>
-                                <option value="<?php echo htmlspecialchars($profile['name']); ?>">
-                                    <?php echo htmlspecialchars($profile['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <div id="add_profile_info" class="profile-info"></div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Service</label>
-                        <select name="service" class="form-control" required>
-                            <option value="pppoe">PPPoE</option>
-                            <option value="any">Any (PPPoE / Hotspot)</option>
-                        </select>
-                        <small class="form-hint">Tipe layanan yang digunakan</small>
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary" <?php echo !mikrotikConnect() ? 'disabled' : ''; ?>>
-                        <i class="fas fa-save"></i> Tambah User
-                    </button>
-                </div>
-            </form>
+        <div class="stat-icon green">
+            <i class="fas fa-signal"></i>
         </div>
     </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3><?php echo $offlineCount; ?></h3>
+            <p>Offline</p>
+        </div>
+        <div class="stat-icon orange">
+            <i class="fas fa-circle"></i>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3><?php echo $disabledCount; ?></h3>
+            <p>Disabled</p>
+        </div>
+        <div class="stat-icon red">
+            <i class="fas fa-ban"></i>
+        </div>
+    </div>
+</div>
 
-    <!-- Users Table -->
-    <div class="card">
+<!-- Add User Form -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-plus-circle"></i> Tambah PPPoE User</h3>
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" class="form-control" required placeholder="Contoh: pelanggan001">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="text" name="password" class="form-control" required placeholder="Password PPPoE">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Profile</label>
+                    <select name="profile" id="add_profile" class="form-control" required>
+                        <?php foreach ($mikrotikProfiles as $profile): ?>
+                            <option value="<?php echo htmlspecialchars($profile['name']); ?>">
+                                <?php echo htmlspecialchars($profile['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div id="add_profile_info" class="profile-info"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Service</label>
+                    <select name="service" class="form-control" required>
+                        <option value="pppoe">PPPoE</option>
+                        <option value="any">Any (PPPoE / Hotspot)</option>
+                    </select>
+                    <small class="form-hint">Tipe layanan yang digunakan</small>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" <?php echo !mikrotikConnect() ? 'disabled' : ''; ?>>
+                    <i class="fas fa-save"></i> Tambah User
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Users Table -->
+<div class="card">
         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
             <h3 class="card-title" style="margin: 0;"><i class="fas fa-network-wired"></i> Daftar PPPoE User</h3>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">

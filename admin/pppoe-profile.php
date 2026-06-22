@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($action === 'add') {
                 actionLog('PPPOE_PROFILE_ADD_ATTEMPT', $workdir, "Mencoba menambahkan profile PPPoE", json_encode($data));
 
-                $ok = radiusUpsertPppoeProfileCloud(null, $data);
+                $ok = radiusUpsertPppoeProfile(null, $data);
                 if ($ok) {
                     actionLog('PPPOE_PROFILE_ADD_SUCCESS', $workdir, "Berhasil menambahkan profile PPPoE", json_encode(['name' => $name, 'data' => $data]));
                     setFlash('success', "Profile {$name} berhasil ditambahkan.");
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             actionLog('PPPOE_PROFILE_EDIT_ATTEMPT', $workdir, "Mencoba mengupdate profile PPPoE", json_encode(['id' => $id, 'data' => $data]));
 
-            $ok = radiusUpsertPppoeProfileCloud($id, $data);
+            $ok = radiusUpsertPppoeProfile($id, $data);
             if ($ok) {
                 actionLog('PPPOE_PROFILE_EDIT_SUCCESS', $workdir, "Berhasil mengupdate profile PPPoE", json_encode(['id' => $id, 'name' => $name, 'data' => $data]));
                 setFlash('success', "Profile {$name} berhasil diperbarui.");
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             actionLog('PPPOE_PROFILE_DELETE_ATTEMPT', $workdir, "Mencoba menghapus profile PPPoE", json_encode(['id' => $id]));
 
-            $ok = ($id !== '') ? radiusDeletePppoeProfileCloud($id) : false;
+            $ok = ($id !== '') ? radiusDeletePppoeProfile($id) : false;
             if ($ok) {
                 actionLog('PPPOE_PROFILE_DELETE_SUCCESS', $workdir, "Berhasil menghapus profile PPPoE", json_encode(['id' => $id]));
                 setFlash('success', 'Profile berhasil dihapus.');
@@ -128,10 +128,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$profilesRadius = function_exists('pppoeGetProfiles') ? pppoeGetProfiles() : mikrotikGetProfiles();
+$profilesRadius = function_exists('pppoeGetProfiles') ? pppoeGetProfiles() : radiusGetPppoeProfiles();
 $addressPools = mikrotikGetAddressPools();
 $isMikrotikConnected = mikrotikConnect();
-$profilesMikrotik = mikrotikGetProfilesMikrotik($isMikrotikConnected ? getMikrotikConnection() : null);
+$profilesMikrotik = mikrotikGetProfiles($isMikrotikConnected ? getMikrotikConnection() : null);
 
 ob_start();
 ?>
