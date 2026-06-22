@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'publi
 
     $appNameForMsg = trim((string) getSetting('app_name', defined('APP_NAME') ? APP_NAME : ''));
     if ($appNameForMsg === '') {
-        $appNameForMsg = 'GEMBOK';
+        $appNameForMsg = 'ANS Radius';
     }
     $adminWa = trim((string) getSetting('WHATSAPP_ADMIN_NUMBER', ''));
 
@@ -165,6 +165,9 @@ $landingTemplate = getSiteSetting('landing_template', 'neon');
 $templateFiles = [
     'neon' => 'templates/landing/template_neon.php',
     'modern' => 'templates/landing/template_modern.php',
+    'shadcn' => 'templates/landing/template_shadcn.php',
+    'shadcn_light' => 'templates/landing/template_shadcn_light.php',
+    'shadcn_dark' => 'templates/landing/template_shadcn_dark.php',
     'corporate' => 'templates/landing/template_corporate.php',
     'minimal' => 'templates/landing/template_minimal.php',
     'dark' => 'templates/landing/template_dark.php',
@@ -385,17 +388,17 @@ $registerModal = '
 })();
 </script>
 ';
-$footerLinks = '<div style="position:fixed;left:16px;bottom:18px;z-index:9999;color:var(--text-muted);font-size:13px;display:flex;gap:12px;align-items:center;">'
-  . '<a href="page.php?page=about" style="color:var(--text-muted);">Tentang Kami</a>'
-  . '<a href="page.php?page=terms" style="color:var(--text-muted);">Syarat & Ketentuan</a>'
-  . '<a href="page.php?page=privacy" style="color:var(--text-muted);">Kebijakan Privasi</a>'
-  . '</div>';
+//$footerLinks = '<div style="position:fixed;left:16px;bottom:18px;z-index:9999;color:var(--text-muted);font-size:13px;display:flex;gap:12px;align-items:center;">'
+//  . '<a href="page.php?page=about" style="color:var(--text-muted);">Tentang Kami</a>'
+//  . '<a href="page.php?page=terms" style="color:var(--text-muted);">Syarat & Ketentuan</a>'
+//  . '<a href="page.php?page=privacy" style="color:var(--text-muted);">Kebijakan Privasi</a>'
+//  . '</div>';
 
-$inject = $voucherButton . $footerLinks . $registerModal;
-if (stripos($html, '</body>') !== false) {
-    $html = preg_replace('/<\/body>/i', $inject . '</body>', $html, 1);
-} else {
-    $html .= $inject;
-}
+//$inject = $voucherButton . $footerLinks . $registerModal;
+//if (stripos($html, '</body>') !== false) {
+//    $html = preg_replace('/<\/body>/i', $inject . '</body>', $html, 1);
+//} else {
+//    $html .= $inject;
+//}
 echo $html;
 ?>

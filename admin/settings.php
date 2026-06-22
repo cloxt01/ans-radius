@@ -1767,6 +1767,9 @@ ob_start();
             <div class="form-group">
                 <label class="form-label">Template</label>
                 <select name="landing_template" class="form-control">
+                    <option value="shadcn_light" <?php echo ($siteSettings['landing_template'] ?? 'shadcn_light') === 'shadcn_light' ? 'selected' : ''; ?>>Shadcn UI (Light)</option>
+                    <option value="shadcn_dark" <?php echo ($siteSettings['landing_template'] ?? 'shadcn_dark') === 'shadcn_dark' ? 'selected' : ''; ?>>Shadcn UI (Dark)</option>
+                    <option value="shadcn" <?php echo ($siteSettings['landing_template'] ?? 'shadcn') === 'shadcn' ? 'selected' : ''; ?>>Shadcn UI</option>
                     <option value="neon" <?php echo ($siteSettings['landing_template'] ?? 'neon') === 'neon' ? 'selected' : ''; ?>>Neon Dark</option>
                     <option value="dark" <?php echo ($siteSettings['landing_template'] ?? '') === 'dark' ? 'selected' : ''; ?>>Dark (GitHub Style)</option>
                     <option value="modern" <?php echo ($siteSettings['landing_template'] ?? '') === 'modern' ? 'selected' : ''; ?>>Modern Clean</option>
