@@ -385,7 +385,7 @@ ob_start();
                     <th>Status</th>
                     <th>Aktif</th>
                     <th>Last Login</th>
-                    <th>Aksi</th>
+<!--                    <th>Aksi</th>-->
                 </tr>
                 </thead>
                 <tbody id="usersTableBody">
@@ -472,28 +472,28 @@ ob_start();
                 <td data-label="Status">${statusBadge}</td>
                 <td data-label="Aktif">${activeBadge}</td>
                 <td data-label="Last Login"><span class="last-login">${formatDateLabel(user['last-login'])}</span></td>
-                <td data-label="Aksi">
-                    <div class="action-buttons">
-                        <button class="btn-icon" onclick="editUser(${userJson})" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <form method="POST" class="inline-form" onsubmit="return confirmToggle('${escapeHtml(user.name)}', ${user.isDisabled})">
-                            <input type="hidden" name="action" value="toggle">
-                            <input type="hidden" name="user_id" value="${escapeHtml(user['.id'])}">
-                            <input type="hidden" name="current_status" value="${user.disabled || 'false'}">
-                            <button type="submit" class="btn-icon ${user.isDisabled ? 'success' : 'warning'}" title="${user.isDisabled ? 'Enable' : 'Disable'}">
-                                <i class="fas fa-${user.isDisabled ? 'play' : 'pause'}"></i>
-                            </button>
-                        </form>
-                        <form method="POST" class="inline-form" onsubmit="return confirmDelete('${escapeHtml(user.name)}')">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="user_id" value="${escapeHtml(user['.id'])}">
-                            <button type="submit" class="btn-icon danger" title="Hapus">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
-                    </div>
-                </td>
+                // <td data-label="Aksi">
+                //     <div class="action-buttons">
+                //         <button class="btn-icon" onclick="editUser(${userJson})" title="Edit">
+                //             <i class="fas fa-edit"></i>
+                //         </button>
+                //         <form method="POST" class="inline-form" onsubmit="return confirmToggle('${escapeHtml(user.name)}', ${user.isDisabled})">
+                //             <input type="hidden" name="action" value="toggle">
+                //             <input type="hidden" name="user_id" value="${escapeHtml(user['.id'])}">
+                //             <input type="hidden" name="current_status" value="${user.disabled || 'false'}">
+                //             <button type="submit" class="btn-icon ${user.isDisabled ? 'success' : 'warning'}" title="${user.isDisabled ? 'Enable' : 'Disable'}">
+                //                 <i class="fas fa-${user.isDisabled ? 'play' : 'pause'}"></i>
+                //             </button>
+                //         </form>
+                //         <form method="POST" class="inline-form" onsubmit="return confirmDelete('${escapeHtml(user.name)}')">
+                //             <input type="hidden" name="action" value="delete">
+                //             <input type="hidden" name="user_id" value="${escapeHtml(user['.id'])}">
+                //             <button type="submit" class="btn-icon danger" title="Hapus">
+                //                 <i class="fas fa-trash-alt"></i>
+                //             </button>
+                //         </form>
+                //     </div>
+                // </td>
             </tr>`;
             }).join('');
         }
