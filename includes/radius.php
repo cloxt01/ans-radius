@@ -428,6 +428,9 @@ function radiusGetUsersByService($serviceType = 'Framed-User')
         return radiusLooksLikePppoeUser($user);
     }));
 }
+function radiusGetPppoeUsers(){
+    return radiusGetUsersByService('Framed-User');
+}
 function radiusGetUserPassword($username)
 {
     if (!radiusUserProvisioningReady()) {

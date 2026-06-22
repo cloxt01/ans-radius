@@ -17,7 +17,7 @@ try {
     if ($method === 'GET') {
         if ($action === 'users') {
             // Get all PPPoE users
-            $users = radiusGetUsers();
+            $users = radiusGetPppoeUsers();
 
             echo json_encode([
                 'success' => true,

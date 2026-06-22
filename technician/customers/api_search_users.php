@@ -32,7 +32,7 @@ if (strlen($query) < 2) {
 }
 
 // Ambil semua user dari MikroTik (hanya user, tanpa active sessions)
-$allUsers = radiusGetUsers();
+$allUsers = radiusGetPppoeUsers();
 
 // Filter berdasarkan username (LIKE %query%)
 $matchedUsers = [];

@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get MikroTik users (secrets)
-$mikrotikUsers = radiusGetUsers();
+$mikrotikUsers = radiusGetPppoeUsers();
 $totalUsers = count($mikrotikUsers);
 
 $poolConfig = [

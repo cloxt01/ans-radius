@@ -908,7 +908,7 @@ function handleWhatsAppPppoeList($phone) {
         return;
     }
     
-    $users = radiusGetUsers();
+    $users = radiusGetPppoeUsers();
     if (empty($users)) {
         sendWhatsAppResponse($phone, "Tidak ada user PPPoE atau gagal mengambil data.");
         return;

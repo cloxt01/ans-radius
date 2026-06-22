@@ -16,7 +16,7 @@ $pageTitle = 'PPPoE Management';
 $mikrotikSettings = getMikrotikSettings();
 
 // Get MikroTik users (untuk statistik awal)
-$mikrotikUsers = radiusGetUsers();
+$mikrotikUsers = radiusGetPppoeUsers();
 $totalUsers = count($mikrotikUsers);
 
 // ============================================

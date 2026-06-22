@@ -1391,7 +1391,7 @@ function handleHotspotVoucherGenerateCallback($chatId, $data, $callbackQuery) {
 
 function handlePppoeList($chatId) {
     if (!isAdminChat($chatId)) return;
-    $users = radiusGetUsers();
+    $users = radiusGetPppoeUsers();
     if (empty($users)) {
         sendMessage($chatId, "Tidak ada user PPPoE.");
         return;
