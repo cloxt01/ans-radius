@@ -580,19 +580,549 @@ ob_start();
     </div>
 
     <style>
-        /* Tour Styles */
-        .badge-danger {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
+        /* ─── GLASS DARK THEME (SERAGAM DENGAN DASHBOARD) ─────────── */
+        :root {
+            --bg: #050816;
+            --bg2: #0f172a;
+            --glass: rgba(255,255,255,.06);
+            --glass-border: rgba(255,255,255,.12);
+            --text: #ffffff;
+            --muted: rgba(255,255,255,.65);
+            --primary: #3b82f6;
+            --secondary: #06b6d4;
+            --radius: 28px;
+            --radius-md: 16px;
+            --radius-sm: 10px;
+            --font-sans: 'Geist', system-ui, -apple-system, sans-serif;
+            --font-serif: 'Geist', system-ui, -apple-system, sans-serif;
         }
 
+        /* ── FONTS ────────────────────────────────────────────────── */
+        @font-face {
+            font-family: "Geist";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-Regular-Static.otf") format("opentype");
+            font-weight: 400;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Geist";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-Medium-Static.otf") format("opentype");
+            font-weight: 500;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Geist";
+            src: url("https://assets.claude.ai/Fonts/AnthropicSans-Text-Semibold-Static.otf") format("opentype");
+            font-weight: 600;
+            font-display: swap;
+        }
 
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-sans);
+            background:
+                    radial-gradient(circle at top left, rgba(59,130,246,.25), transparent 35%),
+                    radial-gradient(circle at bottom right, rgba(6,182,212,.20), transparent 35%),
+                    radial-gradient(circle at center, rgba(124,58,237,.15), transparent 40%),
+                    #050816;
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 24px 28px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-container { padding: 16px; }
+        }
+
+        /* ── CARD BASE ────────────────────────────────────────────── */
+        .card {
+            padding: 15px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            box-shadow: 0 20px 50px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            transition: all 0.25s ease;
+            overflow: hidden;
+        }
+        .card:hover {
+            border-color: rgba(255,255,255,.2);
+            transform: translateY(-2px);
+            box-shadow: 0 30px 60px rgba(0,0,0,.4);
+        }
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+        }
+        .card-title i { color: var(--primary); }
+        .card-body { padding: 18px 20px 20px; }
+
+        /* ── STATS GRID ───────────────────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.25s;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            box-shadow: 0 10px 30px rgba(0,0,0,.2);
+        }
+        .stat-card:hover {
+            border-color: rgba(255,255,255,.2);
+            transform: translateY(-3px);
+            box-shadow: 0 20px 40px rgba(0,0,0,.4);
+        }
+        .stat-info h3 {
+            font-family: var(--font-serif);
+            font-size: 2rem;
+            font-weight: 600;
+            line-height: 1;
+            letter-spacing: -0.03em;
+            color: var(--text);
+        }
+        .stat-info p {
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+        .stat-icon {
+            width: 48px; height: 48px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            background: rgba(255,255,255,.06);
+            border: 1px solid var(--glass-border);
+            color: var(--primary);
+        }
+        .stat-icon.cyan { color: var(--secondary); }
+        .stat-icon.green { color: #10b981; }
+        .stat-icon.red { color: #ef4444; }
+        .stat-icon.orange { color: #f59e0b; }
+
+        /* ── ACTION BUTTONS ────────────────────────────────────────── */
+        .actions-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .action-btn {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            padding: 10px 18px;
+            color: var(--text);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            font-family: var(--font-sans);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 4px 15px rgba(0,0,0,.2);
+        }
+        .action-btn:hover {
+            background: rgba(255,255,255,.12);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        .action-btn i { color: var(--muted); }
+
+        /* ── TABLES ────────────────────────────────────────────────── */
+        .table-wrapper { overflow-x: auto; }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .data-table th {
+            text-align: left;
+            padding: 12px 16px;
+            color: var(--muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(255,255,255,.02);
+        }
+        .data-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--glass-border);
+            color: var(--text);
+        }
+        .data-table tr:hover td {
+            background: rgba(255,255,255,.04);
+        }
+        .data-table tr:last-child td { border-bottom: none; }
+
+        .code-pill {
+            font-family: monospace;
+            background: rgba(59,130,246,.12);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--primary);
+            border: 1px solid rgba(59,130,246,.15);
+        }
+
+        /* ── BADGES ────────────────────────────────────────────────── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            border: 1px solid transparent;
+            background: var(--glass);
+            backdrop-filter: blur(8px);
+        }
+        .badge-success {
+            background: rgba(16,185,129,.15);
+            color: #10b981;
+            border-color: rgba(16,185,129,.2);
+        }
+        .badge-warning {
+            background: rgba(245,158,11,.15);
+            color: #f59e0b;
+            border-color: rgba(245,158,11,.2);
+        }
+        .badge-danger {
+            background: rgba(239,68,68,.15);
+            color: #ef4444;
+            border-color: rgba(239,68,68,.2);
+        }
+        .badge-info {
+            background: rgba(59,130,246,.15);
+            color: var(--primary);
+            border-color: rgba(59,130,246,.2);
+        }
+
+        /* ── ALERT BANNER ──────────────────────────────────────────── */
+        .alert-banner {
+            background: linear-gradient(135deg, rgba(245,158,11,.12), rgba(255,255,255,.02));
+            border: 1px solid rgba(245,158,11,.2);
+            border-left: 4px solid #f59e0b;
+            border-radius: var(--radius-md);
+            padding: 14px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            background: var(--glass);
+        }
+
+        /* ── MODALS ────────────────────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal-content {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            box-shadow: 0 20px 50px rgba(0,0,0,.5);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            max-width: 94%;
+            max-height: 92vh;
+            overflow-y: auto;
+            padding: 0;
+            width: 920px;
+            margin: 2rem;
+        }
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: var(--bg2);
+            z-index: 10;
+            border-radius: var(--radius) var(--radius) 0 0;
+        }
+        .modal-header h3 {
+            margin: 0;
+            color: var(--secondary);
+            font-size: 1.2rem;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-close:hover { color: var(--text); }
+        .modal-body { padding: 25px; }
+
+        /* ── FORM ELEMENTS ────────────────────────────────────────── */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-label {
+            display: block;
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(255,255,255,.06);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-size: 0.9rem;
+            font-family: var(--font-sans);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59,130,246,.2);
+        }
+        .form-control::placeholder { color: var(--muted); }
+        .form-control[readonly] {
+            background: rgba(255,255,255,.03);
+            cursor: default;
+        }
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='rgba(255,255,255,.5)' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 12px;
+        }
+        select.form-control option { background: var(--bg2); }
+
+        .form-section {
+            background: rgba(255,255,255,.03);
+            padding: 18px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 18px;
+            border: 1px solid rgba(255,255,255,.05);
+        }
+        .form-section h4 {
+            margin: 0 0 14px 0;
+            color: var(--secondary);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .form-group-full { grid-column: 1 / -1; }
+
+        .map-container {
+            height: 360px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+            background: rgba(0,0,0,.3);
+        }
+
+        /* ── BUTTONS ────────────────────────────────────────────────── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: var(--text);
+            background: var(--glass);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 4px 15px rgba(0,0,0,.2);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,.3);
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+            border-color: #2563eb;
+        }
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+        }
+        .btn-secondary:hover {
+            background: rgba(255,255,255,.08);
+            border-color: rgba(255,255,255,.3);
+        }
+        .btn-success {
+            background: rgba(16,185,129,.15);
+            color: #10b981;
+            border-color: rgba(16,185,129,.3);
+        }
+        .btn-success:hover {
+            background: rgba(16,185,129,.25);
+        }
+        .btn-danger {
+            background: rgba(239,68,68,.15);
+            color: #ef4444;
+            border-color: rgba(239,68,68,.3);
+        }
+        .btn-danger:hover {
+            background: rgba(239,68,68,.25);
+        }
+        .btn-error {
+            background: rgba(245,158,11,.15);
+            color: #f59e0b;
+            border-color: rgba(245,158,11,.3);
+        }
+        .btn-error:hover {
+            background: rgba(245,158,11,.25);
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+        }
+        .btn-lg {
+            padding: 12px 24px;
+            font-size: 1rem;
+        }
+        .btn-full { width: 100%; }
+
+        /* ── CUSTOM CONTEXT MENU ──────────────────────────────────── */
+        .custom-context-menu {
+            position: fixed;
+            background: var(--glass);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            box-shadow: 0 10px 40px rgba(0,0,0,.6);
+            width: 200px;
+            z-index: 10000;
+            display: none;
+            overflow: hidden;
+        }
+        .custom-context-menu .menu-item {
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.85rem;
+            color: var(--text);
+            border-bottom: 1px solid rgba(255,255,255,.05);
+        }
+        .custom-context-menu .menu-item:last-child { border-bottom: none; }
+        .custom-context-menu .menu-item:hover {
+            background: rgba(59,130,246,.15);
+            color: var(--primary);
+        }
+        .custom-context-menu .menu-item i {
+            width: 20px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .custom-context-menu .menu-divider {
+            height: 1px;
+            background: var(--glass-border);
+            margin: 5px 0;
+        }
+
+        /* ── PAGINATION ────────────────────────────────────────────── */
+        #customerPagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        #customerPagination .btn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        /* ── TOUR HIGHLIGHT ────────────────────────────────────────── */
         .tour-highlight {
             position: relative !important;
             z-index: 9999 !important;
         }
-
         .tour-highlight::before {
             content: '' !important;
             position: absolute !important;
@@ -600,67 +1130,54 @@ ob_start();
             left: -5px !important;
             right: -5px !important;
             bottom: -5px !important;
-            border: 4px solid #00d4ff !important;
+            border: 4px solid var(--secondary) !important;
             border-radius: 12px !important;
-            box-shadow: 0 0 20px #00d4ff !important;
+            box-shadow: 0 0 20px var(--secondary) !important;
             pointer-events: none !important;
             animation: tourPulse 0.5s ease-in-out infinite alternate !important;
             z-index: 10000 !important;
         }
-
         @keyframes tourPulse {
-            from {
-                box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.6), 0 0 10px #00d4ff;
-            }
-            to {
-                box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.6), 0 0 25px #00d4ff, 0 0 8px #00d4ff inset;
-            }
+            from { box-shadow: 0 0 0 4000px rgba(0,0,0,0.6), 0 0 10px var(--secondary); }
+            to { box-shadow: 0 0 0 4000px rgba(0,0,0,0.6), 0 0 25px var(--secondary), 0 0 8px var(--secondary) inset; }
         }
-
         .tour-tooltip {
             position: absolute;
-            background: var(--bg-card);
-            border: 1px solid var(--accent-cyan);
-            border-radius: 12px;
+            background: var(--glass);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
             padding: 16px 20px;
             max-width: 340px;
             z-index: 10000;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 10px 40px rgba(0,0,0,.6);
             animation: tourFadeIn 0.3s ease;
         }
-
         @keyframes tourFadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-
         .tour-tooltip h4 {
             margin: 0 0 8px 0;
-            color: var(--accent-cyan);
+            color: var(--secondary);
             font-size: 1rem;
         }
-
         .tour-tooltip p {
             margin: 0 0 12px 0;
-            color: var(--text-secondary);
+            color: var(--muted);
             font-size: 0.85rem;
             line-height: 1.4;
         }
-
         .tour-buttons {
             display: flex;
             gap: 10px;
             justify-content: flex-end;
         }
-
         .tour-next {
-            background: var(--gradient-primary);
+            background: var(--primary);
+            color: #fff;
+            border: none;
             padding: 6px 14px;
             border-radius: 6px;
             cursor: pointer;
@@ -668,88 +1185,30 @@ ob_start();
             font-weight: 500;
             transition: all 0.2s;
         }
-
-        .tour-next {
-            background: var(--gradient-primary);
-            color: #ffffff;
-            border: none;
-        }
-
         .tour-next:hover {
             transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0, 212, 255, 0.4);
+            box-shadow: 0 2px 8px rgba(59,130,246,.4);
         }
-
         .tour-prev {
-            border-radius: 6px;
+            background: rgba(255,255,255,.08);
+            color: var(--text);
+            border: 1px solid var(--glass-border);
             padding: 6px 14px;
-            background: rgba(255, 255, 255, 0.1);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s;
         }
-
-        .tour-prev:hover {
-            border-color: var(--accent-cyan);
-            color: var(--accent-cyan);
-        }
-
-        .tour-buttons .tour-close {
+        .tour-prev:hover { border-color: var(--secondary); color: var(--secondary); }
+        .tour-close {
             background: transparent;
-            color: var(--text-muted);
+            color: var(--muted);
             border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
         }
-
-        .tour-buttons .tour-close:hover {
-            color: var(--text-primary);
-        }
-
-        .tour-tooltip::before {
-            content: '';
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background: var(--bg-card);
-            border-left: 1px solid var(--accent-cyan);
-            border-top: 1px solid var(--accent-cyan);
-            transform: rotate(45deg);
-        }
-
-        /* placement=bottom → arrow di atas tooltip, geser horizontal */
-        .tour-tooltip[data-placement="bottom"]::before {
-            top: -7px;
-            left: var(--arrow-x, 20px);
-            border-right: none;
-            border-bottom: none;
-        }
-
-        /* placement=top → arrow di bawah tooltip, geser horizontal */
-        .tour-tooltip[data-placement="top"]::before {
-            bottom: -7px;
-            left: var(--arrow-x, 20px);
-            transform: rotate(225deg);
-            border-right: none;
-            border-bottom: none;
-        }
-
-        /* placement=right → arrow di kiri tooltip, geser vertikal */
-        .tour-tooltip[data-placement="right"]::before {
-            left: -7px;
-            top: var(--arrow-y, 20px);
-            transform: rotate(-45deg);
-            border-right: none;
-            border-bottom: none;
-        }
-
-        /* placement=left → arrow di kanan tooltip, geser vertikal */
-        .tour-tooltip[data-placement="left"]::before {
-            right: -7px;
-            top: var(--arrow-y, 20px);
-            transform: rotate(135deg);
-            border-right: none;
-            border-bottom: none;
-        }
-
-        /* Tombol Tour di header */
+        .tour-close:hover { color: var(--text); }
         .tour-btn {
             background: linear-gradient(135deg, #8b5cf6, #6d28d9);
             color: white;
@@ -763,121 +1222,103 @@ ob_start();
             font-size: 0.85rem;
             transition: all 0.2s;
         }
-
         .tour-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+            box-shadow: 0 4px 12px rgba(139,92,246,.4);
         }
 
-        /* Make stats grid responsive for 4 cards */
-        .stats-grid {
-            grid-template-columns: repeat(4, 1fr) !important;
-            gap: 15px;
+        /* ── RESPONSIVE ────────────────────────────────────────────── */
+        @media (max-width: 1200px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+            .form-grid { grid-template-columns: 1fr; }
+            .stat-card { padding: 15px; }
+            .stat-icon { width: 40px; height: 40px; font-size: 1.2rem; }
+            .stat-info h3 { font-size: 1.5rem; }
+            .stat-info p { font-size: 0.8rem; }
+            .modal-content { width: 95%; margin: 1rem; }
+            .data-table th, .data-table td { padding: 8px 10px; font-size: 0.75rem; }
+            .customer-action-group .btn { font-size: 0.7rem; padding: 4px 8px; }
+        }
+        @media (max-width: 600px) {
+            .stats-grid { grid-template-columns: 1fr !important; }
+            .actions-row { flex-direction: column; align-items: stretch; }
+            .action-btn { justify-content: center; }
+            .card-header { flex-direction: column; align-items: stretch; }
+            .card-header > div { width: 100%; }
+            #searchCustomer { width: 100% !important; }
+            #perPageSelect { width: 100% !important; }
         }
 
-        .form-section {
-            background: rgba(255, 255, 255, 0.02);
-            padding: 18px;
-            border-radius: 10px;
-            margin-bottom: 18px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        /* ── MISC ──────────────────────────────────────────────────── */
+        .text-muted { color: var(--muted); }
+        .fw-600 { font-weight: 600; }
+        .flex { display: flex; align-items: center; gap: 6px; }
+        .gap-1 { gap: 4px; }
+
+        /* ── LEAFLET OVERRIDE ────────────────────────────────────── */
+        .leaflet-control-zoom { background: var(--glass) !important; border: 1px solid var(--glass-border) !important; }
+        .leaflet-control-zoom a { background: var(--glass) !important; color: var(--text) !important; border-color: var(--glass-border) !important; }
+        .leaflet-control-zoom a:hover { background: rgba(255,255,255,.1) !important; }
+        .leaflet-popup-content-wrapper { background: var(--glass) !important; backdrop-filter: blur(12px) !important; color: var(--text) !important; border: 1px solid var(--glass-border) !important; }
+        .leaflet-popup-tip { background: var(--glass) !important; }
+        /* ── TABEL KOMPAK ────────────────────────────────────────────── */
+        .data-table th,
+        .data-table td {
+            padding: 6px 8px !important;
+            font-size: 0.8rem;
+            vertical-align: middle;
         }
 
-        .form-section h4 {
-            margin: 0 0 14px 0;
-            color: var(--neon-cyan);
-            font-size: 0.95rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-
-        .form-group-full {
-            grid-column: 1 / -1;
-        }
-
-        .map-container {
-            height: 360px;
-            border-radius: 10px;
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .btn-submit {
-            margin-top: 8px;
-            width: 100%;
-            background: linear-gradient(135deg, var(--accent-green), #1f9d55);
-            color: #fff;
-            border: none;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .btn-submit:hover {
-            filter: brightness(1.04);
-        }
-
-        .customer-action-group {
+        .data-table td .customer-action-group {
             display: flex;
-            gap: 6px;
             flex-wrap: wrap;
+            gap: 4px;
             align-items: center;
         }
 
-        .customer-action-group .btn,
-        .customer-action-group form {
-            flex: 0 0 auto;
-        }
-
-        .customer-action-group .btn {
+        /* Tombol aksi mini (hanya ikon) */
+        .btn-xs {
+            padding: 4px 6px;
+            font-size: 0.7rem;
+            border-radius: 4px;
+            min-width: 28px;
+            height: 28px;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
+            gap: 0;
+        }
+        .btn-xs i {
+            font-size: 0.8rem;
+            margin: 0;
+        }
+        .btn-xs .btn-label {
+            display: none;
+        }
+
+        /* Tooltip bawaan browser untuk title */
+        .customer-action-group .btn {
+            position: relative;
+        }
+        .customer-action-group .btn:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.65rem;
             white-space: nowrap;
-        }
-
-        .customer-action-group .btn i {
-            font-size: 0.85rem;
-        }
-
-        @media (max-width: 768px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr) !important;
-            }
-
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .stat-card {
-                padding: 15px;
-
-            }
-
-            .stat-icon {
-                width: 40px;
-                height: 40px;
-                font-size: 1.2rem;
-            }
-
-            .stat-info h3 {
-                font-size: 1.5rem;
-            }
-
-            .stat-info p {
-                font-size: 0.8rem;
-            }
+            pointer-events: none;
+            z-index: 10;
         }
     </style>
-
     <div class="alert alert-warning" style="flex-direction: column;">
         <div style="">
             <i class="fas fa-warning"></i>
@@ -1316,32 +1757,31 @@ ob_start();
                         <!--                    </td>-->
                         <td data-label="Aksi">
                             <div class="customer-action-group">
-                                <a href="pay_process.php?id=<?php echo $c['id']; ?>" class="btn btn-success btn-sm"
-                                   title="Bayar Tagihan">
-                                    <i class="fas fa-money-bill-wave"></i> Bayar
+                                <a href="pay_process.php?id=<?php echo $c['id']; ?>"
+                                   class="btn btn-success btn-xs" title="Bayar Tagihan">
+                                    <i class="fas fa-money-bill-wave"></i>
                                 </a>
-                                <button class="btn btn-secondary btn-sm"
+                                <button class="btn btn-secondary btn-xs"
                                         onclick="editCustomer(<?php echo htmlspecialchars(json_encode($c)); ?>)"
-                                        title="Edit">
-                                    <i class="fas fa-edit"></i> Edit
+                                        title="Edit Pelanggan">
+                                    <i class="fas fa-edit"></i>
                                 </button>
                                 <form method="POST" data-no-loading="true"
                                       onsubmit="return confirm('Reset password portal pelanggan ini menjadi 1234?');">
                                     <input type="hidden" name="action" value="reset_portal_password">
                                     <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                                     <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
-                                    <button type="submit" class="btn btn-secondary btn-sm"
-                                            title="Reset Password Portal">
-                                        <i class="fas fa-key"></i> Reset Password
+                                    <button type="submit" class="btn btn-secondary btn-xs" title="Reset Password Portal">
+                                        <i class="fas fa-key"></i>
                                     </button>
                                 </form>
                                 <form method="POST" data-no-loading="true"
-                                      onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Data yang dihapus tidak dapat dikembalikan.');">
+                                      onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini?');">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                                     <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
-                                    <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
-                                        <i class="fas fa-trash"></i> Hapus
+                                    <button type="submit" class="btn btn-danger btn-xs" title="Hapus Pelanggan">
+                                        <i class="fas fa-trash"></i>
                                     </button>
                                 </form>
                                 <?php if ($c['status'] === 'isolated'): ?>
@@ -1349,8 +1789,8 @@ ob_start();
                                         <input type="hidden" name="action" value="unisolate">
                                         <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                                         <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
-                                        <button type="submit" class="btn btn-success btn-sm" title="Buka Isolir">
-                                            <i class="fas fa-unlock"></i> Buka Isolir
+                                        <button type="submit" class="btn btn-success btn-xs" title="Buka Isolir">
+                                            <i class="fas fa-unlock"></i>
                                         </button>
                                     </form>
                                 <?php else: ?>
@@ -1358,8 +1798,8 @@ ob_start();
                                         <input type="hidden" name="action" value="isolate">
                                         <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
                                         <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
-                                        <button type="submit" class="btn btn-error btn-sm" title="Isolir">
-                                            <i class="fas fa-lock"></i> Isolir
+                                        <button type="submit" class="btn btn-error btn-xs" title="Isolir">
+                                            <i class="fas fa-lock"></i>
                                         </button>
                                     </form>
                                 <?php endif; ?>
