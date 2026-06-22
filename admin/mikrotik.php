@@ -377,7 +377,7 @@ ob_start();
                         </td>
 <!--                        <td data-label="Aksi">-->
 <!--                            <div class="action-buttons">-->
-<!--                                <button class="btn-icon" onclick='editUser(--><?php //echo json_encode($user); ?>//)' title="Edit">
+<!--                                <button class="btn-icon" onclick='editUser(--><?php //echo json_encode($user); ?>
 <!--                                    <i class="fas fa-edit"></i>-->
 <!--                                </button>-->
 
