@@ -176,7 +176,6 @@ $unpaidCount = fetchOne("
 
 ob_start();
 ?>
-
     <style>
         /* ─── GLOBAL RESET & VARIABLES ───────────────────────────── */
         :root {
