@@ -369,7 +369,7 @@ ob_start();
         background: var(--bg-card);
         border: 0.5px solid var(--border-color);
         border-radius: var(--radius-lg);
-        padding: 20px 24px;
+        padding: 16px 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
