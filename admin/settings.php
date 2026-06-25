@@ -1998,15 +1998,15 @@ ob_start();
                 </div>
             </div>
             
-            <div class="form-group">
-                <label class="form-label">Cron Token</label>
-                <div class="password-wrapper">
-                    <input type="text" name="cron_token" class="form-control" 
-                           value="<?php echo htmlspecialchars(getSettingValue('CRON_TOKEN', ''), ENT_QUOTES, 'UTF-8'); ?>">
-                    <i class="fas fa-sync-alt toggle-generate" onclick="generateCronToken()" style="cursor: pointer; position: absolute; right: 12px; top: 50%; transform: translateY(-50%);"></i>
-                </div>
-                <small class="form-hint">Token untuk keamanan cronjob. Klik icon refresh untuk generate token baru</small>
-            </div>
+<!--            <div class="form-group">-->
+<!--                <label class="form-label">Cron Token</label>-->
+<!--                <div class="password-wrapper">-->
+<!--                    <input type="text" name="cron_token" class="form-control" -->
+<!--                           value="--><?php //echo htmlspecialchars(getSettingValue('CRON_TOKEN', ''), ENT_QUOTES, 'UTF-8'); ?><!--">-->
+<!--                    <i class="fas fa-sync-alt toggle-generate" onclick="generateCronToken()" style="cursor: pointer; position: absolute; right: 12px; top: 50%; transform: translateY(-50%);"></i>-->
+<!--                </div>-->
+<!--                <small class="form-hint">Token untuk keamanan cronjob. Klik icon refresh untuk generate token baru</small>-->
+<!--            </div>-->
             
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">
