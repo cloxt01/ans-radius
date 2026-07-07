@@ -2569,6 +2569,35 @@ function generateInvoicesThisMonth()
     }
     return $generatedCount;
 }
+function generateScheduledPaidDate(string $dueDate, int $lateDays): string
+{
+    $roll = mt_rand(1, 100);
+
+    if ($roll <= 30) {
+        // 09:00 - 10:59
+        $hour = mt_rand(9, 10);
+    } elseif ($roll <= 65) {
+        // 11:00 - 12:59
+        $hour = mt_rand(11, 12);
+    } elseif ($roll <= 90) {
+        // 13:00 - 16:59
+        $hour = mt_rand(13, 16);
+    } else {
+        // 17:00 - 18:59
+        $hour = mt_rand(17, 18);
+    }
+
+    $minute = mt_rand(0, 59);
+    $second = mt_rand(0, 59);
+
+    $date = (new DateTime($dueDate))
+        ->modify("+{$lateDays} days");
+
+    $date->setTime($hour, $minute, $second);
+
+    return $date->format('Y-m-d H:i:s');
+}
+
 function generateInvoicesForFiktifCustomers()
 {
     $customers=getFiktifCustomers(true);
@@ -2622,12 +2651,9 @@ function generateInvoicesForFiktifCustomers()
             continue;
         }
 
-        $lateDays=rand(1,10);
+        $lateDays=generateLateDays();
 
-        $scheduledPaidDate=date(
-            'Y-m-d',
-            strtotime($dueDate." +{$lateDays} days")
-        );
+        $scheduledPaidDate=generateScheduledPaidDate($dueDate,$lateDays);
 
         $ok=insert(
             'fiktif_invoices',
