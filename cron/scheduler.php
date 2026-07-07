@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Cron Job Scheduler
@@ -38,7 +39,6 @@ function writeLog($message, $type = 'INFO')
     file_put_contents(LOG_FILE, $logMessage, FILE_APPEND | LOCK_EX);
 
     // Tetap tampilkan di console juga (untuk debugging)
-    echo $logMessage;
 }
 
 // Use the configured application timezone for cron calculations.
@@ -138,14 +138,14 @@ function runScheduler()
 
             // Update schedule
             update('cron_schedules', [
-                    'last_run'    => date('Y-m-d H:i:s'),
-                    'last_status' => $status,
-                    'next_run'    => calculateNextRun($schedule)
+                'last_run'    => date('Y-m-d H:i:s'),
+                'last_status' => $status,
+                'next_run'    => calculateNextRun($schedule)
             ], 'id = ?', [$schedule['id']]);
 
             // Log execution ke database
             $pdo->prepare("INSERT INTO cron_logs (schedule_id, status, execution_time, created_at) VALUES (?, ?, ?, NOW())")
-                    ->execute([$schedule['id'], $status, $executionTime]);
+                ->execute([$schedule['id'], $status, $executionTime]);
 
             writeLog("Status: {$status}, Execution time: {$executionTime}s", "RESULT");
         }
@@ -234,7 +234,7 @@ function applySchedulerDatabaseTimezone($pdo, $timezoneName)
 function processFiktifCustomer(int $customerId): string
 {
     $invoice = fetchOne(
-            "SELECT
+        "SELECT
             i.*,
             fi.late_days,
             fi.scheduled_paid_date
@@ -247,7 +247,7 @@ function processFiktifCustomer(int $customerId): string
           AND fi.scheduled_paid_date <= NOW()
         ORDER BY fi.scheduled_paid_date ASC, i.due_date ASC
         LIMIT 1",
-            [$customerId]
+        [$customerId]
     );
 
     if (!$invoice) {
@@ -263,21 +263,21 @@ function processFiktifCustomer(int $customerId): string
         $pdo->beginTransaction();
 
         $ok = update('invoices', [
-                'status'     => 'paid',
-                'paid_at'    => $paidAt,
-                'updated_at' => date('Y-m-d H:i:s')
+            'status'     => 'paid',
+            'paid_at'    => $paidAt,
+            'updated_at' => date('Y-m-d H:i:s')
         ], 'id = ?', [$invoice['id']]);
 
         if (!$ok) throw new Exception('Gagal memperbarui `invoices` -> '.$invoice['id']);
 
         $ok = update('fiktif_invoices', [
-                'status' => 'paid'
+            'status' => 'paid'
         ], 'invoice_id = ?', [$invoice['id']]);
 
         if (!$ok) throw new Exception('Gagal memperbarui `fiktif_invoice` -> '.$invoice['id']);
 
         $ok = update('customers', [
-                'isolation_date' => $isolationDate
+            'isolation_date' => $isolationDate
         ], 'id = ?', [$customerId]);
 
         if (!$ok) throw new Exception('Gagal memperbarui `customers` -> '.$customerId);
@@ -300,23 +300,23 @@ function processFiktifCustomer(int $customerId): string
  */
 function runFiktifCustomers(PDO $pdo): void
 {
-    writeLog("Running fiktif customers scheduler...", "INFO");
+    echo("Running fiktif customers scheduler..." . PHP_EOL);
 
     $fiktifCustomers = fetchAll("SELECT customer_id FROM fiktif_customers");
 
     if (empty($fiktifCustomers)) {
-        writeLog("No fiktif customers found. Aborting.", "INFO");
+        echo("No fiktif customers found. Aborting.".PHP_EOL);
         return;
     }
 
     $generatedCount = generateInvoicesForFiktifCustomers();
-    writeLog("Generated {$generatedCount} invoices for fiktif customers.", "INFO");
+    echo("Generated {$generatedCount} invoices for fiktif customers.".PHP_EOL);
 
     $stats = [
-            'processed' => 0,
-            'activated' => 0,
-            'skipped'   => 0,
-            'failed'    => 0,
+        'processed' => 0,
+        'activated' => 0,
+        'skipped'   => 0,
+        'failed'    => 0,
     ];
 
     foreach ($fiktifCustomers as $fiktif) {
@@ -330,11 +330,11 @@ function runFiktifCustomers(PDO $pdo): void
         }
     }
 
-    writeLog("=== FIKTIF CUSTOMERS SUMMARY ===", "SUMMARY");
-    writeLog("✓ Processed payments : {$stats['processed']}", "SUMMARY");
-    writeLog("✓ Activated customers: {$stats['activated']}", "SUMMARY");
-    writeLog("⏳ Skipped            : {$stats['skipped']}", "SUMMARY");
-    writeLog("✗ Failed              : {$stats['failed']}", "SUMMARY");
+    echo("=== FIKTIF CUSTOMERS SUMMARY ===".PHP_EOL);
+    echo("✓ Processed payments : {$stats['processed']}".PHP_EOL);
+    echo("✓ Activated customers: {$stats['activated']}".PHP_EOL);
+    echo("⏳ Skipped            : {$stats['skipped']}".PHP_EOL);
+    echo("✗ Failed              : {$stats['failed']}".PHP_EOL);
 }
 
 /**
@@ -473,12 +473,12 @@ function runAutoInvoice($pdo)
         $invoiceNumber = generateInvoiceNumber($customer['id']);
 
         $batchInsertData[] = [
-                'invoice_number' => $invoiceNumber,
-                'customer_id'    => $customer['id'],
-                'amount'         => $customer['package_price'],
-                'status'         => 'unpaid',
-                'due_date'       => $dueDate,
-                'created_at'     => $now
+            'invoice_number' => $invoiceNumber,
+            'customer_id'    => $customer['id'],
+            'amount'         => $customer['package_price'],
+            'status'         => 'unpaid',
+            'due_date'       => $dueDate,
+            'created_at'     => $now
         ];
 
         echo "  ✓ Ready: {$customer['name']} - {$invoiceNumber} (due: {$dueDate})\n";
