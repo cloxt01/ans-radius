@@ -10,7 +10,7 @@ $site_settings_cache = null;
 // Get setting from database with fallback to config constant
 function getSetting($key, $default = '') {
     global $global_settings_cache;
-    
+
     if ($global_settings_cache === null) {
         $global_settings_cache = [];
         $data = fetchAll("SELECT setting_key, setting_value FROM settings");
@@ -18,15 +18,15 @@ function getSetting($key, $default = '') {
             $global_settings_cache[$row['setting_key']] = $row['setting_value'];
         }
     }
-    
+
     if (isset($global_settings_cache[$key]) && $global_settings_cache[$key] !== '') {
         return $global_settings_cache[$key];
     }
-    
+
     if (defined($key)) {
         return constant($key);
     }
-    
+
     return $default;
 }
 function getSettingValue($key, $default = '') {
@@ -36,7 +36,7 @@ function getSettingValue($key, $default = '') {
 // Get site setting from site_settings table
 function getSiteSetting($key, $default = '') {
     global $site_settings_cache;
-    
+
     if ($site_settings_cache === null) {
         $site_settings_cache = [];
         try {
@@ -50,7 +50,7 @@ function getSiteSetting($key, $default = '') {
             // Table might not exist yet
         }
     }
-    
+
     return $site_settings_cache[$key] ?? $default;
 }
 
@@ -134,13 +134,13 @@ function formatDate($date, $format = 'd M Y')
 function generateInvoiceNumber($customerId)
 {
     $prefix = INVOICE_PREFIX; // Diambil dari config: INV
-    
+
     // Mengambil timestamp saat ini (format: YmdHis -> 20260506162205)
     $timestamp = date('YmdHis');
     $paddedId = str_pad($customerId, 5, '0', STR_PAD_LEFT);
     // Membuat 6 angka acak
     $random = str_pad(random_int(0, 999), 3, '0', STR_PAD_LEFT);
-    
+
     // Hasil: INV-20260506162205-123456
     return $prefix . '-' . $timestamp . $paddedId . $random;
 }
@@ -226,9 +226,9 @@ function getLatestPaymentDate($customerId) {
     $invoice = fetchOne("SELECT paid_at FROM invoices 
         WHERE customer_id = ? AND status = 'paid' 
         AND paid_at IS NOT NULL AND paid_at != '0000-00-00 00:00:00'
-        ORDER BY paid_at DESC LIMIT 1", 
+        ORDER BY paid_at DESC LIMIT 1",
         [$customerId]);
-    
+
     if ($invoice && $invoice['paid_at']) {
         return date('Y-m-d', strtotime($invoice['paid_at']));
     }
@@ -242,22 +242,22 @@ function getLatestPaymentDate($customerId) {
  */
 function calculateNextIsolationDate($customerId) {
     $latestPaymentDate = getLatestPaymentDate($customerId);
-    
+
     if (!$latestPaymentDate) {
         // Default: 20th of next month
         return date('Y-m-d', strtotime('+1 month', strtotime(date('Y-m-20'))));
     }
-    
+
     // Add 1 month to latest payment date
     $paymentDay = (int) date('j', strtotime($latestPaymentDate));
     $nextMonth = date('Y-m-d', strtotime($latestPaymentDate . ' +1 month'));
     $nextMonthDay = (int) date('j', strtotime($nextMonth));
-    
+
     // If day changed (e.g., Jan 31 -> Feb 28), adjust to last day of month
     if ($paymentDay != $nextMonthDay) {
         $nextMonth = date('Y-m-t', strtotime($nextMonth));
     }
-    
+
     return $nextMonth;
 }
 
@@ -283,32 +283,32 @@ function updateIsolationDateAfterBulkPayment($customerId, $selectedMonths, $sele
     if (!$paymentDate) {
         $paymentDate = date('Y-m-d');
     }
-    
+
     // Get the LAST month paid
     $maxMonth = max($selectedMonths);
     $maxYear = $selectedYear;
-    
+
     // Get payment day
     $paymentDay = (int) date('d', strtotime($paymentDate));
-    
+
     // Adjust if day exceeds the last month's days
     $lastDayOfLastMonth = (int) date('t', strtotime("$maxYear-$maxMonth-01"));
     if ($paymentDay > $lastDayOfLastMonth) {
         $paymentDay = $lastDayOfLastMonth;
     }
-    
+
     // Create date for last paid month
     $lastPaidFullDate = date('Y-m-d', strtotime("$maxYear-$maxMonth-$paymentDay"));
-    
+
     // Add 1 month to get next isolation date
     $newIsolationDate = date('Y-m-d', strtotime($lastPaidFullDate . ' +1 month'));
-    
+
     // Adjust if day changed (e.g., Jan 31 -> Feb 28)
     $newDay = (int) date('d', strtotime($newIsolationDate));
     if ($paymentDay != $newDay) {
         $newIsolationDate = date('Y-m-t', strtotime($newIsolationDate));
     }
-    
+
     return update('customers', ['isolation_date' => $newIsolationDate], 'id = ?', [$customerId]);
 }
 
@@ -336,12 +336,12 @@ function isCustomerDueForIsolation($customerId) {
     if (!$customer || $customer['status'] !== 'active') {
         return false;
     }
-    
+
     $isolationDate = $customer['isolation_date'];
     if (!$isolationDate || $isolationDate == '0000-00-00') {
         return false;
     }
-    
+
     $today = date('Y-m-d');
     return $isolationDate <= $today;
 }
@@ -359,44 +359,44 @@ function updateCustomerIsolationDateFromPaidInvoices($customerId) {
         AND paid_at IS NOT NULL 
         ORDER BY paid_at DESC LIMIT 1
     ", [$customerId]);
-    
+
     if (!$latestPaid || !$latestPaid['paid_at']) {
         return false;
     }
-    
+
     $paymentDate = $latestPaid['paid_at'];
     $paymentDay = (int) date('d', strtotime($paymentDate));
-    
+
     // Get the due date month/year to determine paid period
     $dueDate = $latestPaid['due_date'];
     $dueYear = (int) date('Y', strtotime($dueDate));
     $dueMonth = (int) date('m', strtotime($dueDate));
-    
+
     // Calculate next isolation date: last paid month + 1 month
     $lastDayOfDueMonth = (int) date('t', strtotime("$dueYear-$dueMonth-01"));
     if ($paymentDay > $lastDayOfDueMonth) {
         $paymentDay = $lastDayOfDueMonth;
     }
-    
+
     $lastPaidFullDate = date('Y-m-d', strtotime("$dueYear-$dueMonth-$paymentDay"));
     $newIsolationDate = date('Y-m-d', strtotime($lastPaidFullDate . ' +1 month'));
-    
+
     // Adjust if day changed (Jan 31 -> Feb 28)
     $newDay = (int) date('d', strtotime($newIsolationDate));
     if ($paymentDay != $newDay) {
         $newIsolationDate = date('Y-m-t', strtotime($newIsolationDate));
     }
-    
+
     // Update customer
     $result = update('customers', [
         'isolation_date' => $newIsolationDate,
         'updated_at' => date('Y-m-d H:i:s')
     ], 'id = ?', [$customerId]);
-    
+
     if ($result) {
         logActivity('UPDATE_ISOLATION_DATE', "Customer ID: $customerId, New isolation date: $newIsolationDate");
     }
-    
+
     return $result;
 }
 function getCustomerDueDate($customer, $baseDate = null)
@@ -404,18 +404,28 @@ function getCustomerDueDate($customer, $baseDate = null)
     $baseTimestamp = $baseDate ? strtotime($baseDate) : time();
     $year = date('Y', $baseTimestamp);
     $month = date('m', $baseTimestamp);
-    
-    $day = isset($customer['isolation_date']) ? (int) $customer['isolation_date'] : 20;
-    
-    $lastDayInMonth = (int) date('t', strtotime($year . '-' . $month . '-01'));
-    
-    if ($day > $lastDayInMonth || $day < 1) {
-        $day = $lastDayInMonth; 
+
+    // Default ke tanggal 20
+    $day = 20;
+
+    if (!empty($customer['isolation_date']) && $customer['isolation_date'] !== '0000-00-00') {
+        // Cek jika datanya murni angka (berjaga-jaga jika ada format lama)
+        if (is_numeric($customer['isolation_date'])) {
+            $day = (int) $customer['isolation_date'];
+        } else {
+            // Ekstrak hari dari format 'YYYY-MM-DD'
+            $day = (int) date('d', strtotime($customer['isolation_date']));
+        }
     }
-    
+
+    $lastDayInMonth = (int) date('t', strtotime($year . '-' . $month . '-01'));
+
+    if ($day > $lastDayInMonth || $day < 1) {
+        $day = $lastDayInMonth;
+    }
+
     return sprintf('%04d-%02d-%02d', $year, $month, $day);
 }
-
 function logError($message)
 {
     $logFile = __DIR__ . '/../logs/error.log';
@@ -561,7 +571,7 @@ function generateRandomString($length = 10, $type = 'mixed')
             $x = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
             break;
     }
-    
+
     $str = '';
     for ($i = 0; $i < $length; $i++) {
         $str .= $x[mt_rand(0, strlen($x) - 1)];
@@ -688,7 +698,7 @@ function parseHotspotProfileComment($comment)
     // Mikhmon sometimes just puts the price. But we must ignore timestamps (YYYYMMDD...)
     if (preg_match('/(?:\s|^)(\d{3,7})(?:\s|$|,)/', $comment, $matches)) {
         $val = (int) $matches[1];
-        // Sanity check: if it looks like a date/timestamp 
+        // Sanity check: if it looks like a date/timestamp
         // (e.g. starts with 202, 201 or has 8+ digits), ignore it
         if ($val < 1000000 && strlen($matches[1]) <= 7) {
             return $val;
@@ -743,7 +753,7 @@ function isolateCustomer($customerId, $options = [])
         mikrotikSetProfile($customer['pppoe_username'], $package['profile_isolir'], $customer['router_id']);
         radiusUpdateUserProfile($customer['pppoe_username'], $package['profile_isolir']);
         mikrotikRemoveActiveSessionByName($customer['pppoe_username']);
-        
+
         if ($sendWhatsapp) {
             $message = "Halo {$customer['name']},\n\nPembayaran internet Anda sudah melewati tanggal jatuh tempo.\n\nMohon segera lakukan pembayaran untuk mengaktifkan kembali koneksi internet Anda.\n\nTerima kasih.";
             $message .= getWhatsAppFooter();
@@ -860,10 +870,10 @@ function updateCustomerWithRadiusSync($customerId, $updateData = [])
 
         if (!empty($customer['pppoe_username']) && function_exists('radiusSetSessionTimeoutFromIsolationDate')) {
             $updatedCustomer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
-            
+
             // Recalculate and update RADIUS session timeout
             radiusSetSessionTimeoutFromIsolationDate($updatedCustomer['pppoe_username']);
-            
+
             logActivity('RADIUS_TIMEOUT_SYNC', "Customer ID: {$customerId}, Username: {$updatedCustomer['pppoe_username']}");
         }
 
@@ -877,7 +887,7 @@ function updateCustomerWithRadiusSync($customerId, $updateData = [])
 /**
  * Create new customer with RADIUS provisioning if applicable
  * Handles both MikroTik and RADIUS user setup
- * 
+ *
  * @param array $customerData Customer data to insert
  * @return int|false Customer ID or false on failure
  */
@@ -897,7 +907,7 @@ function createCustomerWithRadiusProvisioning($customerData = [])
         }
 
         $pppoeUsername = trim((string) $customerData['pppoe_username']);
-        
+
         // Provision RADIUS user if RADIUS is available and password provided
         if (function_exists('radiusProvisionUser') && radiusUserProvisioningReady() && !empty($customerData['pppoe_password'])) {
             $package = fetchOne("SELECT * FROM packages WHERE id = ?", [(int) $customerData['package_id']]);
@@ -958,7 +968,7 @@ function getGenieacsSettings()
 /**
  * Set RADIUS Session-Timeout if username exists in radcheck
  * Called after customer creation/update to sync timeout
- * 
+ *
  * @param string $pppoeUsername PPPoE username
  * @param int $customerId Customer ID (to fetch isolation_date)
  * @return bool Success status
@@ -1021,7 +1031,7 @@ function generateMikrotikClientScript($version = '6')
     $rangeNormal = "11.7.0.2-11.7.10.254";
     $rangeIsolir = "11.127.0.2-11.127.10.254";
 
-    
+
     if (!$appName) {
         logError('App name belum diatur. Tidak dapat generate script MikroTik OVPN client.');
         return [
@@ -1051,7 +1061,7 @@ function generateMikrotikClientScript($version = '6')
         'username' => trim(generateRandomString(10, 'mixed')),
         'password' => trim(generateRandomString(12, 'mixed'))
     ];
-    
+
     $script = "# CLIENT - ".getSetting('app_name')."\n";
     $script .= "# Generated at: " . date('Y-m-d H:i:s') . "\n\n";
     $script .= "/ip dns set allow-remote-requests=yes;\n";
@@ -1106,7 +1116,7 @@ function generateMikrotikClientScript($version = '6')
     # FIREWALL
     $script .= "/ip firewall filter remove [find comment=\"ANSISOLIR\"];\n";
     $script .= "/ip firewall filter add action=drop chain=input comment=\"ANSISOLIR\" src-address=".$rangeIsolir.";\n";
-        return [
+    return [
         'script' => $script,
         'vpn' => $vpnCredential,
         'radius' => $radiusCredential
@@ -1231,7 +1241,7 @@ function getAllRouters()
  * Sync RADIUS timeout for all customers with pppoe_username and isolation_date
  * This directly sets timeout in radreply without checking if user exists in radcheck
  * Useful for batch operations when customers are already created
- * 
+ *
  * @return array Result with counts: ['updated' => X, 'failed' => Y, 'total' => Z]
  */
 function syncAllCustomersRadiusTimeout()
@@ -1312,7 +1322,7 @@ function genieacsGetDevices()
 
     $query = json_encode(['_id' => ['$regex' => '']]);
     $projectionStr = implode(',', $projection);
-    
+
     $url = rtrim($genieacs['url'], '/') . '/devices/?query=' . urlencode($query) . '&projection=' . $projectionStr;
 
     $ch = curl_init($url);
@@ -2341,13 +2351,13 @@ function ensurePublicVoucherTables()
     }
 }
 
-function getInvoicesStatsThisMonth(){ 
+function getInvoicesStatsThisMonth(){
     $sql = "SELECT status, COUNT(*) as count 
             FROM invoices 
             WHERE MONTH(due_date) = MONTH(CURDATE()) 
               AND YEAR(due_date) = YEAR(CURDATE()) 
             GROUP BY status";
-            
+
     return fetchAll($sql);
 }
 function ensureInvoiceNotificationTables()
@@ -2536,7 +2546,7 @@ function generateInvoicesThisMonth()
     $currentMonth = date('Y-m');
     $firstDayOfMonth = $currentMonth . '-01';
     $lastDayOfMonth = date('Y-m-t', strtotime($firstDayOfMonth));
-    
+
     foreach ($customers as $customer) {
         // Cek berdasarkan due_date dalam rentang bulan ini
         $existingInvoice = fetchOne("
@@ -2546,10 +2556,10 @@ function generateInvoicesThisMonth()
             AND status != 'cancelled'",
             [$customer['id'], $firstDayOfMonth, $lastDayOfMonth]
         );
-        
+
         if (!$existingInvoice) {
             $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
-            
+
             if ($package) {
                 $dueDate = getCustomerDueDate($customer, $firstDayOfMonth);
                 $invoiceData = [
@@ -2560,7 +2570,7 @@ function generateInvoicesThisMonth()
                     'due_date' => $dueDate,
                     'created_at' => date('Y-m-d H:i:s')
                 ];
-                
+
                 insert('invoices', $invoiceData);
                 $generatedCount++;
             }
