@@ -2579,6 +2579,7 @@ function generateInvoicesThisMonth()
     }
     return $generatedCount;
 }
+
 function generateScheduledPaidDate(string $dueDate, int $lateDays): string
 {
     $roll = mt_rand(1, 100);
@@ -2624,7 +2625,7 @@ function generateInvoicesForFiktifCustomers()
             FROM invoices
             WHERE customer_id=?
             AND due_date BETWEEN ? AND ?
-            AND status!='cancelled'",
+            AND status='active'",
             [$customer['id'],$firstDayOfMonth,$lastDayOfMonth]
         );
 

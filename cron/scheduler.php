@@ -265,6 +265,7 @@ function processFiktifCustomer(int $customerId): string
         $ok = update('invoices', [
             'status'     => 'paid',
             'paid_at'    => $paidAt,
+            'payment_method' => 'Manual',
             'updated_at' => date('Y-m-d H:i:s')
         ], 'id = ?', [$invoice['id']]);
 
