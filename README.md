@@ -1,5 +1,8 @@
 
-# ANS Radius
+<p align="center">
+  <img width="120" height="120" alt="icon-120x120" src="https://github.com/user-attachments/assets/81cff287-1d22-473e-bbe8-fb93ecd7c2d7" />
+</p>
+
 
 Aplikasi manajemen pelanggan ISP/RT-RW Net berbasis PHP, dengan dukungan modul MikroTik, hotspot/voucher, billing, payment gateway, WhatsApp/Telegram, dan integrasi GenieACS.
 
