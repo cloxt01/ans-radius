@@ -1100,7 +1100,7 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
                     <div class="plan reveal <?php echo $isHighlight ? 'highlight' : ''; ?>">
                         <h3><?php echo htmlspecialchars($pkg['name']); ?></h3>
 
-                        <img src="<?php echo APP_URL; ?>/assets/icons/cloud.svg"
+                        <img src="<?php echo APP_URL; ?>/assets/svg/cloud.svg"
                              alt="<?php echo htmlspecialchars($pkg['name']); ?>"
                              class="package-icon"
                              loading="lazy"

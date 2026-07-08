@@ -103,9 +103,6 @@ function runScheduler()
                     case 'auto_isolir':
                         runAutoIsolir($pdo);
                         break;
-                    case 'fiktif_customers':
-                        runFiktifCustomers($pdo);
-                        break;
                     case 'backup_db':
                         runBackupDb();
                         break;
@@ -160,14 +157,10 @@ function runScheduler()
 
 /**
  * Calculate next run time based on schedule.
- * fiktif_customers berjalan setiap menit.
+ *
  */
 function calculateNextRun($schedule)
 {
-    // Fiktif customers: jalan setiap menit
-    if ($schedule['task_type'] === 'fiktif_customers') {
-        return date('Y-m-d H:i:s', strtotime('+1 minute'));
-    }
 
     $scheduleTime = explode(':', $schedule['schedule_time']);
     $hour         = (int) $scheduleTime[0];
@@ -226,116 +219,6 @@ function applySchedulerDatabaseTimezone($pdo, $timezoneName)
     }
 }
 
-/**
- * Process a single fiktif customer's overdue invoice.
- * paid_at diambil langsung dari fiktif_invoices.scheduled_paid_date (DATETIME).
- * Returns: processed | activated | skipped | failed
- */
-function processFiktifCustomer(int $customerId): string
-{
-    $invoice = fetchOne(
-            "SELECT
-            i.*,
-            fi.late_days,
-            fi.scheduled_paid_date
-        FROM invoices i
-        INNER JOIN fiktif_invoices fi
-            ON fi.invoice_id = i.id
-        WHERE i.customer_id = ?
-          AND i.status = 'unpaid'
-          AND fi.status = 'unpaid'
-          AND fi.scheduled_paid_date <= NOW()
-        ORDER BY fi.scheduled_paid_date ASC, i.due_date ASC
-        LIMIT 1",
-            [$customerId]
-    );
-
-    if (!$invoice) {
-        return 'skipped';
-    }
-
-    $paidAt        = $invoice['scheduled_paid_date'];
-    $isolationDate = date('Y-m-d', strtotime($paidAt . ' +30 days'));
-
-    $pdo = getDB();
-
-    try {
-        $pdo->beginTransaction();
-
-        $ok = update('invoices', [
-                'status'     => 'paid',
-                'paid_at'    => $paidAt,
-                'updated_at' => date('Y-m-d H:i:s')
-        ], 'id = ?', [$invoice['id']]);
-
-        if (!$ok) throw new Exception('Gagal memperbarui `invoices` -> '.$invoice['id']);
-
-        $ok = update('fiktif_invoices', [
-                'status' => 'paid'
-        ], 'invoice_id = ?', [$invoice['id']]);
-
-        if (!$ok) throw new Exception('Gagal memperbarui `fiktif_invoice` -> '.$invoice['id']);
-
-        $ok = update('customers', [
-                'isolation_date' => $isolationDate
-        ], 'id = ?', [$customerId]);
-
-        if (!$ok) throw new Exception('Gagal memperbarui `customers` -> '.$customerId);
-
-        $pdo->commit();
-
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        writeLog("✗ Gagal memproses `fiktif_customer` #{$invoice['id']} (customer #{$customerId}) : " . $e->getMessage(), "ERROR");
-        return 'failed';
-    }
-
-    writeLog("[RENEW][F] - Invoice #{$invoice['id']} — customer #{$customerId}", "PAYMENT");
-    return unisolateFiktifCustomer($customerId) ? 'activated' : 'failed';
-}
-
-/**
- * Jalankan pembayaran fiktif customers.
- * Dipanggil setiap menit; hanya proses invoice yang scheduled_paid_date <= NOW().
- */
-function runFiktifCustomers(PDO $pdo): void
-{
-    writeLog("Running fiktif customers scheduler...", "INFO");
-
-    $fiktifCustomers = fetchAll("SELECT customer_id FROM fiktif_customers");
-
-    if (empty($fiktifCustomers)) {
-        writeLog("No fiktif customers found. Aborting.", "INFO");
-        return;
-    }
-
-    $generatedCount = generateInvoicesForFiktifCustomers();
-    writeLog("Generated {$generatedCount} invoices for fiktif customers.", "INFO");
-
-    $stats = [
-            'processed' => 0,
-            'activated' => 0,
-            'skipped'   => 0,
-            'failed'    => 0,
-    ];
-
-    foreach ($fiktifCustomers as $fiktif) {
-        $result = processFiktifCustomer((int) $fiktif['customer_id']);
-
-        if ($result === 'activated') {
-            $stats['activated']++;
-            $stats['processed']++;
-        } else {
-            $stats[$result]++;
-        }
-    }
-
-    writeLog("=== FIKTIF CUSTOMERS SUMMARY ===", "SUMMARY");
-    writeLog("✓ Processed payments : {$stats['processed']}", "SUMMARY");
-    writeLog("✓ Activated customers: {$stats['activated']}", "SUMMARY");
-    writeLog("⏳ Skipped            : {$stats['skipped']}", "SUMMARY");
-    writeLog("✗ Failed              : {$stats['failed']}", "SUMMARY");
-}
 
 /**
  * Run auto-isolir based on customers.isolation_date

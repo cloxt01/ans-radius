@@ -1091,17 +1091,17 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
         <h2 class="section-title fade-up">Kenapa Memilih Kami</h2>
         <div class="feature-grid">
             <div class="feature-card glass fade-up stagger-1">
-                <img src="<?php echo APP_URL; ?>/assets/why-us/easy.svg" class="feature-icon-svg" alt="Fitur 1" loading="lazy" decoding="async">
+                <img src="<?php echo APP_URL; ?>/assets/svg/easy.svg" class="feature-icon-svg" alt="Fitur 1" loading="lazy" decoding="async">
                 <h3><?php echo $f1_title; ?></h3>
                 <p><?php echo $f1_desc; ?></p>
             </div>
             <div class="feature-card glass fade-up stagger-2">
-                <img src="<?php echo APP_URL; ?>/assets/why-us/phone.svg" class="feature-icon-svg" alt="Fitur 1" loading="lazy" decoding="async">
+                <img src="<?php echo APP_URL; ?>/assets/svg/phone.svg" class="feature-icon-svg" alt="Fitur 1" loading="lazy" decoding="async">
                 <h3><?php echo $f2_title; ?></h3>
                 <p><?php echo $f2_desc; ?></p>
             </div>
             <div class="feature-card glass fade-up stagger-3">
-                <img src="<?php echo APP_URL; ?>/assets/why-us/data.svg" class="feature-icon-svg" alt="Fitur 1" loading="lazy" decoding="async">
+                <img src="<?php echo APP_URL; ?>/assets/svg/data.svg" class="feature-icon-svg" alt="Fitur 1" loading="lazy" decoding="async">
                 <h3><?php echo $f3_title; ?></h3>
                 <p><?php echo $f3_desc; ?></p>
             </div>
@@ -1122,7 +1122,7 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
             <?php foreach ($packages as $pkg): ?>
             <div class="package-card glass fade-up">
                 <h3><?php echo htmlspecialchars($pkg['name']); ?></h3>
-                <img class="package-icon" src="<?php echo APP_URL; ?>/assets/icons/cloud.svg" alt="<?php echo htmlspecialchars($pkg['name']); ?>">
+                <img class="package-icon" src="<?php echo APP_URL; ?>/assets/svg/cloud.svg" alt="<?php echo htmlspecialchars($pkg['name']); ?>">
                 <div class="package-price"><span class="package-price-main"><?php echo formatCurrency($pkg['price']); ?></span><span class="package-price-period">/bulan</span></div>
                 <p class="package-desc"><?php echo htmlspecialchars($pkg['description'] ?? ''); ?></p>
 

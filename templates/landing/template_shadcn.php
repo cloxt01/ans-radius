@@ -1441,7 +1441,7 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
                         <div class="plan-name"><?php echo htmlspecialchars($pkg['name']); ?></div>
 
                         <div class="plan-icon-wrap">
-                            <img src="<?php echo APP_URL; ?>/assets/icons/cloud.svg"
+                            <img src="<?php echo APP_URL; ?>/assets/svg/cloud.svg"
                                  alt=""
                                  width="48"
                                  loading="lazy"

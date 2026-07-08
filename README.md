@@ -57,7 +57,7 @@ define('MIKROTIK_PASS', '');
 define('MIKROTIK_PORT', 8728);
 
 define('APP_NAME', 'ANS Radius');
-define('APP_VERSION', '2.0.6');
+define('APP_VERSION', '1.0.0');
 
 define('ENCRYPTION_KEY', 'ganti-dengan-random-key-anda');
 ```
@@ -95,6 +95,7 @@ Untuk fitur otomatis (isolir, reminder, billing task), jalankan scheduler berkal
 
 ### VPN Setup
 ```
+cd setup
 chmod +x vpnsetup.sh
 sudo bash vpnsetup.sh
 ```

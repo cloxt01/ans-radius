@@ -8,7 +8,6 @@ requireAdminLogin();
 
 $pageTitle = 'Manajemen Agen';
 $workdir = 'admin/agents.php';
-// Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
         setFlash('error', 'Invalid CSRF token');
@@ -94,7 +93,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'lat' => !empty($_POST['lat']) ? (float)$_POST['lat'] : null,
                     'lng' => !empty($_POST['lng']) ? (float)$_POST['lng'] : null,
                     'status' => sanitize($_POST['status']),
-                    // updated_at otomatis dihandle oleh ON UPDATE CURRENT_TIMESTAMP di MySQL
                 ];
 
                 if (!empty($_POST['password'])) {
@@ -124,11 +122,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
                 // Asumsi: Periksa apakah agen masih terikat dengan data pelanggan
-                // $activeCustomers = fetchOne("SELECT COUNT(*) as total FROM customers WHERE agent_id = ?", [$id]);
-                // if ($activeCustomers['total'] > 0) {
-                //     setFlash('error', 'Agen ini masih memiliki pelanggan terdaftar. Tidak bisa dihapus.');
-                //     redirect('agents.php');
-                // }
+                 $activeCustomers = fetchOne("SELECT COUNT(*) as total FROM customers WHERE agent_id = ?", [$id]);
+                 if ($activeCustomers['total'] > 0) {
+                     setFlash('error', 'Agen ini masih memiliki pelanggan terdaftar. Tidak bisa dihapus.');
+                     redirect('agents.php');
+                 }
 
                 if (delete('agents', 'id = ?', [$id])) {
                     actionLog('DELETE_AGENT_SUCCESS', $workdir, "Berhasil menghapus data", json_encode($id));
