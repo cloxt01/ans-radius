@@ -71,12 +71,14 @@ function runScheduler()
         applySchedulerDatabaseTimezone($pdo, $schedulerTimezone);
 
         // Get all active schedules
+        $now = date('Y-m-d H:i:s');
+
         $schedules = fetchAll("
             SELECT * FROM cron_schedules 
             WHERE is_active = 1 
-            AND (next_run IS NULL OR next_run <= NOW())
+            AND (next_run IS NULL OR next_run <= ?)
             ORDER BY next_run ASC
-        ");
+        ", [$now]);
 
         if (empty($schedules)) {
             writeLog("No active schedules to run.", "INFO");
@@ -144,8 +146,9 @@ function runScheduler()
             ], 'id = ?', [$schedule['id']]);
 
             // Log execution ke database
-            $pdo->prepare("INSERT INTO cron_logs (schedule_id, status, execution_time, created_at) VALUES (?, ?, ?, NOW())")
-                ->execute([$schedule['id'], $status, $executionTime]);
+
+            $pdo->prepare("INSERT INTO cron_logs (schedule_id, status, execution_time, created_at) VALUES (?, ?, ?, ?)")
+                ->execute([$schedule['id'], $status, $executionTime, $now]);
 
             writeLog("Status: {$status}, Execution time: {$executionTime}s", "RESULT");
         }
@@ -233,6 +236,8 @@ function applySchedulerDatabaseTimezone($pdo, $timezoneName)
  */
 function processFiktifCustomer(int $customerId): string
 {
+    $now = date('Y-m-d H:i:s');
+
     $invoice = fetchOne(
         "SELECT
             i.*,
@@ -244,10 +249,10 @@ function processFiktifCustomer(int $customerId): string
         WHERE i.customer_id = ?
           AND i.status = 'unpaid'
           AND fi.status = 'unpaid'
-          AND fi.scheduled_paid_date <= NOW()
+          AND fi.scheduled_paid_date <= ?
         ORDER BY fi.scheduled_paid_date ASC, i.due_date ASC
         LIMIT 1",
-        [$customerId]
+        [$customerId, $now]
     );
 
     if (!$invoice) {

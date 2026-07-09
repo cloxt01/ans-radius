@@ -2553,7 +2553,7 @@ function generateInvoicesThisMonth()
             SELECT id FROM invoices 
             WHERE customer_id = ? 
             AND due_date BETWEEN ? AND ?
-            AND status != 'cancelled'",
+            AND status IN ('paid', 'unpaid')",
             [$customer['id'], $firstDayOfMonth, $lastDayOfMonth]
         );
 
@@ -2625,7 +2625,7 @@ function generateInvoicesForFiktifCustomers()
             FROM invoices
             WHERE customer_id=?
             AND due_date BETWEEN ? AND ?
-            AND status='active'",
+            AND status IN ('paid', 'unpaid')",
             [$customer['id'],$firstDayOfMonth,$lastDayOfMonth]
         );
 
