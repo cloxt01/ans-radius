@@ -58,18 +58,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $generatedInvoiceIds = [];
         foreach ($selectedMonths as $monthNum) {
-            // Get due date based on payment date (same day)
-            $day = (int) date('d', strtotime($paymentDate));
+            $billingDay = (int)$customer['billing_day'];
 
-            // Adjust if day exceeds month days
-            $lastDayOfMonth = (int) date('t', strtotime("$selectedYear-$monthNum-01"));
-            if ($day > $lastDayOfMonth) {
-                $day = $lastDayOfMonth;
-            }
+            $lastDay = (int)date('t', strtotime("$selectedYear-$monthNum-01"));
 
-            $dueDate = date('Y-m-d', strtotime("$selectedYear-$monthNum-$day"));
+            $day = min($billingDay, $lastDay);
 
-            // Check if invoice already exists for this month/year (unpaid)
+            $dueDate = sprintf(
+                    '%04d-%02d-%02d',
+                    $selectedYear,
+                    $monthNum,
+                    $day
+            );
+
             $existingInvoice = fetchOne("SELECT id FROM invoices 
                 WHERE customer_id = ? 
                 AND MONTH(due_date) = ? 
@@ -120,41 +121,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             unisolateCustomer($id);
         }
 
-        // ========== UPDATE ISOLATION DATE BASED ON PAYMENT ==========
-        // Get the LAST month paid
-        $maxMonth = max($selectedMonths);
-        $maxYear = $selectedYear;
+        updateCustomerIsolationDateFromPaidInvoices($id);
 
-        // Get payment day
-        $paymentDay = (int) date('d', strtotime($paymentDate));
-
-        // Create date for last paid month
-        $lastDayOfLastMonth = (int) date('t', strtotime("$maxYear-$maxMonth-01"));
-        if ($paymentDay > $lastDayOfLastMonth) {
-            $paymentDay = $lastDayOfLastMonth;
-        }
-
-        $lastPaidFullDate = date('Y-m-d', strtotime("$maxYear-$maxMonth-$paymentDay"));
-
-        // Add 1 month to get next isolation date
-        $newIsolationDate = date('Y-m-d', strtotime($lastPaidFullDate . ' +1 month'));
-
-        // Adjust if day changed (e.g., Jan 31 -> Feb 28)
-        $newDay = (int) date('d', strtotime($newIsolationDate));
-        if ($paymentDay != $newDay) {
-            $newIsolationDate = date('Y-m-t', strtotime($newIsolationDate));
-        }
-
-        // Update customer's isolation_date
-        $pdo->prepare("UPDATE customers SET isolation_date = ?, updated_at = ? WHERE id = ?")
-                ->execute([$newIsolationDate, $paymentDateTime, $id]);
-
-        // Update status to active
-        if ($customer['status'] === 'isolated') {
-            $pdo->prepare("UPDATE customers SET status = 'active' WHERE id = ?")
-                    ->execute([$id]);
-        }
-        // ========== END UPDATE ISOLATION DATE ==========
+        $newIsolationDate = fetchOne(
+                "SELECT isolation_date FROM customers WHERE id=?",
+                [$id]
+        )['isolation_date'];
 
         $pdo->commit();
 
@@ -218,7 +190,7 @@ $paidMonths = array_column($paidInvoices, 'month_num');
 
 // Get latest payment date
 $latestPayment = getLatestPaymentDate($id);
-$nextIsolation = $latestPayment ? calculateNextIsolationDate($id) : 'Belum ada pembayaran';
+$nextIsolation = $customer['isolation_date'] ??  'Belum ada pembayaran';
 
 ob_start();
 ?>

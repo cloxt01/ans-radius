@@ -240,188 +240,179 @@ function getLatestPaymentDate($customerId) {
  * @param int $customerId Customer ID
  * @return string Next isolation date (Y-m-d)
  */
-function calculateNextIsolationDate($customerId) {
-    $latestPaymentDate = getLatestPaymentDate($customerId);
+function calculateNextIsolationDate($customerId): string
+{
+    $customer = fetchOne("
+        SELECT isolation_date
+        FROM customers
+        WHERE id = ?
+    ", [$customerId]);
 
-    if (!$latestPaymentDate) {
-        // Default: 20th of next month
-        return date('Y-m-d', strtotime('+1 month', strtotime(date('Y-m-20'))));
-    }
-
-    // Add 1 month to latest payment date
-    $paymentDay = (int) date('j', strtotime($latestPaymentDate));
-    $nextMonth = date('Y-m-d', strtotime($latestPaymentDate . ' +1 month'));
-    $nextMonthDay = (int) date('j', strtotime($nextMonth));
-
-    // If day changed (e.g., Jan 31 -> Feb 28), adjust to last day of month
-    if ($paymentDay != $nextMonthDay) {
-        $nextMonth = date('Y-m-t', strtotime($nextMonth));
-    }
-
-    return $nextMonth;
+    return $customer['isolation_date'] ?? date('Y-m-d');
 }
 
-/**
- * Update customer isolation date based on their latest payment
- * @param int $customerId Customer ID
- * @return bool Success or failure
- */
-function updateIsolationDateFromLatestPayment($customerId) {
-    $newIsolationDate = calculateNextIsolationDate($customerId);
-    return update('customers', ['isolation_date' => $newIsolationDate], 'id = ?', [$customerId]);
-}
-
-/**
- * Update isolation date after bulk payment (multiple months)
- * @param int $customerId Customer ID
- * @param array $selectedMonths Array of month numbers (1-12) that were paid
- * @param int $selectedYear Year of the paid months
- * @param string $paymentDate Current payment date (Y-m-d) - optional, defaults to today
- * @return bool Success or failure
- */
-function updateIsolationDateAfterBulkPayment($customerId, $selectedMonths, $selectedYear, $paymentDate = null) {
-    if (!$paymentDate) {
-        $paymentDate = date('Y-m-d');
+function buildIsolationDate(int $billingDay): string
+{
+    if ($billingDay <= 0) {
+        $billingDay = 20;
     }
 
-    // Get the LAST month paid
-    $maxMonth = max($selectedMonths);
-    $maxYear = $selectedYear;
+    $today = new DateTime();
 
-    // Get payment day
-    $paymentDay = (int) date('d', strtotime($paymentDate));
+    $day = min($billingDay, (int)$today->format('t'));
 
-    // Adjust if day exceeds the last month's days
-    $lastDayOfLastMonth = (int) date('t', strtotime("$maxYear-$maxMonth-01"));
-    if ($paymentDay > $lastDayOfLastMonth) {
-        $paymentDay = $lastDayOfLastMonth;
+    $date = new DateTime($today->format('Y-m') . '-' . str_pad($day, 2, '0', STR_PAD_LEFT));
+
+    if ($date < $today) {
+        $date->modify('+1 month');
+
+        $day = min($billingDay, (int)$date->format('t'));
+
+        $date->setDate(
+            (int)$date->format('Y'),
+            (int)$date->format('m'),
+            $day
+        );
     }
 
-    // Create date for last paid month
-    $lastPaidFullDate = date('Y-m-d', strtotime("$maxYear-$maxMonth-$paymentDay"));
-
-    // Add 1 month to get next isolation date
-    $newIsolationDate = date('Y-m-d', strtotime($lastPaidFullDate . ' +1 month'));
-
-    // Adjust if day changed (e.g., Jan 31 -> Feb 28)
-    $newDay = (int) date('d', strtotime($newIsolationDate));
-    if ($paymentDay != $newDay) {
-        $newIsolationDate = date('Y-m-t', strtotime($newIsolationDate));
-    }
-
-    return update('customers', ['isolation_date' => $newIsolationDate], 'id = ?', [$customerId]);
-}
-
-/**
- * Get customer's isolation date as formatted string
- * @param int $customerId Customer ID
- * @param string $format Date format (default: 'd F Y')
- * @return string Formatted isolation date or '-'
- */
-function getFormattedIsolationDate($customerId, $format = 'd F Y') {
-    $customer = fetchOne("SELECT isolation_date FROM customers WHERE id = ?", [$customerId]);
-    if (!$customer || !$customer['isolation_date'] || $customer['isolation_date'] == '0000-00-00') {
-        return '-';
-    }
-    return date($format, strtotime($customer['isolation_date']));
-}
-
-/**
- * Check if customer is due for isolation based on isolation_date
- * @param int $customerId Customer ID
- * @return bool True if should be isolated
- */
-function isCustomerDueForIsolation($customerId) {
-    $customer = fetchOne("SELECT isolation_date, status FROM customers WHERE id = ?", [$customerId]);
-    if (!$customer || $customer['status'] !== 'active') {
-        return false;
-    }
-
-    $isolationDate = $customer['isolation_date'];
-    if (!$isolationDate || $isolationDate == '0000-00-00') {
-        return false;
-    }
-
-    $today = date('Y-m-d');
-    return $isolationDate <= $today;
+    return $date->format('Y-m-d');
 }
 /**
  * Update isolation date based on paid invoices
  * @param int $customerId Customer ID
  * @return bool Success or failure
  */
-function updateCustomerIsolationDateFromPaidInvoices($customerId) {
-    // Get latest paid invoice (by paid_at, not due_date)
-    $latestPaid = fetchOne("
-        SELECT paid_at, due_date 
-        FROM invoices 
-        WHERE customer_id = ? AND status = 'paid' 
-        AND paid_at IS NOT NULL 
-        ORDER BY paid_at DESC LIMIT 1
+function updateCustomerIsolationDateFromPaidInvoices($customerId)
+{
+    $customer = fetchOne("
+        SELECT billing_day
+        FROM customers
+        WHERE id = ?
     ", [$customerId]);
 
-    if (!$latestPaid || !$latestPaid['paid_at']) {
+    if (!$customer) {
         return false;
     }
 
-    $paymentDate = $latestPaid['paid_at'];
-    $paymentDay = (int) date('d', strtotime($paymentDate));
+    $billingDay = (int)$customer['billing_day'];
 
-    // Get the due date month/year to determine paid period
-    $dueDate = $latestPaid['due_date'];
-    $dueYear = (int) date('Y', strtotime($dueDate));
-    $dueMonth = (int) date('m', strtotime($dueDate));
+    $latestPaid = fetchOne("
+        SELECT due_date
+        FROM invoices
+        WHERE customer_id = ?
+        AND status='paid'
+        ORDER BY due_date DESC
+        LIMIT 1
+    ", [$customerId]);
 
-    // Calculate next isolation date: last paid month + 1 month
-    $lastDayOfDueMonth = (int) date('t', strtotime("$dueYear-$dueMonth-01"));
-    if ($paymentDay > $lastDayOfDueMonth) {
-        $paymentDay = $lastDayOfDueMonth;
+    if (!$latestPaid) {
+        return false;
     }
 
-    $lastPaidFullDate = date('Y-m-d', strtotime("$dueYear-$dueMonth-$paymentDay"));
-    $newIsolationDate = date('Y-m-d', strtotime($lastPaidFullDate . ' +1 month'));
+    $nextMonth = date(
+        'Y-m-01',
+        strtotime($latestPaid['due_date'].' +1 month')
+    );
 
-    // Adjust if day changed (Jan 31 -> Feb 28)
-    $newDay = (int) date('d', strtotime($newIsolationDate));
-    if ($paymentDay != $newDay) {
-        $newIsolationDate = date('Y-m-t', strtotime($newIsolationDate));
+    $lastDay = (int)date('t', strtotime($nextMonth));
+
+    if ($billingDay > $lastDay) {
+        $billingDay = $lastDay;
     }
 
-    // Update customer
-    $result = update('customers', [
-        'isolation_date' => $newIsolationDate,
-        'updated_at' => date('Y-m-d H:i:s')
-    ], 'id = ?', [$customerId]);
+    $newIsolationDate = sprintf(
+        "%s-%02d",
+        date('Y-m', strtotime($nextMonth)),
+        $billingDay
+    );
 
-    if ($result) {
-        logActivity('UPDATE_ISOLATION_DATE', "Customer ID: $customerId, New isolation date: $newIsolationDate");
-    }
-
-    return $result;
+    return update(
+        'customers',
+        [
+            'isolation_date'=>$newIsolationDate,
+            'updated_at'=>date('Y-m-d H:i:s')
+        ],
+        'id=?',
+        [$customerId]
+    );
 }
+function customerHasPaidInvoice($customerId)
+{
+    return (bool)fetchOne("
+        SELECT id
+        FROM invoices
+        WHERE customer_id=?
+        AND status='paid'
+        LIMIT 1
+    ", [$customerId]);
+}
+
+function updateCustomerIsolationDateFromBillingDay($customerId)
+{
+    $customer = fetchOne("
+        SELECT billing_day
+        FROM customers
+        WHERE id = ?
+    ", [$customerId]);
+    if (!$customer) {
+        return false;
+    }
+    $billingDay = (int)$customer['billing_day'] ?? 20;
+    return update(
+        'customers',
+        [
+            'isolation_date'=>date('Y-m-'.$billingDay),
+            'updated_at'=>date('Y-m-d H:i:s')
+        ],
+        'id=?',
+        [$customerId]
+    );
+}
+//function getCustomerDueDate($customer, $baseDate = null)
+//{
+//    $baseTimestamp = $baseDate ? strtotime($baseDate) : time();
+//    $year = date('Y', $baseTimestamp);
+//    $month = date('m', $baseTimestamp);
+//
+//    // Default ke tanggal 20
+//    $day = 20;
+//
+//    if (!empty($customer['isolation_date']) && $customer['isolation_date'] !== '0000-00-00') {
+//        // Cek jika datanya murni angka (berjaga-jaga jika ada format lama)
+//        if (is_numeric($customer['isolation_date'])) {
+//            $day = (int) $customer['isolation_date'];
+//        } else {
+//            // Ekstrak hari dari format 'YYYY-MM-DD'
+//            $day = (int) date('d', strtotime($customer['isolation_date']));
+//        }
+//    }
+//
+//    $lastDayInMonth = (int) date('t', strtotime($year . '-' . $month . '-01'));
+//
+//    if ($day > $lastDayInMonth || $day < 1) {
+//        $day = $lastDayInMonth;
+//    }
+//
+//    return sprintf('%04d-%02d-%02d', $year, $month, $day);
+//}
+
 function getCustomerDueDate($customer, $baseDate = null)
 {
     $baseTimestamp = $baseDate ? strtotime($baseDate) : time();
-    $year = date('Y', $baseTimestamp);
+
+    $year  = date('Y', $baseTimestamp);
     $month = date('m', $baseTimestamp);
 
-    // Default ke tanggal 20
-    $day = 20;
+    $day = (int)($customer['billing_day'] ?? 20);
 
-    if (!empty($customer['isolation_date']) && $customer['isolation_date'] !== '0000-00-00') {
-        // Cek jika datanya murni angka (berjaga-jaga jika ada format lama)
-        if (is_numeric($customer['isolation_date'])) {
-            $day = (int) $customer['isolation_date'];
-        } else {
-            // Ekstrak hari dari format 'YYYY-MM-DD'
-            $day = (int) date('d', strtotime($customer['isolation_date']));
-        }
+    $lastDay = (int)date('t', strtotime("$year-$month-01"));
+
+    if ($day < 1) {
+        $day = 1;
     }
 
-    $lastDayInMonth = (int) date('t', strtotime($year . '-' . $month . '-01'));
-
-    if ($day > $lastDayInMonth || $day < 1) {
-        $day = $lastDayInMonth;
+    if ($day > $lastDay) {
+        $day = $lastDay;
     }
 
     return sprintf('%04d-%02d-%02d', $year, $month, $day);
@@ -1237,58 +1228,7 @@ function getAllRouters()
     }
     return fetchAll("SELECT * FROM routers ORDER BY name ASC");
 }
-/**
- * Sync RADIUS timeout for all customers with pppoe_username and isolation_date
- * This directly sets timeout in radreply without checking if user exists in radcheck
- * Useful for batch operations when customers are already created
- *
- * @return array Result with counts: ['updated' => X, 'failed' => Y, 'total' => Z]
- */
-function syncAllCustomersRadiusTimeout()
-{
-    $result = [
-        'updated' => 0,
-        'failed' => 0,
-        'skipped' => 0,
-        'total' => 0
-    ];
 
-    // Check if RADIUS functions available
-    if (!function_exists('radiusSetSessionTimeoutFromIsolationDate')) {
-        return $result;
-    }
-
-    try {
-        $customers = fetchAll("
-            SELECT id, pppoe_username, isolation_date 
-            FROM customers 
-            WHERE pppoe_username IS NOT NULL 
-            AND pppoe_username != '' 
-            AND isolation_date IS NOT NULL 
-            AND isolation_date != 0
-            ORDER BY id ASC
-        ");
-
-        $result['total'] = count($customers);
-
-        foreach ($customers as $customer) {
-            try {
-                if (radiusSetSessionTimeoutFromIsolationDate($customer['pppoe_username'])) {
-                    $result['updated']++;
-                } else {
-                    $result['failed']++;
-                }
-            } catch (Exception $e) {
-                logError('syncAllCustomersRadiusTimeout - Customer ' . $customer['id'] . ': ' . $e->getMessage());
-                $result['failed']++;
-            }
-        }
-    } catch (Exception $e) {
-        logError('syncAllCustomersRadiusTimeout failed: ' . $e->getMessage());
-    }
-
-    return $result;
-}
 
 // GenieACS functions
 function genieacsGetDevices()
@@ -1695,7 +1635,33 @@ function genieacsSetParameterValues($serial, $params)
 
     return $httpCode === 200 || $httpCode === 201 || $httpCode === 202;
 }
+function calculateNextIsolationDateFromBillingDay(int $billingDay): string
+{
+    $today = new DateTime();
 
+    $day = min($billingDay, (int)$today->format('t'));
+
+    $date = new DateTime(
+        $today->format('Y-m') . "-{$day}"
+    );
+
+    if ($date < $today) {
+        $date->modify('+1 month');
+
+        $day = min(
+            $billingDay,
+            (int)$date->format('t')
+        );
+
+        $date->setDate(
+            (int)$date->format('Y'),
+            (int)$date->format('m'),
+            $day
+        );
+    }
+
+    return $date->format('Y-m-d');
+}
 // Find device by PPPoE username in GenieACS
 function genieacsFindDeviceByPppoe($pppoeUsername)
 {

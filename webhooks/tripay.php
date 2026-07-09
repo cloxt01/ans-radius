@@ -77,7 +77,14 @@ function handlePaidInvoice($invoiceNumber, $paymentData) {
     
     // Update invoice status
     $paidAt = date('Y-m-d H:i:s');
-    $isolationDate = date('Y-m-d', strtotime('+1 month', strtotime($paidAt)));
+
+    $customer = fetchOne("
+        SELECT billing_day
+        FROM customers
+        WHERE id = ?
+    ", [$invoice['customer_id']]);
+
+    $isolationDate = buildIsolationDate((int)$customer['billing_day']);
     update('invoices', [
         'status' => 'paid',
         'paid_at' => $paidAt,

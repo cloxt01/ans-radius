@@ -260,7 +260,7 @@ function processFiktifCustomer(int $customerId): string
     }
 
     $paidAt        = $invoice['scheduled_paid_date'];
-    $isolationDate = date('Y-m-d', strtotime($paidAt . ' +30 days'));
+//    $isolationDate = date('Y-m-d', strtotime($paidAt . ' +30 days'));
 
     $pdo = getDB();
 
@@ -282,10 +282,7 @@ function processFiktifCustomer(int $customerId): string
 
         if (!$ok) throw new Exception('Gagal memperbarui `fiktif_invoice` -> '.$invoice['id']);
 
-        $ok = update('customers', [
-            'isolation_date' => $isolationDate
-        ], 'id = ?', [$customerId]);
-
+        $ok = updateCustomerIsolationDateFromPaidInvoices($customerId);
         if (!$ok) throw new Exception('Gagal memperbarui `customers` -> '.$customerId);
 
         $pdo->commit();

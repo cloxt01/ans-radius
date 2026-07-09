@@ -70,9 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($selectedMonths as $monthNum) {
             // Create specific due date for selected month/year
             // Assuming billing date is based on isolation_date or default 20th
-            $day = isset($customer['isolation_date']) ? (int) $customer['isolation_date'] : 20;
-            if ($day < 1) $day = 1;
-            if ($day > 28) $day = 28; // Avoid invalid dates
+            $day = (int)$customer['billing_day'] ?? 20;
             
             $dueDate = date('Y-m-d', strtotime("$selectedYear-$monthNum-$day"));
             $monthName = date('F', mktime(0, 0, 0, $monthNum, 10)); // Get month name

@@ -23,7 +23,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'add':
+                // Ambil billing_day dari pilihan admin
+                $billingDay = (int)$_POST['billing_day'];
                 $pppoePassword = isset($_POST['pppoe_password']) ? trim((string)$_POST['pppoe_password']) : '';
+
+                // Hitung isolation_date otomatis
+
+
                 $data = [
                         'name' => sanitize($_POST['name']),
                         'phone' => sanitize($_POST['phone']),
@@ -31,7 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'package_id' => (int)$_POST['package_id'],
                         'router_id' => (int)($_POST['router_id'] ?? 0),
                         'agent_id' => (int)$_POST['agent_id'] ?? null,
-                        'isolation_date' => !empty($_POST['isolation_date']) ? $_POST['isolation_date'] : date('Y-m-d', strtotime('+1 month', strtotime(date('Y-m-20')))),
+                        'billing_day' => $billingDay,
+                        'isolation_date' => calculateNextIsolationDateFromBillingDay($billingDay),
                         'address' => sanitize($_POST['address']),
                         'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string)str_replace(',', '.', trim($_POST['lat'])),
                         'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string)str_replace(',', '.', trim($_POST['lng'])),
@@ -44,19 +51,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 actionLog('ADD_CUSTOMER_ATTEMPT', $workdir, "Mencoba menambahkan pelanggan", json_encode($data));
 
-
                 $customerId = insert('customers', $data);
                 if ($customerId) {
                     actionLog('ADD_CUSTOMER_SUCCESS', $workdir, "Berhasil menambahkan pelanggan", json_encode(['id' => $customerId, 'data' => $data]));
 
-                    // Sync RADIUS timeout if username exists in radcheck
+                    // Sync RADIUS
                     if (!radiusIsUserExistsByUsername($data['pppoe_username'])) {
                         $profile = getProfileFromPackageId($data['package_id'])['profile_normal'] ?? null;
                         if (!$profile) {
                             logError('Failed to sync RADIUS for new customer - profile not found. Customer ID: ' . $customerId);
                         }
-                        # Add ke RADIUS
-
                         $ok = radiusSetUser($data['pppoe_username'], $pppoePassword, $profile);
                         if ($ok) {
                             actionLog('ADD_RADIUS_SUCCESS', $workdir, "Berhasil menambahkan pelanggan", json_encode(['username' => $data['pppoe_username'], 'password' => $pppoePassword, 'profile' => $profile]));
@@ -69,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         syncRadiusTimeoutForCustomer($data['pppoe_username'], $customerId);
                     }
 
-                    // Sync to onu_locations if requested
+                    // Sync ONU
                     $saveOnu = isset($_POST['save_onu']) && $_POST['save_onu'] == '1';
                     $odpId = isset($_POST['odp_id']) && $_POST['odp_id'] !== '' ? (int)$_POST['odp_id'] : null;
                     if ($saveOnu) {
@@ -95,7 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 insert('onu_locations', $payload);
                             }
 
-                            // Synchronize PPPoE Username to GenieACS if applicable
                             if (!empty($serial)) {
                                 genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username', $serial);
                                 if ($pppoePassword !== '') {
@@ -103,15 +106,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 }
                             }
                         } catch (Exception $e) {
-                            // Do not block customer creation if ONU sync fails
                             logError('ONU sync (add customer) failed: ' . $e->getMessage());
                         }
                     }
+
+                    // Update isolation_date (konsistensi)
+                    updateCustomerIsolationDateFromBillingDay($customerId);
+
                     $_SESSION['last_added_customer_id'] = $customerId;
                     setFlash('success', 'Pelanggan berhasil ditambahkan');
                     logActivity('ADD_CUSTOMER', "Name: {$data['name']}");
 
-                    // Notify Technician if assigned
+                    // Notify Technician
                     if (!empty($data['installed_by'])) {
                         $tech = fetchOne("SELECT phone, name FROM technician_users WHERE id = ?", [$data['installed_by']]);
                         if ($tech && !empty($tech['phone'])) {
@@ -141,16 +147,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     redirect('customers.php');
                 }
 
-                // Ambil username lama dari DB lokal sebelum di-update
                 $customer_username = getPppoeUsernameByCustomerId($customerId);
-
-                // Ambil & bersihkan data input baru dari form
                 $new_username = sanitize($_POST['pppoe_username']);
                 $new_password = isset($_POST['pppoe_password']) ? trim((string)$_POST['pppoe_password']) : '';
+                $billingDay = (int)$_POST['billing_day'];
 
                 actionLog('EDIT_CUSTOMER_ATTEMPT', $workdir, "Mencoba mengupdate pelanggan", json_encode(['id' => $customerId, 'old_username' => $customer_username, 'new_username' => $new_username]));
 
-                // 1. Sinkronisasi Perubahan Username di RADIUS
+                // Rename RADIUS
                 if ($customer_username !== $new_username) {
                     actionLog('RADIUS_RENAME_ATTEMPT', $workdir, "Mencoba mengganti username RADIUS", json_encode(['old' => $customer_username, 'new' => $new_username]));
                     $renameOk = radiusRenameUser($customer_username, $new_username);
@@ -159,7 +163,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($new_password !== '') {
                     $old_radius_password = trim((string)radiusGetUserPassword($new_username));
-
                     if ($old_radius_password !== $new_password) {
                         actionLog('RADIUS_PASSWORD_UPDATE_ATTEMPT', $workdir, "Mencoba mengupdate password RADIUS", json_encode(['username' => $new_username]));
                         $pwOk = radiusUpdateUserPassword($new_username, $new_password);
@@ -167,14 +170,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                // Buat data untuk update ke DB lokal
+                // Data update (tanpa isolation_date)
                 $data = [
                         'pppoe_username' => $new_username,
                         'name' => sanitize($_POST['name']),
                         'phone' => sanitize($_POST['phone']),
                         'package_id' => (int)$_POST['package_id'],
                         'router_id' => (int)($_POST['router_id'] ?? 0),
-                        'agent_id' => !empty($_POST['agent_id']) ? (int)$_POST['agent_id'] : null, 'isolation_date' => !empty($_POST['isolation_date']) ? $_POST['isolation_date'] : date('Y-m-d', strtotime('+1 month')),
+                        'agent_id' => !empty($_POST['agent_id']) ? (int)$_POST['agent_id'] : null,
+                        'billing_day' => $billingDay,
+                        'isolation_date' => calculateNextIsolationDateFromBillingDay($billingDay),
                         'address' => sanitize($_POST['address']),
                         'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string)str_replace(',', '.', trim($_POST['lat'])),
                         'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string)str_replace(',', '.', trim($_POST['lng'])),
@@ -189,14 +194,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (update('customers', $data, 'id = ?', [$customerId])) {
                     actionLog('EDIT_CUSTOMER_SUCCESS', $workdir, "Berhasil mengupdate pelanggan", json_encode(['id' => $customerId, 'data' => $data]));
 
-                    // Get updated customer data for RADIUS sync
+                    // Sync RADIUS timeout
                     $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
                     if ($customer && !empty($customer['pppoe_username'])) {
                         actionLog('SYNC_RADIUS_TIMEOUT', $workdir, "Berhasil mengupdate pelanggan", json_encode(['id' => $customerId, 'username' => $customer['pppoe_username']]));
                         syncRadiusTimeoutForCustomer($customer['pppoe_username'], $customerId);
                     }
 
-                    // Sync to onu_locations if requested
+                    // Update isolation_date berdasarkan status pembayaran
+                    if (customerHasPaidInvoice($customerId)) {
+                        updateCustomerIsolationDateFromPaidInvoices($customerId);
+                    } else {
+                        updateCustomerIsolationDateFromBillingDay($customerId);
+                    }
+
+                    // Sync ONU
                     $saveOnu = isset($_POST['save_onu']) && $_POST['save_onu'] == '1';
                     $odpId = isset($_POST['odp_id']) && $_POST['odp_id'] !== '' ? (int)$_POST['odp_id'] : null;
                     if ($saveOnu) {
@@ -226,10 +238,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     insert('onu_locations', $payload);
                                 }
 
-                                // Synchronize PPPoE Username to GenieACS
                                 genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username', $serial);
-
-                                // JIKA password diganti, kirim juga password barunya ke GenieACS
                                 if ($new_password !== '') {
                                     genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password', $new_password);
                                 }
@@ -429,7 +438,7 @@ if ($customersTableExists) {
 
     // Build query with proper JOINs to avoid N+1 queries
     $selectParts = [
-            'c.id', 'c.name', 'c.phone', 'c.pppoe_username', 'c.package_id', 'c.router_id', 'c.agent_id',
+            'c.id', 'c.name', 'c.phone', 'c.pppoe_username', 'c.package_id', 'c.router_id', 'c.agent_id', 'c.billing_day',
             'c.isolation_date', 'c.address', 'c.lat', 'c.lng', 'c.status', 'c.created_at', 'c.auto_isolate', 'c.installed_by', 'c.ip_address', 'c.mac_address',
             $packagesTableExists ? 'p.name as package_name' : "'Tanpa Paket' as package_name",
             $packagesTableExists ? 'p.price as package_price' : "'0' as package_price",
@@ -488,7 +497,7 @@ $randomCustomer = getRandomCustomer();
 $paginationQuery = $_GET;
 unset($paginationQuery['page']);
 $paginationQueryString = http_build_query($paginationQuery);
-$defaultIsolationDate = date('Y-m-d', strtotime('+1 month', strtotime(date('Y-m-20'))));
+$defaultIsolationDate = date('Y-m-d', strtotime('+1 month', strtotime(date('Y-m-d'))));
 
 if ($paginationQueryString !== '') {
     $paginationQueryString = '&' . $paginationQueryString;
@@ -1032,9 +1041,22 @@ ob_start();
                             </div>
 
                             <div class="form-group">
-                                <label class="form-label">Tanggal Isolir</label>
-                                <input id="add_isolation_date" type="date" name="isolation_date" class="form-control"
-                                       value="<?php echo $defaultIsolationDate; ?>" required>
+                                <label class="form-label">Billing Day (Tanggal Tagihan)</label>
+                                <select name="billing_day" id="add_billing_day" class="form-control" required>
+                                    <?php for ($i=1; $i<=31; $i++):
+                                        $today = (int) date('d');
+                                        ?>
+                                        <option value="<?= $i ?>" <?= $i == $today ? 'selected' : '' ?>><?= $i ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                                <small style="color: var(--text-muted);">Tanggal jatuh tempo tagihan setiap bulan.</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tanggal Isolir (Otomatis)</label>
+                                <input type="text" id="add_isolation_date_display" class="form-control" readonly
+                                       value="<?= date('d M Y', strtotime($defaultIsolationDate)) ?>"
+                                       style="background: rgba(255,255,255,0.05); cursor: not-allowed;">
+                                <small style="color: var(--text-muted);">Dihitung otomatis berdasarkan Billing Day.</small>
                             </div>
 
                             <div class="form-group-full">
@@ -1220,6 +1242,7 @@ ob_start();
                 <th>PPPoE</th>
                 <th>Last Paid</th>
                 <th>Tgl Isolir</th>
+                <th>Tgl Pembayaran</th>
                 <th>Register Date</th>
                 <!--                <th>IP Address</th>-->
                 <!--                <th>MAC Address</th>-->
@@ -1305,15 +1328,16 @@ ob_start();
                             }
                             ?>
                         </td>
+                        <td data-label="Billing Day">
+                            <?php
+                            $billingDay = (int)($c['billing_day'] ?? 20);
+                            echo '<span class="badge badge-info">' . $billingDay . '</span>';
+                            ?>
+                        </td>
                         <td data-label="Register Date">
                             <?php echo date('d M Y', strtotime($c['created_at'])); ?>
                         </td>
-                        <!--                    <td data-label="IP Address">-->
-                        <!--                        --><?php //echo htmlspecialchars($c['ip_address'] ?? 'N/A'); ?>
-                        <!--                    </td>-->
-                        <!--                    <td data-label="MAC Address">-->
-                        <!--                        --><?php //echo htmlspecialchars($c['mac_address'] ?? 'N/A'); ?>
-                        <!--                    </td>-->
+
                         <td data-label="Aksi">
                             <div class="customer-action-group">
                                 <a href="pay_process.php?id=<?php echo $c['id']; ?>" class="btn btn-success btn-sm"
@@ -1549,9 +1573,19 @@ ob_start();
                             </div>
 
                             <div class="form-group">
-                                <label class="form-label">Tanggal Isolir</label>
-                                <input type="date" name="isolation_date" id="edit_isolation_date" class="form-control"
-                                       required>
+                                <label class="form-label">Billing Day (Tanggal Tagihan)</label>
+                                <select name="billing_day" id="edit_billing_day" class="form-control" required>
+                                    <?php for ($i=1; $i<=31; $i++): ?>
+                                        <option value="<?= $i ?>"><?= $i ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                                <small style="color: var(--text-muted);">Tanggal jatuh tempo tagihan setiap bulan.</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tanggal Isolir (Otomatis)</label>
+                                <input type="text" id="edit_isolation_date_display" class="form-control" readonly
+                                       style="background: rgba(255,255,255,0.05); cursor: not-allowed;">
+                                <small style="color: var(--text-muted);">Dihitung otomatis berdasarkan Billing Day dan status pembayaran.</small>
                             </div>
 
                             <div class="form-group">
@@ -1721,6 +1755,10 @@ ob_start();
 
             return `<span class="badge ${badgeClass}">${formattedDate}</span>`;
         }
+        function renderBillingDay(day) {
+
+            return `<span class="badge badge-info">${day}</span>`;
+        }
 
         function renderFetchedCustomers(customers) {
             if (!customerTableBody) {
@@ -1777,6 +1815,8 @@ ob_start();
                     ${customer.last_paid ? formatDateLabel(customer.last_paid) : '<span style="color: var(--text-muted);">Belum ada pembayaran</span>'}
                 </td>
                 <td data-label="Tgl Isolir">${renderIsolationBadge(customer.isolation_date)}</td>
+                <td data-label="Tgl Pembayaran">${renderBillingDay(customer.billing_day)}</td>
+
                 <td data-label="Register Date">${formatDateLabel(customer.created_at)}</td>
                 <td data-label="Aksi">
                     <div class="customer-action-group">
@@ -1826,6 +1866,44 @@ ob_start();
             </tr>
         `;
             }).join('');
+        }
+        function calculateIsolationDateFromBillingDay(billingDay) {
+            const today = new Date();
+            let year = today.getFullYear();
+            let month = today.getMonth();
+            let daysInMonth = new Date(year, month + 1, 0).getDate();
+            let day = Math.min(billingDay, daysInMonth);
+            let date = new Date(year, month, day);
+
+            if (date < today) {
+                month++;
+                if (month > 11) {
+                    month = 0;
+                    year++;
+                }
+                daysInMonth = new Date(year, month + 1, 0).getDate();
+                day = Math.min(billingDay, daysInMonth);
+                date = new Date(year, month, day);
+            }
+
+            return date.getFullYear() + '-' +
+                String(date.getMonth() + 1).padStart(2, '0') + '-' +
+                String(date.getDate()).padStart(2, '0');
+        }
+
+        /**
+         * Memperbarui tampilan isolation_date di form
+         */
+        function updateIsolationDisplay(prefix, isoDate) {
+            const display = document.getElementById(prefix + '_isolation_date_display');
+            if (display && isoDate) {
+                const d = new Date(isoDate + 'T00:00:00');
+                display.value = d.toLocaleDateString('id-ID', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            }
         }
 
         async function fetchCustomerSearch(search) {
@@ -2098,6 +2176,20 @@ ob_start();
                 });
             }
 
+            const addSelect = document.getElementById('add_billing_day');
+            if (addSelect) {
+                addSelect.addEventListener('change', function() {
+                    const iso = calculateIsolationDateFromBillingDay(parseInt(this.value));
+                    updateIsolationDisplay('add', iso);
+                });
+                // Trigger awal
+                const initialDay = parseInt(addSelect.value);
+                if (!isNaN(initialDay)) {
+                    updateIsolationDisplay('add', calculateIsolationDateFromBillingDay(initialDay));
+                }
+            }
+
+
             const modal = document.getElementById('pppoeUserModal');
             if (modal) {
                 modal.addEventListener('click', function (e) {
@@ -2219,17 +2311,6 @@ ob_start();
             });
         }
 
-        function formatPhoneNumber(phoneStr) {
-            if (!phoneStr) return '';
-
-            let cleanNumber = phoneStr.replace(/\D/g, '');
-
-            if (cleanNumber.startsWith('0')) {
-                cleanNumber = '62' + cleanNumber.slice(1);
-            }
-
-            return cleanNumber;
-        }
 
         function formatPhoneNumber(phoneStr) {
             if (!phoneStr) return '';
@@ -2495,14 +2576,26 @@ ob_start();
             document.getElementById('edit_pppoe_username').value = customer.pppoe_username;
             document.getElementById('edit_package_id').value = customer.package_id;
             document.getElementById('edit_router_id').value = customer.router_id || 0;
-            if (customer.isolation_date && customer.isolation_date !== '0000-00-00') {
-                document.getElementById('edit_isolation_date').value = customer.isolation_date;
-            } else {
-                const defaultDate = new Date();
-                defaultDate.setMonth(defaultDate.getMonth() + 1);
-                defaultDate.setDate(20);
-                document.getElementById('edit_isolation_date').value = defaultDate.toISOString().slice(0, 10);
+            const editBillingSelect = document.getElementById('edit_billing_day');
+            editBillingSelect.value = customer.billing_day || 20;
+
+            let initialIso = customer.isolation_date;
+            if (!initialIso || initialIso === '0000-00-00') {
+                initialIso = calculateIsolationDateFromBillingDay(parseInt(editBillingSelect.value));
             }
+            updateIsolationDisplay('edit', initialIso);
+
+            if (editBillingSelect._listener) {
+                editBillingSelect.removeEventListener('change', editBillingSelect._listener);
+            }
+            const changeHandler = function() {
+                const billingDay = parseInt(this.value);
+                const newIso = calculateIsolationDateFromBillingDay(billingDay);
+                updateIsolationDisplay('edit', newIso);
+            };
+            editBillingSelect.addEventListener('change', changeHandler);
+// Simpan referensi listener agar bisa dihapus nanti
+            editBillingSelect._listener = changeHandler;
             const autoIsolate = document.getElementById('edit_auto_isolate');
             if (autoIsolate) {
                 autoIsolate.checked = String(customer.auto_isolate ?? 1) === '1';
@@ -3036,6 +3129,29 @@ ob_start();
     </div>
 
     <script>
+        function calculateIsolationDate(billingDay) {
+            const today = new Date();
+            let year = today.getFullYear();
+            let month = today.getMonth();
+            let day = Math.min(billingDay, new Date(year, month+1, 0).getDate());
+            let date = new Date(year, month, day);
+            if (date < today) {
+                month++;
+                if (month > 11) { month = 0; year++; }
+                day = Math.min(billingDay, new Date(year, month+1, 0).getDate());
+                date = new Date(year, month, day);
+            }
+            return date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
+        }
+
+        function updateIsolationDisplay(prefix, isoDate) {
+            const display = document.getElementById(prefix + '_isolation_date_display');
+            if (display && isoDate) {
+                const d = new Date(isoDate + 'T00:00:00');
+                display.value = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+            }
+        }
+
         (function () {
             // ========================
             // Custom Context Menu (Klik Kanan)
@@ -3112,6 +3228,7 @@ ob_start();
                     toggleIcon.className = 'fas fa-lock';
                 }
             }
+
 
             const table = document.querySelector('#customerTable');
             if (table) {
