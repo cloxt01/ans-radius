@@ -73,6 +73,16 @@ Import schema MySQL FreeRADIUS dari:
 ```text
 /etc/freeradius/3.0/mods-config/sql/main/mysql/schema.sql
 ```
+## Preview
+
+`Dashoard`
+<img width="1913" height="870" alt="image" src="https://github.com/user-attachments/assets/6a2abd0a-879c-42ba-be84-0a1816c6dd7f" />
+
+`Customers`
+<img width="1918" height="856" alt="image" src="https://github.com/user-attachments/assets/b06e624e-5c5c-4d6d-8c68-377dc2b78718" />
+
+`Invoice`
+<img width="1892" height="832" alt="image" src="https://github.com/user-attachments/assets/1b448c96-7a12-4833-a42e-f5d599a4be83" />
 
 ## API Endpoints
 
