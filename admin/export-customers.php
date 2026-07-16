@@ -25,6 +25,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
                 p.price as package_price,
                 c.status,
                 c.isolation_date,
+                c.billing_day,
                 c.address,
                 c.lat,
                 c.lng,
@@ -52,7 +53,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
 
         // Header row
         echo '<Row>' . "\n";
-        $headers = ['ID', 'Nama', 'No HP', 'PPPoE Username', 'Last Paid', 'Paket', 'Status', 'Register Date', 'Tgl Isolir', 'Alamat', 'Latitude', 'Longitude'];
+        $headers = ['ID', 'Nama', 'No HP', 'PPPoE Username', 'Last Paid', 'Paket', 'Status', 'Register Date','Tgl Pembayaran', 'Tgl Isolir', 'Alamat', 'Latitude', 'Longitude'];
         foreach ($headers as $header) {
             echo '<Cell><Data ss:Type="String">' . htmlspecialchars($header) . '</Data></Cell>' . "\n";
         }
@@ -69,6 +70,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_excel') {
             echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['package_name'] ?? 'Tanpa Paket') . '</Data></Cell>' . "\n";
             echo '<Cell><Data ss:Type="String">' . ($customer['status'] == 'active' ? 'Aktif' : 'Isolir') . '</Data></Cell>' . "\n";
             echo '<Cell><Data ss:Type="String">' . ($customer['created_at'] ? date('d/m/Y H:i:s', strtotime($customer['created_at'])) : 'N/A') . '</Data></Cell>' . "\n";
+            echo '<Cell><Data ss:Type="String">' . $customer['billing_day'] . '</Data></Cell>' . "\n";
             echo '<Cell><Data ss:Type="String">' . $customer['isolation_date'] . '</Data></Cell>' . "\n";
             echo '<Cell><Data ss:Type="String">' . htmlspecialchars($customer['address'] ?? '') . '</Data></Cell>' . "\n";
             echo '<Cell><Data ss:Type="String">' . ($customer['lat'] ?? '') . '</Data></Cell>' . "\n";
@@ -105,6 +107,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
                 p.name as package_name,
                 p.price as package_price,
                 c.status,
+                c.billing_day,
                 c.isolation_date,
                 c.address,
                 c.lat,
@@ -137,6 +140,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
                 'Last Paid',
                 'Status',
                 'Register Date',
+                'Tgl Pembayaran',
                 'Tgl Isolir',
                 'Alamat',
                 'Latitude',
@@ -154,6 +158,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
                     $customer['paid_at'] ? date('d M Y', strtotime($customer['paid_at'])) : '',
                     $customer['status'] == 'active' ? 'Aktif' : 'Isolir',
                     $customer['created_at'] ? date('d M Y', strtotime($customer['created_at'])) : 'N/A',
+                    $customer['billing_day'],
                     $customer['isolation_date'],
                     $customer['address'] ?? '',
                     $customer['lat'] ?? '',
@@ -335,9 +340,15 @@ ob_start();
                         <td><span class="badge badge-info">Opsional</span></td>
                     </tr>
                     <tr>
-                        <td>Tgl Isolir</td>
-                        <td>Tanggal isolir (1-28)</td>
+                        <td>Tgl Pembayaran</td>
+                        <td>Tanggal pembayaran (1-31)</td>
                         <td>20</td>
+                        <td><span class="badge badge-info">Opsional</span></td>
+                    </tr>
+                    <tr>
+                        <td>Tgl Isolir</td>
+                        <td>Tanggal isolir</td>
+                        <td>2024-06-01</td>
                         <td><span class="badge badge-info">Opsional</span></td>
                     </tr>
                     <tr>

@@ -251,6 +251,7 @@ function calculateNextIsolationDate($customerId): string
     return $customer['isolation_date'] ?? date('Y-m-d');
 }
 
+// From billing dayyy
 function buildIsolationDate(int $billingDay): string
 {
     if ($billingDay <= 0) {
@@ -706,14 +707,15 @@ function isCustomerIsolated($customerId)
     return $customer && $customer['status'] === 'isolated';
 }
 // update isolation date
-function updateIsolationDate($customerId, $isolationDate) {
+function updateIsolationDat($customerId, $isolationDate) {
     $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
     if (!$customer) {
         return false;
     }
 
     $updated = update('customers', [
-        'isolation_date' => $isolationDate
+        'isolation_date' => $isolationDate,
+        'billing_day' => (int)$customer['billing_day'],
     ], 'id = ?', [$customerId]);
     return $updated ? true : false;
 }
