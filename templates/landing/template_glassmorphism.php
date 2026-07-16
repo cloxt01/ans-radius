@@ -303,6 +303,8 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
             max-width: 1100px;
             margin: 0 auto;
             height: 3.75rem;
+            justify-content: space-between;
+            width: 100%;
             display: flex;
             align-items: center;
             gap: 1.5rem;
@@ -368,6 +370,8 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
             color: var(--muted);
             font-size: 0.875rem;
             flex-shrink: 0;
+            margin-left: auto;
+            touch-action: manipulation;
         }
         .mobile-nav {
             display: none;
@@ -406,6 +410,7 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
         HERO
         ============================================================ */
         .hero {
+            overflow: hidden;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -1373,6 +1378,86 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
         }
 
         @media (max-width: 480px) {
+            .overlay {
+                padding: 0;
+                align-items: flex-end;
+            }
+            .dialog {
+                width: 100% !important;
+                max-height: 90vh;
+                border-radius: 20px 20px 0 0; 
+                margin: 0;
+                border: none;
+                border-top: 1px solid var(--card-border);
+            }
+            .dialog.dialog-lg {
+                width: 100% !important;
+            }
+            .dlg-head {
+                padding: 1rem 1.25rem;
+            }
+            .dlg-body {
+                padding: 1rem 1.25rem;
+                max-height: 60vh;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .dlg-foot {
+                padding: 0 1.25rem 1.25rem;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .dlg-foot .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            .dlg-close {
+                width: 2.2rem;
+                height: 2.2rem;
+                font-size: 1rem;
+                border-radius: 50%;
+                background: var(--bg2);
+            }
+
+            .menu-toggle {
+                width: 2.5rem;
+                height: 2.5rem;
+                font-size: 1.1rem;
+                border-radius: 10px;
+                background: var(--bg2);
+                border-color: var(--card-border);
+            }
+            .site-header {
+                padding: 0 0.5rem;
+            }
+            .header-inner {
+                padding: 0 0.75rem;
+                height: 3rem;
+                gap: 0.5rem;
+                width: 100%;
+            }
+
+            .mobile-nav {
+                padding: 0.75rem 1rem 1.25rem;
+                gap: 0.125rem;
+                max-height: 70vh;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .mobile-nav a {
+                padding: 0.75rem 0.5rem;
+                font-size: 1rem;
+                border-bottom: 1px solid var(--card-border);
+            }
+            .mobile-nav-btns {
+                padding-top: 0.75rem;
+                gap: 0.75rem;
+            }
+            .mobile-nav-btns .btn {
+                padding: 0.75rem;
+                font-size: 1rem;
+                min-height: 48px;
+            }
             .header-inner {
                 padding: 0 0.75rem;
                 height: 3rem;
