@@ -716,7 +716,6 @@ $pageDescription = $config['description'];
     <div class="navbar-inner glass">
       <a class="brand" href="index.php">
         <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" alt="<?php echo htmlspecialchars(APP_NAME); ?>" width="36" height="36">
-        <span><?php echo htmlspecialchars(APP_NAME); ?></span>
       </a>
       <div class="nav-actions">
         <a class="nav-chip <?php echo $page === 'about' ? 'active' : ''; ?>" href="?page=about">

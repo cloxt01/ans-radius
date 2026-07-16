@@ -203,7 +203,7 @@ $privacySections = [
     <nav class="navbar glass" aria-label="Navigasi utama">
       <a class="brand" href="index.php">
         <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" alt="<?php echo htmlspecialchars(APP_NAME); ?>" width="42" height="42">
-        <span><?php echo htmlspecialchars(APP_NAME); ?></span>
+
       </a>
       <div class="nav-actions">
         <a class="nav-chip" href="about.php"><i class="fa-solid fa-circle-info"></i> Tentang</a>
