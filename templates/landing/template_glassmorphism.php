@@ -80,6 +80,16 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
         return $visible;
     }
 }
+$settings = [];
+try {
+    $settingsData = fetchAll("SELECT * FROM settings");
+    foreach ($settingsData as $s) {
+        $settings[$s['setting_key']] = $s['setting_value'];
+    }
+} catch (Exception $e) {
+    logError('Failed to load settings: ' . $e->getMessage());
+    setFlash('error', 'Gagal memuat pengaturan');
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -1682,9 +1692,9 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
                             Berlangganan Sekarang
                             <i class="fas fa-arrow-right" aria-hidden="true"></i>
                         </button>
-                        <a href="<?php echo htmlspecialchars($s_wa ?? '#'); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
+                        <a href="<?php echo htmlspecialchars((isset($settings['WHATSAPP_ADMIN_NUMBER']) ? "https://wa.me/".$settings['WHATSAPP_ADMIN_NUMBER'] : false) ?? ''); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
+                            Whatsapp
                             <i class="fab fa-whatsapp" aria-hidden="true"></i>
-                            WhatsApp
                         </a>
                     </div>
                     <div class="hero-trust">
