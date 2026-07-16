@@ -1,26 +1,57 @@
 ﻿<?php
 /**
  * Landing Page — Premium Glass Theme
- * Modern, dark, glassmorphism, startup-style
+ * Modern, light, clean, startup-style
  */
 
+require_once __DIR__ . '/../../includes/config.php';
+
+// ============================================================
+// LOAD SETTINGS
+// ============================================================
+$settings = [];
+try {
+    $settingsData = fetchAll("SELECT * FROM settings");
+    foreach ($settingsData as $s) {
+        $settings[$s['setting_key']] = $s['setting_value'];
+    }
+} catch (Exception $e) {
+    // fallback, settings will be empty
+}
+
+// ============================================================
+// LOAD PACKAGES
+// ============================================================
+$packages = fetchAll("SELECT * FROM packages WHERE name NOT REGEXP ' v[0-9]+$' ORDER BY price ASC");
+
+// ============================================================
+// LOAD FAQS (optional)
+// ============================================================
+$faqs = fetchAll("SELECT * FROM faqs WHERE is_active = 1 ORDER BY sort_order ASC");
+
+// ============================================================
+// DEFAULT PACKAGE SERVICES & TYPES
+// ============================================================
 $defaultPackageServices = [];
 $defaultPackageServiceTypes = [
-        'router_2'       => 'router',
-        'member_2'       => 'pppoe',
-        'voucher_5000'   => 'voucher',
-        'online_250'     => 'online',
-        'vpn_radius'     => 'vpn',
-        'vpn_remote'     => 'vpn',
-        'wa_notif'       => 'general',
-        'payment_gateway'=> 'general',
-        'client_area'    => 'general',
-        'custom_domain'  => 'general',
-        'annual_12m'     => 'general',
+    'router_2'       => 'router',
+    'member_2'       => 'pppoe',
+    'voucher_5000'   => 'voucher',
+    'online_250'     => 'online',
+    'vpn_radius'     => 'vpn',
+    'vpn_remote'     => 'vpn',
+    'wa_notif'       => 'general',
+    'payment_gateway'=> 'general',
+    'client_area'    => 'general',
+    'custom_domain'  => 'general',
+    'annual_12m'     => 'general',
 ];
 $packageFeatureList  = $defaultPackageServices;
 $packageFeatureTypes = $defaultPackageServiceTypes;
 
+// ============================================================
+// HELPER FUNCTIONS (for package services)
+// ============================================================
 if (!function_exists('modernUltraPackageServices')) {
     function modernUltraPackageServices($pkg) {
         $raw = (string)($pkg['package_services'] ?? '');
@@ -64,10 +95,10 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
         foreach ($featureList as $key => $name) {
             $type = modernUltraResolveServiceType($key, $featureTypes);
             $groups[$type][] = [
-                    'key'      => (string)$key,
-                    'name'     => (string)$name,
-                    'weight'   => modernUltraServiceWeight($key, $name),
-                    'included' => modernUltraServiceActive($pkg, $key),
+                'key'      => (string)$key,
+                'name'     => (string)$name,
+                'weight'   => modernUltraServiceWeight($key, $name),
+                'included' => modernUltraServiceActive($pkg, $key),
             ];
         }
         $visible = [];
@@ -80,16 +111,77 @@ if (!function_exists('modernUltraBuildVisibleServiceMap')) {
         return $visible;
     }
 }
-$settings = [];
+
+// ============================================================
+// DETERMINE MOST POPULAR PACKAGE (based on customer count)
+// ============================================================
+$featuredPackageId = null;
+
 try {
-    $settingsData = fetchAll("SELECT * FROM settings");
-    foreach ($settingsData as $s) {
-        $settings[$s['setting_key']] = $s['setting_value'];
+    $popularPkg = fetchOne(
+        "SELECT package_id, COUNT(*) as total 
+         FROM customers 
+         WHERE status = 'active' AND package_id IS NOT NULL 
+         GROUP BY package_id 
+         ORDER BY total DESC 
+         LIMIT 1"
+    );
+    if ($popularPkg && !empty($popularPkg['package_id'])) {
+        $featuredPackageId = (int)$popularPkg['package_id'];
     }
 } catch (Exception $e) {
-    logError('Failed to load settings: ' . $e->getMessage());
-    setFlash('error', 'Gagal memuat pengaturan');
+    // fallback to median price
 }
+
+// Fallback: if no popular package found, use median price
+if ($featuredPackageId === null && !empty($packages)) {
+    $prices = array_column($packages, 'price');
+    sort($prices);
+    $count = count($prices);
+    if ($count % 2 === 0) {
+        $median = ($prices[$count/2 - 1] + $prices[$count/2]) / 2;
+    } else {
+        $median = $prices[floor($count/2)];
+    }
+    $minDiff = PHP_FLOAT_MAX;
+    foreach ($packages as $pkg) {
+        $diff = abs($pkg['price'] - $median);
+        if ($diff < $minDiff) {
+            $minDiff = $diff;
+            $featuredPackageId = $pkg['id'];
+        }
+    }
+}
+
+// Final fallback: first package
+if ($featuredPackageId === null && !empty($packages)) {
+    $featuredPackageId = $packages[0]['id'];
+}
+
+// ============================================================
+// VARIABLES FROM SETTINGS (with fallback)
+// ============================================================
+$heroTitle = $settings['HERO_TITLE'] ?? 'Internet Cepat & Stabil untuk Rumah dan Bisnis';
+$footerAbout = $settings['FOOTER_ABOUT'] ?? 'ISP lokal dengan fokus pada stabilitas jaringan dan kepuasan pelanggan.';
+$contactPhone = $settings['CONTACT_PHONE'] ?? '';
+$contactEmail = $settings['CONTACT_EMAIL'] ?? '';
+$s_wa = $settings['WHATSAPP_ADMIN_NUMBER'] ?? '';
+$s_fb = $settings['FACEBOOK_URL'] ?? '';
+$s_ig = $settings['INSTAGRAM_URL'] ?? '';
+$s_tw = $settings['TWITTER_URL'] ?? '';
+$s_yt = $settings['YOUTUBE_URL'] ?? '';
+
+// Count total active customers for stats
+$totalCustomers = 0;
+try {
+    $totalCust = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'active'");
+    if ($totalCust) {
+        $totalCustomers = (int)$totalCust['total'];
+    }
+} catch (Exception $e) {
+    // ignore
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -111,7 +203,6 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
     <style>
-    
         /* ============================================================
         DESIGN TOKENS — PREMIUM LIGHT SAAS THEME
         ============================================================ */
@@ -1682,7 +1773,7 @@ try {
                         <i class="fas fa-circle" style="font-size:0.4rem" aria-hidden="true"></i>
                         Active
                     </div>
-                    <h1><?php echo strip_tags($heroTitle); ?></h1>
+                    <h1><?php echo htmlspecialchars($heroTitle); ?></h1>
                     <p>
                         Streaming 4K, gaming, meeting, dan kebutuhan bisnis
                         tanpa gangguan dengan jaringan fiber generasi terbaru.
@@ -1692,9 +1783,9 @@ try {
                             Berlangganan Sekarang
                             <i class="fas fa-arrow-right" aria-hidden="true"></i>
                         </button>
-                        <a href="<?php echo htmlspecialchars((isset($settings['WHATSAPP_ADMIN_NUMBER']) ? "https://wa.me/".$settings['WHATSAPP_ADMIN_NUMBER'] : false) ?? ''); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
-                            Whatsapp
+                        <a href="<?php echo htmlspecialchars($s_wa ? 'https://wa.me/'.$s_wa : '#'); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
                             <i class="fab fa-whatsapp" aria-hidden="true"></i>
+                            WhatsApp
                         </a>
                     </div>
                     <div class="hero-trust">
@@ -1703,7 +1794,7 @@ try {
                             <span>Uptime</span>
                         </div>
                         <div>
-                            <h3>5000+</h3>
+                            <h3><?php echo number_format($totalCustomers); ?>+</h3>
                             <span>Pelanggan</span>
                         </div>
                         <div>
@@ -1856,10 +1947,10 @@ try {
                 <p>Tidak ada biaya setup tersembunyi. Semua paket sudah termasuk instalasi dan perangkat dasar.</p>
             </div>
             <div class="pricing-grid reveal">
-                <?php foreach ($packages as $idx => $pkg):
-                    $featured = $idx === 1;
+                <?php foreach ($packages as $pkg):
+                    $featured = ($pkg['id'] == $featuredPackageId);
                     $vm = modernUltraBuildVisibleServiceMap($pkg, $packageFeatureList, $packageFeatureTypes);
-                    ?>
+                ?>
                     <div class="plan-cell <?php echo $featured ? 'featured' : ''; ?>">
                         <?php if ($featured): ?>
                             <div class="plan-featured-tag">— Paling Populer</div>
@@ -1876,7 +1967,7 @@ try {
                                 <?php foreach ($packageFeatureList as $key => $name):
                                     if (empty($vm[$key])) continue;
                                     $inc = modernUltraServiceActive($pkg, $key);
-                                    ?>
+                                ?>
                                     <li class="<?php echo $inc ? '' : 'f-miss'; ?>">
                                         <i class="fas <?php echo $inc ? 'fa-check' : 'fa-minus'; ?>" aria-hidden="true"></i>
                                         <?php echo htmlspecialchars($name); ?>
@@ -1940,7 +2031,7 @@ try {
                 <p>Daftar sekarang — survey hingga aktivasi gratis, tim kami yang urus semuanya.</p>
                 <div class="cta-actions">
                     <button type="button" class="btn btn-primary btn-lg" id="ctaReg">Daftar Berlangganan</button>
-                    <a href="<?php echo htmlspecialchars($s_wa ?? '#'); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
+                    <a href="<?php echo htmlspecialchars($s_wa ? 'https://wa.me/'.$s_wa : '#'); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
                         <i class="fab fa-whatsapp" aria-hidden="true"></i>
                         Tanya via WhatsApp
                     </a>
@@ -1958,14 +2049,14 @@ try {
             <a href="#" class="brand">
                 <img src="<?php echo APP_URL; ?>/assets/icons/icon.png" class="brand-logo" alt="">
             </a>
-            <p class="footer-about"><?php echo htmlspecialchars($footerAbout ?? 'ISP lokal dengan fokus pada stabilitas jaringan dan kepuasan pelanggan.'); ?></p>
+            <p class="footer-about"><?php echo htmlspecialchars($footerAbout); ?></p>
         </div>
         <div class="footer-grid">
             <div class="footer-col">
                 <h4>Kontak</h4>
                 <ul>
-                    <li><?php echo htmlspecialchars($contactPhone ?? ''); ?></li>
-                    <li><?php echo htmlspecialchars($contactEmail ?? ''); ?></li>
+                    <li><?php echo htmlspecialchars($contactPhone); ?></li>
+                    <li><?php echo htmlspecialchars($contactEmail); ?></li>
                 </ul>
             </div>
             <div class="footer-col">
