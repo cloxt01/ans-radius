@@ -577,7 +577,16 @@ function sendReminders($pdo)
         $message .= getWhatsAppFooter();
 
         echo "  Sending reminder to: {$invoice['name']} ({$invoice['phone']})\n";
-        sendWhatsApp($invoice['phone'], $message);
+        $send = sendWhatsApp($invoice['phone'], $message);
+
+        if($send) {
+            echo "  ✓ Reminder sent successfully\n";
+        } else {
+            echo "  ✗ Failed to send reminder\n";
+        }
+        $interval = rand(5,30);
+        echo "  Waiting {$interval} seconds before next reminder...\n";
+        sleep($interval);
     }
 }
 
