@@ -390,7 +390,17 @@ function runAutoIsolir($pdo)
             $message .= "Mohon segera lakukan pembayaran untuk mengaktifkan kembali koneksi internet Anda.\n\n";
             $message .= "Terima kasih.";
             $message .= getWhatsAppFooter();
-            sendWhatsApp($customer['phone'], $message);
+
+            $send = sendWhatsApp($customer['phone'], $message);
+
+            if($send) {
+                echo "  ✓ Reminder sent successfully\n";
+            } else {
+                echo "  ✗ Failed to send reminder\n";
+            }
+            $interval = rand(5,30);
+            echo "  Waiting {$interval} seconds before next reminder...\n";
+            sleep($interval);  
 
         } else {
             echo "  ✗ Failed to isolate customer\n";
@@ -586,7 +596,7 @@ function sendReminders($pdo)
         }
         $interval = rand(5,30);
         echo "  Waiting {$interval} seconds before next reminder...\n";
-        sleep($interval);
+        sleep($interval);       
     }
 }
 
