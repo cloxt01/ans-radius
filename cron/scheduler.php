@@ -563,6 +563,9 @@ function sendReminders($pdo)
         WHERE i.status = 'unpaid'
         AND i.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
         AND c.status = 'active'
+        AND NOT EXISTS (
+            SELECT 1 FROM fiktif_customers fc WHERE fc.customer_id = c.id
+        )
         AND i.due_date = (
             SELECT MIN(i2.due_date)
             FROM invoices i2
@@ -571,7 +574,6 @@ function sendReminders($pdo)
             AND i2.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
         )
     ");
-
     echo "Found " . count($upcomingInvoices) . " upcoming invoice reminders\n";
 
     foreach ($upcomingInvoices as $invoice) {
