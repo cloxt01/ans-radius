@@ -64,13 +64,26 @@ function runScheduler()
 {
     global $schedulerTimezone;
 
+    $lockFile = __DIR__ . '/scheduler.lock';
+    $lockFp = fopen($lockFile, 'c');
+
+    if (!$lockFp || !flock($lockFp, LOCK_EX | LOCK_NB)) {
+        writeLog("Scheduler masih berjalan (locked), skip run ini.", "SKIP");
+        if ($lockFp) fclose($lockFp);
+        return;
+    }
+
+    register_shutdown_function(function () use ($lockFp) {
+        flock($lockFp, LOCK_UN);
+        fclose($lockFp);
+    });
+
     writeLog("=== CRON SCHEDULER STARTED ===", "START");
 
     try {
         $pdo = getDB();
         applySchedulerDatabaseTimezone($pdo, $schedulerTimezone);
 
-        // Get all active schedules
         $now = date('Y-m-d H:i:s');
 
         $schedules = fetchAll("
@@ -94,7 +107,6 @@ function runScheduler()
             $startTime = microtime(true);
             $status    = 'started';
 
-            // Mulai output buffering untuk menangkap semua output
             ob_start();
 
             try {
@@ -132,23 +144,18 @@ function runScheduler()
                 $status = 'failed';
             }
 
-            // Tangkap semua output
             $output        = ob_get_clean();
             $executionTime = round(microtime(true) - $startTime, 2);
 
-            // Tulis output ke log
             if (!empty($output)) {
                 writeLog("OUTPUT:\n" . trim($output), "TASK");
             }
 
-            // Update schedule
             update('cron_schedules', [
                 'last_run'    => date('Y-m-d H:i:s'),
                 'last_status' => $status,
                 'next_run'    => calculateNextRun($schedule)
             ], 'id = ?', [$schedule['id']]);
-
-            // Log execution ke database
 
             $pdo->prepare("INSERT INTO cron_logs (schedule_id, status, execution_time, created_at) VALUES (?, ?, ?, ?)")
                 ->execute([$schedule['id'], $status, $executionTime, $now]);
