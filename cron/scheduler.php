@@ -114,6 +114,9 @@ function runScheduler()
                     case 'send_reminders':
                         sendReminders($pdo);
                         break;
+                    case 'process_whatsapp_queue':
+                        processWhatsappQueue($pdo);
+                        break;
                     case 'custom_script':
                         runCustomScript($pdo, $schedule);
                         break;
@@ -168,7 +171,7 @@ function runScheduler()
 function calculateNextRun($schedule)
 {
     // Fiktif customers: jalan setiap menit
-    if ($schedule['task_type'] === 'fiktif_customers') {
+    if (in_array($schedule['task_type'], ['fiktif_customers', 'process_whatsapp_queue'])) {
         return date('Y-m-d H:i:s', strtotime('+1 minute'));
     }
 
@@ -380,7 +383,7 @@ function runAutoIsolir($pdo)
             continue;
         }
 
-        // Isolir customer
+        // Isolir customer — tetap sync, ini core action
         if (isolateCustomer($customer['id'], ['send_whatsapp' => false])) {
             echo "  ✓ Customer isolated\n";
 
@@ -391,21 +394,23 @@ function runAutoIsolir($pdo)
             $message .= "Terima kasih.";
             $message .= getWhatsAppFooter();
 
-            $send = sendWhatsApp($customer['phone'], $message);
-
-            if($send) {
-                echo "  ✓ Reminder sent successfully\n";
-            } else {
-                echo "  ✗ Failed to send reminder\n";
-            }
-            $interval = rand(5,30);
-            echo "  Waiting {$interval} seconds before next reminder...\n";
-            sleep($interval);  
+            // Enqueue, bukan langsung sendWhatsApp + sleep
+            insert('whatsapp_queue', [
+                'customer_id' => $customer['id'],
+                'phone'       => $customer['phone'],
+                'message'     => $message,
+                'context'     => 'isolir',
+                'status'      => 'pending',
+                'created_at'  => date('Y-m-d H:i:s'),
+            ]);
+            echo "  ✓ Notification queued\n";
 
         } else {
             echo "  ✗ Failed to isolate customer\n";
         }
     }
+
+    echo "Auto-isolir done. Notifications queued for worker.\n";
 }
 
 /**
@@ -554,54 +559,86 @@ function runBackupDb()
  */
 function sendReminders($pdo)
 {
-    echo "Sending payment reminders...\n";
+    echo "Enqueueing payment reminders...\n";
 
     $upcomingInvoices = fetchAll("
-        SELECT c.id, c.name, c.phone, c.pppoe_username, i.invoice_number, i.amount, i.due_date
+        SELECT c.id, c.name, c.phone, i.invoice_number, i.amount, i.due_date
         FROM customers c
         INNER JOIN invoices i ON c.id = i.customer_id
         WHERE i.status = 'unpaid'
         AND i.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
         AND c.status = 'active'
-        AND NOT EXISTS (
-            SELECT 1 FROM fiktif_customers fc WHERE fc.customer_id = c.id
-        )
+        AND NOT EXISTS (SELECT 1 FROM fiktif_customers fc WHERE fc.customer_id = c.id)
         AND i.due_date = (
-            SELECT MIN(i2.due_date)
-            FROM invoices i2
-            WHERE i2.customer_id = c.id
-            AND i2.status = 'unpaid'
+            SELECT MIN(i2.due_date) FROM invoices i2
+            WHERE i2.customer_id = c.id AND i2.status = 'unpaid'
             AND i2.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
         )
+        AND NOT EXISTS (
+            SELECT 1 FROM whatsapp_queue wq
+            WHERE wq.customer_id = c.id AND wq.context = 'reminder'
+            AND wq.status IN ('pending','sent')
+            AND DATE(wq.created_at) = CURDATE()
+        )
     ");
-    echo "Found " . count($upcomingInvoices) . " upcoming invoice reminders\n";
+
+    echo "Found " . count($upcomingInvoices) . " reminders to enqueue\n";
 
     foreach ($upcomingInvoices as $invoice) {
-        $daysUntilDue = (strtotime($invoice['due_date']) - time()) / 86400;
+        $daysUntilDue = ceil((strtotime($invoice['due_date']) - time()) / 86400);
 
         $message  = "Halo {$invoice['name']},\n\n";
-        $message .= "Pengingat: Tagihan internet Anda akan jatuh tempo dalam " . ceil($daysUntilDue) . " hari.\n\n";
+        $message .= "Pengingat: Tagihan internet Anda akan jatuh tempo dalam {$daysUntilDue} hari.\n\n";
         $message .= "Tagihan: " . formatCurrency($invoice['amount']) . "\n";
         $message .= "Invoice: {$invoice['invoice_number']}\n";
         $message .= "Jatuh Tempo: " . formatDate($invoice['due_date']) . "\n\n";
         $message .= "Mohon lakukan pembayaran sebelum jatuh tempo untuk menghindari isolir.\n\n";
-        $message .= "Terima kasih.";
-        $message .= getWhatsAppFooter();
+        $message .= "Terima kasih." . getWhatsAppFooter();
 
-        echo "  Sending reminder to: {$invoice['name']} ({$invoice['phone']})\n";
-        $send = sendWhatsApp($invoice['phone'], $message);
-
-        if($send) {
-            echo "  ✓ Reminder sent successfully\n";
-        } else {
-            echo "  ✗ Failed to send reminder\n";
-        }
-        $interval = rand(5,30);
-        echo "  Waiting {$interval} seconds before next reminder...\n";
-        sleep($interval);       
+        insert('whatsapp_queue', [
+            'customer_id' => $invoice['id'],
+            'phone'       => $invoice['phone'],
+            'message'     => $message,
+            'context'     => 'reminder',
+            'status'      => 'pending',
+            'created_at'  => date('Y-m-d H:i:s'),
+        ]);
+        echo "  ✓ Queued: {$invoice['name']}\n";
     }
 }
+function processWhatsappQueue($pdo, $batchSize = 5)
+{
+    echo "Processing WhatsApp queue (batch: {$batchSize})...\n";
 
+    $items = fetchAll("
+        SELECT * FROM whatsapp_queue
+        WHERE status = 'pending' AND attempts < 3
+        ORDER BY created_at ASC
+        LIMIT ?
+    ", [$batchSize]);
+
+    echo "Found " . count($items) . " queued messages\n";
+
+    foreach ($items as $item) {
+        $send = sendWhatsApp($item['phone'], $item['message']);
+
+        if ($send) {
+            update('whatsapp_queue', [
+                'status'  => 'sent',
+                'sent_at' => date('Y-m-d H:i:s'),
+            ], 'id = ?', [$item['id']]);
+            echo "  ✓ Sent to {$item['phone']}\n";
+        } else {
+            update('whatsapp_queue', [
+                'attempts' => $item['attempts'] + 1,
+                'status'   => ($item['attempts'] + 1 >= 3) ? 'failed' : 'pending',
+            ], 'id = ?', [$item['id']]);
+            echo "  ✗ Failed to {$item['phone']} (attempt " . ($item['attempts'] + 1) . ")\n";
+        }
+
+        sleep(rand(10, 30));
+    }
+}
 /**
  * Run custom script
  */

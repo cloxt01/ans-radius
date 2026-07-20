@@ -732,6 +732,9 @@ function isolateCustomer($customerId, $options = [])
         return true;
     }
 
+    // Fiktif customer: jangan disconnect MikroTik, jangan kirim reminder WA
+    $isFiktif = fetchOne("SELECT customer_id FROM fiktif_customers WHERE customer_id = ?", [$customerId]);
+
     // Update status
     update('customers', ['status' => 'isolated'], 'id = ?', [$customerId]);
 
@@ -743,8 +746,13 @@ function isolateCustomer($customerId, $options = [])
     }
 
     if ($package && !empty($customer['pppoe_username']) && !empty($package['profile_isolir'])) {
-        mikrotikSetProfile($customer['pppoe_username'], $package['profile_isolir'], $customer['router_id']);
+
         radiusUpdateUserProfile($customer['pppoe_username'], $package['profile_isolir']);
+        if ($isFiktif) {
+            logActivity('ISOLATE_CUSTOMER', "Customer ID: {$customerId} (fiktif — skip MikroTik & WhatsApp)");
+            return true;
+        }
+        mikrotikSetProfile($customer['pppoe_username'], $package['profile_isolir'], $customer['router_id']);
         mikrotikRemoveActiveSessionByName($customer['pppoe_username']);
 
         if ($sendWhatsapp) {

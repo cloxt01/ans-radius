@@ -650,6 +650,20 @@ function createDatabaseTables() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (schedule_id) REFERENCES cron_schedules(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    CREATE TABLE whatsapp_queue (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        customer_id INT NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        message TEXT NOT NULL,
+        context VARCHAR(50) NOT NULL, -- 'reminder', 'isolir', dll
+        status ENUM('pending','sent','failed') DEFAULT 'pending',
+        attempts INT DEFAULT 0,
+        created_at DATETIME NOT NULL,
+        sent_at DATETIME NULL
+    );
+
+    
     
     CREATE TABLE IF NOT EXISTS webhook_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,
