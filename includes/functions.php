@@ -721,6 +721,11 @@ function updateIsolationDat($customerId, $isolationDate) {
 }
 // Isolate customer
 
+function isFiktif($customerId)
+{
+    $isFiktif = fetchOne("SELECT customer_id FROM fiktif_customers WHERE customer_id = ?", [$customerId]);
+    return $isFiktif ? true : false;
+}
 function isolateCustomer($customerId, $options = [])
 {
     $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
@@ -733,7 +738,7 @@ function isolateCustomer($customerId, $options = [])
     }
 
     // Fiktif customer: jangan disconnect MikroTik, jangan kirim reminder WA
-    $isFiktif = fetchOne("SELECT customer_id FROM fiktif_customers WHERE customer_id = ?", [$customerId]);
+    $isFiktif = isFiktif($customerId);
 
     // Update status
     update('customers', ['status' => 'isolated'], 'id = ?', [$customerId]);

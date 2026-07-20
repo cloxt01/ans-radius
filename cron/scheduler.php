@@ -385,8 +385,12 @@ function runAutoIsolir($pdo)
 
         // Isolir customer — tetap sync, ini core action
         if (isolateCustomer($customer['id'], ['send_whatsapp' => false])) {
-            echo "  ✓ Customer isolated\n";
-
+            $isFiktif = isFiktif($customer['id']);
+            echo (($isFiktif ? "✓ [F] Customer" : "✓ [R] Customer") . " isolated successfully\n");
+            if($isFiktif) {
+                echo "  ⚠ Customer is fiktif, skipping WhatsApp notification\n";
+                continue;
+            }
             $message  = "Halo {$customer['name']},\n\n";
             $message .= "Koneksi internet Anda telah diisolir karena belum melakukan pembayaran tagihan.\n\n";
             $message .= "Tanggal isolasi: " . date('d/m/Y', strtotime($customer['isolation_date'])) . "\n\n";
@@ -568,7 +572,6 @@ function sendReminders($pdo)
         WHERE i.status = 'unpaid'
         AND i.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
         AND c.status = 'active'
-        AND NOT EXISTS (SELECT 1 FROM fiktif_customers fc WHERE fc.customer_id = c.id)
         AND i.due_date = (
             SELECT MIN(i2.due_date) FROM invoices i2
             WHERE i2.customer_id = c.id AND i2.status = 'unpaid'
@@ -582,9 +585,16 @@ function sendReminders($pdo)
         )
     ");
 
-    echo "Found " . count($upcomingInvoices) . " reminders to enqueue\n";
+    echo "Found " . count($upcomingInvoices) . " candidate invoices\n";
+
+    $queuedCount = 0;
 
     foreach ($upcomingInvoices as $invoice) {
+        // Skip fiktif customers — mereka di-handle oleh processFiktifCustomer(), bukan reminder manual
+        if (isFiktif($invoice['id'])) {
+            continue;
+        }
+
         $daysUntilDue = ceil((strtotime($invoice['due_date']) - time()) / 86400);
 
         $message  = "Halo {$invoice['name']},\n\n";
@@ -603,8 +613,12 @@ function sendReminders($pdo)
             'status'      => 'pending',
             'created_at'  => date('Y-m-d H:i:s'),
         ]);
-        echo "  ✓ Queued: {$invoice['name']}\n";
+
+        echo "  ✓ [A] Queued: {$invoice['name']}\n";
+        $queuedCount++;
     }
+
+    echo "Total queued: {$queuedCount}\n";
 }
 function processWhatsappQueue($pdo, $batchSize = 5)
 {
@@ -636,7 +650,7 @@ function processWhatsappQueue($pdo, $batchSize = 5)
             echo "  ✗ Failed to {$item['phone']} (attempt " . ($item['attempts'] + 1) . ")\n";
         }
 
-        sleep(rand(10, 30));
+        sleep(rand(3, 8));
     }
 }
 /**
