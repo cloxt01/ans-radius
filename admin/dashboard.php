@@ -43,30 +43,22 @@ $recentCustomers = fetchAll("
 
 // Get monthly revenue for chart (last 6 months)
 $monthlyData = [];
-for ($i = 5; $i >= 0; $i--) {
-    $month = date('Y-m', strtotime("-{$i} months"));
-    $monthName = date('M', strtotime("-{$i} months"));
-    
-    $revenue = fetchOne("
-        SELECT COALESCE(SUM(amount), 0) as total 
-        FROM invoices 
-        WHERE status = 'paid' 
-        AND due_date IS NOT NULL
-        AND DATE_FORMAT(due_date, '%Y-%m') = ?
-    ", [$month])['total'] ?? 0;
-    
-    $count = fetchOne("
-        SELECT COUNT(*) as total 
-        FROM customers 
-        WHERE DATE_FORMAT(created_at, '%Y-%m') = ?
-    ", [$month])['total'] ?? 0;
-    
-    $monthlyData[] = [
-        'month' => $monthName,
-        'revenue' => (float) $revenue,
-        'count' => (int) $count
-    ];
-}
+
+$monthNames = [
+    1 => 'Jan',
+    2 => 'Feb',
+    3 => 'Mar',
+    4 => 'Apr',
+    5 => 'Mei',
+    6 => 'Jun',
+    7 => 'Jul',
+    8 => 'Agu',
+    9 => 'Sep',
+    10 => 'Okt',
+    11 => 'Nov',
+    12 => 'Des'
+];
+
 
 // Get unpaid invoices
 $overdueInvoices = fetchOne("

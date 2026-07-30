@@ -627,7 +627,7 @@ function sendReminders($pdo)
 
     echo "Total queued: {$queuedCount}\n";
 }
-function processWhatsappQueue($pdo, $batchSize = 5)
+function processWhatsappQueue($pdo, $batchSize = 1)
 {
     echo "Processing WhatsApp queue (batch: {$batchSize})...\n";
 
