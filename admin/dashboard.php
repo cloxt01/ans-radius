@@ -41,6 +41,8 @@ $recentCustomers = fetchAll("
     LIMIT 5
 ");
 
+
+// Get monthly revenue for chart (last 6 months)
 // Get monthly revenue for chart (last 6 months)
 $monthlyData = [];
 
@@ -59,7 +61,36 @@ $monthNames = [
     12 => 'Des'
 ];
 
+$current = new DateTime('first day of this month');
 
+for ($i = 5; $i >= 0; $i--) {
+
+    $date = clone $current;
+    $date->modify("-{$i} month");
+
+    $month = $date->format('Y-m');
+    $monthName = $monthNames[(int)$date->format('n')];
+
+    $revenue = fetchOne("
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM invoices
+        WHERE status = 'paid'
+        AND due_date IS NOT NULL
+        AND DATE_FORMAT(due_date, '%Y-%m') = ?
+    ", [$month])['total'] ?? 0;
+
+    $count = fetchOne("
+        SELECT COUNT(*) as total
+        FROM customers
+        WHERE DATE_FORMAT(created_at, '%Y-%m') = ?
+    ", [$month])['total'] ?? 0;
+
+    $monthlyData[] = [
+        'month' => $monthName,
+        'revenue' => (float)$revenue,
+        'count' => (int)$count,
+    ];
+}
 // Get unpaid invoices
 $overdueInvoices = fetchOne("
     SELECT COUNT(*) as total 
@@ -909,6 +940,7 @@ ob_start();
     </div>
 
 </div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
