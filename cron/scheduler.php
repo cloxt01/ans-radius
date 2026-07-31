@@ -728,5 +728,4 @@ function runCustomScript($pdo, $schedule)
 
     echo "  ✓ Custom script selesai dijalankan.\n";
 }
-
 echo "\n";

@@ -43,7 +43,6 @@ $recentCustomers = fetchAll("
 
 
 // Get monthly revenue for chart (last 6 months)
-// Get monthly revenue for chart (last 6 months)
 $monthlyData = [];
 
 $monthNames = [
