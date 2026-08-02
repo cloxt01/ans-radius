@@ -485,6 +485,8 @@ function logActivity($action, $details = '')
     file_put_contents($logFile, $logMessage, FILE_APPEND);
 }
 
+
+
 function actionLog($action, string $workdir, string $msg, string $data = '') {
     $logFile = __DIR__ . '/../logs/action.log';
     $logDir = dirname($logFile);

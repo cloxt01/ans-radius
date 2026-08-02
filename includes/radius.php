@@ -6,9 +6,6 @@
 
 /**
  * Helper terpusat untuk logging error database.
- * Semua error yang berhubungan dengan koneksi/query DB (main & radius)
- * konsisten ditulis ke logs/db_error.log, sekaligus tetap memanggil
- * logError() biasa (jika ada) supaya masuk log umum juga.
  */
 function logDbError($message)
 {
@@ -30,7 +27,6 @@ function radiusDbConnection()
 {
     static $pdo = null;
 
-    // Create logs directory if not exists
     $logDir = __DIR__ . '/../logs/';
     if (!is_dir($logDir)) {
         mkdir($logDir, 0777, true);
@@ -62,6 +58,38 @@ function radiusDbConnection()
     return $pdo;
 }
 
+/**
+ * Query helper KHUSUS untuk tabel radius (radcheck, radusergroup, radreply,
+ * radgroupreply, radgroupcheck, nas, hotspot_profiles).
+ * PENTING: pakai koneksi radiusDbConnection() (host RADIUS_DB_HOST), BUKAN
+ * getDB()/query() global yang connect ke DB_HOST (main DB) - karena kedua
+ * host itu server fisik yang BEDA, tidak bisa cross-server query.
+ */
+function radiusQuery($sql, $params = [])
+{
+    try {
+        $pdo = radiusDbConnection();
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt;
+    } catch (PDOException $e) {
+        logDbError('Radius Query Error: ' . $e->getMessage() . ' | SQL: ' . $sql);
+        return false;
+    }
+}
+
+function radiusFetchAll($sql, $params = [])
+{
+    $stmt = radiusQuery($sql, $params);
+    return $stmt ? $stmt->fetchAll() : [];
+}
+
+function radiusFetchOne($sql, $params = [])
+{
+    $stmt = radiusQuery($sql, $params);
+    return $stmt ? $stmt->fetch() : null;
+}
+
 function radiusBeginTransaction()
 {
     radiusDbConnection()->beginTransaction();
@@ -79,12 +107,9 @@ function radiusRollback()
 
 function radiusQualifiedTable($table)
 {
-    $db = defined('RADIUS_DB_NAME') ? trim((string) RADIUS_DB_NAME) : '';
-    if ($db === '') {
-        return $table;
-    }
-
-    return '`' . str_replace('`', '', $db) . '`.`' . str_replace('`', '', (string) $table) . '`';
+    // Koneksi radius sudah langsung ke database radius_db (RADIUS_DB_HOST),
+    // jadi tidak perlu prefix nama database lagi.
+    return '`' . str_replace('`', '', (string) $table) . '`';
 }
 
 function radiusDisplayNas()
@@ -181,7 +206,7 @@ function radiusResolveUsernameById($id)
     }
 
     $table = radiusQualifiedTable('radcheck');
-    $row = fetchOne("SELECT username FROM {$table} WHERE id = ? LIMIT 1", [$id]);
+    $row = radiusFetchOne("SELECT username FROM {$table} WHERE id = ? LIMIT 1", [$id]);
 
     return $row ? (string) ($row['username'] ?? '') : null;
 }
@@ -198,8 +223,8 @@ function radiusRenameUser($oldUsername, $newUsername)
     $radcheck = radiusQualifiedTable('radcheck');
     $radusergroup = radiusQualifiedTable('radusergroup');
 
-    query("UPDATE {$radcheck} SET username = ? WHERE username = ?", [$newUsername, $oldUsername]);
-    query("UPDATE {$radusergroup} SET username = ? WHERE username = ?", [$newUsername, $oldUsername]);
+    radiusQuery("UPDATE {$radcheck} SET username = ? WHERE username = ?", [$newUsername, $oldUsername]);
+    radiusQuery("UPDATE {$radusergroup} SET username = ? WHERE username = ?", [$newUsername, $oldUsername]);
 
     logActivity('RADIUS_RENAME_USER', "Old Username: {$oldUsername}, New Username: {$newUsername}");
     return true;
@@ -207,12 +232,6 @@ function radiusRenameUser($oldUsername, $newUsername)
 
 function radiusSetUser($username, $password, $profile, $serviceType = 'pppoe', $replyAttributes = [])
 {
-
-//    $service = match($serviceType) {
-//        'pppoe' => 'Framed-User',
-//        'hotspot' => 'Login-User',
-//        default => null,
-//    };
     if (!radiusUserProvisioningReady()) {
         return false;
     }
@@ -231,29 +250,20 @@ function radiusSetUser($username, $password, $profile, $serviceType = 'pppoe', $
     $radcheck = radiusQualifiedTable('radcheck');
     $radusergroup = radiusQualifiedTable('radusergroup');
 
-    query("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password')", [$username]);
-    query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Cleartext-Password', ':=', ?)", [$username, $password]);
+    radiusQuery("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password')", [$username]);
+    radiusQuery("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Cleartext-Password', ':=', ?)", [$username, $password]);
 
-    query("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Simultaneous-Use')", [$username]);
-    query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Simultaneous-Use', ':=', '1')", [$username]);
+    radiusQuery("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Simultaneous-Use')", [$username]);
+    radiusQuery("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Simultaneous-Use', ':=', '1')", [$username]);
 
-    query("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
-    query("INSERT INTO {$radusergroup} (username, groupname, priority) VALUES (?, ?, 1)", [$username, $profile]);
+    radiusQuery("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
+    radiusQuery("INSERT INTO {$radusergroup} (username, groupname, priority) VALUES (?, ?, 1)", [$username, $profile]);
 
     return true;
 }
 
 /**
  * Complete RADIUS user provisioning with all attributes
- * Creates user, sets profile, and applies session timeout from customer isolation_date
- *
- * This is the recommended entry point for creating new PPPoE/Hotspot users
- *
- * @param string $username RADIUS username
- * @param string $password User password
- * @param string $profile Group/profile name
- * @param string $serviceType 'Framed-User' (PPPoE) or 'Login-User' (Hotspot)
- * @return bool Success status
  */
 function radiusProvisionUser($username, $password, $profile, $serviceType = 'Framed-User')
 {
@@ -275,10 +285,10 @@ function radiusProvisionUser($username, $password, $profile, $serviceType = 'Fra
         }
 
         $radcheck = radiusQualifiedTable('radcheck');
-        query("DELETE FROM {$radcheck} WHERE username = ? AND attribute = 'Service-Type'", [$username]);
+        radiusQuery("DELETE FROM {$radcheck} WHERE username = ? AND attribute = 'Service-Type'", [$username]);
 
         $serviceTypeValue = ($serviceType === 'Framed-User') ? 'Framed-User' : 'Login-User';
-        query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Service-Type', ':=', ?)",
+        radiusQuery("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Service-Type', ':=', ?)",
               [$username, $serviceTypeValue]);
 
         $timeoutSet = radiusSetSessionTimeoutFromIsolationDate($username);
@@ -311,9 +321,9 @@ function radiusUpdateUserPassword($username, $newPassword)
     try {
         $radcheck = radiusQualifiedTable('radcheck');
 
-        query("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password')",
+        radiusQuery("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password')",
               [$username]);
-        query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Cleartext-Password', ':=', ?)",
+        radiusQuery("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Cleartext-Password', ':=', ?)",
               [$username, $newPassword]);
 
         logActivity('RADIUS_UPDATE_USER_PASSWORD', "Username: {$username}");
@@ -340,8 +350,8 @@ function radiusUpdateUserProfile($username, $newProfile)
     try {
         $radusergroup = radiusQualifiedTable('radusergroup');
 
-        query("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
-        query("INSERT INTO {$radusergroup} (username, groupname, priority) VALUES (?, ?, 1)",
+        radiusQuery("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
+        radiusQuery("INSERT INTO {$radusergroup} (username, groupname, priority) VALUES (?, ?, 1)",
               [$username, $newProfile]);
 
         logActivity('RADIUS_UPDATE_USER_PROFILE', "Username: {$username}, New Profile: {$newProfile}");
@@ -366,8 +376,8 @@ function radiusDeleteUser($username)
     $radcheck = radiusQualifiedTable('radcheck');
     $radusergroup = radiusQualifiedTable('radusergroup');
 
-    query("DELETE FROM {$radcheck} WHERE username = ?", [$username]);
-    query("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
+    radiusQuery("DELETE FROM {$radcheck} WHERE username = ?", [$username]);
+    radiusQuery("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
 
     logActivity('RADIUS_DELETE_USER', "Username: {$username}");
     return true;
@@ -404,7 +414,6 @@ function radiusGetUsersByService($serviceType = 'Framed-User')
             c.username,
             c.value AS password,
             COALESCE(ug.groupname, 'default') AS profile,
-            -- Mengambil Auth-Type dari radcheck
             MAX(CASE WHEN c2.attribute = 'Auth-Type' THEN c2.value END) AS disabled,
             MAX(CASE WHEN rr.attribute = 'Service-Type' THEN rr.value END) AS service_type,
             MAX(CASE WHEN rr.attribute = 'Mikrotik-Comment' THEN rr.value END) AS user_comment,
@@ -418,7 +427,6 @@ function radiusGetUsersByService($serviceType = 'Framed-User')
             MAX(CASE WHEN rr.attribute = 'Framed-Pool' THEN rr.value END) AS address_pool,
             MAX(CASE WHEN rr.attribute = 'Mikrotik-Parent-Queue' THEN rr.value END) AS parent_queue
         FROM {$radcheck} c
-        -- Join ke diri sendiri untuk mencari atribut lain dengan username yang sama
         LEFT JOIN {$radcheck} c2 ON c2.username = c.username AND c2.attribute = 'Auth-Type'
         LEFT JOIN {$radusergroup} ug ON ug.username = c.username
         LEFT JOIN {$radgroupreply} rr ON rr.groupname = ug.groupname
@@ -426,7 +434,7 @@ function radiusGetUsersByService($serviceType = 'Framed-User')
         GROUP BY c.id, c.username, c.value, ug.groupname
         ORDER BY c.id DESC";
 
-    $rows = fetchAll($sql);
+    $rows = radiusFetchAll($sql);
     $users = [];
     $targetService = strtolower(trim((string) $serviceType));
 
@@ -475,7 +483,7 @@ function radiusGetUserPassword($username)
     }
 
     $radcheck = radiusQualifiedTable('radcheck');
-    $row = fetchOne("SELECT value FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password', 'User-Password') LIMIT 1", [$username]);
+    $row = radiusFetchOne("SELECT value FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password', 'User-Password') LIMIT 1", [$username]);
 
     return $row ? (string) ($row['value'] ?? '') : null;
 }
@@ -496,7 +504,7 @@ function radiusHotspotProfileUsageCount($profileName)
     }
 
     $radusergroup = radiusQualifiedTable('radusergroup');
-    $row = fetchOne("SELECT COUNT(*) AS total FROM {$radusergroup} WHERE groupname = ?", [$profileName]);
+    $row = radiusFetchOne("SELECT COUNT(*) AS total FROM {$radusergroup} WHERE groupname = ?", [$profileName]);
 
     return (int) ($row['total'] ?? 0);
 }
@@ -522,12 +530,12 @@ function radiusUpdateUser($id, $data)
         $password = isset($data['password']) ? (string) $data['password'] : '';
         if ($password === '') {
             $radcheck = radiusQualifiedTable('radcheck');
-            $pwd = fetchOne("SELECT value FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password') ORDER BY id DESC LIMIT 1", [$newUsername]);
+            $pwd = radiusFetchOne("SELECT value FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password') ORDER BY id DESC LIMIT 1", [$newUsername]);
             $password = (string) ($pwd['value'] ?? '');
         }
 
         $radusergroup = radiusQualifiedTable('radusergroup');
-        $existingProfile = fetchOne("SELECT groupname FROM {$radusergroup} WHERE username = ? LIMIT 1", [$newUsername]);
+        $existingProfile = radiusFetchOne("SELECT groupname FROM {$radusergroup} WHERE username = ? LIMIT 1", [$newUsername]);
 
         $profile = isset($data['profile']) ? trim((string)$data['profile']) : ($existingProfile['groupname'] ?? 'default');
         $serviceType = isset($data['service']) ? (strtolower((string)$data['service']) === 'pppoe' ? 'Framed-User' : 'Login-User') : 'Framed-User';
@@ -535,16 +543,16 @@ function radiusUpdateUser($id, $data)
         $reply = [];
         if (isset($data['disabled'])) {
             $radcheck = radiusQualifiedTable('radcheck');
-            $existingReject = fetchOne("SELECT id FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type' LIMIT 1", [$newUsername]);
+            $existingReject = radiusFetchOne("SELECT id FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type' LIMIT 1", [$newUsername]);
 
             if (strtolower((string) $data['disabled']) === 'true') {
                 if (!$existingReject) {
-                    fetchOne("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Auth-Type', ':=', 'Reject')", [$newUsername]);
+                    radiusQuery("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Auth-Type', ':=', 'Reject')", [$newUsername]);
                 } else {
-                    fetchOne("UPDATE {$radcheck} SET value = 'Reject' WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
+                    radiusQuery("UPDATE {$radcheck} SET value = 'Reject' WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
                 }
             } else {
-                fetchOne("DELETE FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
+                radiusQuery("DELETE FROM {$radcheck} WHERE username = ? AND attribute = 'Auth-Type'", [$newUsername]);
             }
             mikrotikRemoveActiveSessionByName($newUsername);
         }
@@ -640,7 +648,7 @@ function radiusUpsertHotspotProfileCloud($id, $data)
     $hotspotProfiles = radiusQualifiedTable('hotspot_profiles');
     $existing = null;
     if ($id !== null && $id !== '') {
-        $existing = fetchOne("SELECT * FROM {$hotspotProfiles} WHERE id = ? LIMIT 1", [(int) $id]);
+        $existing = radiusFetchOne("SELECT * FROM {$hotspotProfiles} WHERE id = ? LIMIT 1", [(int) $id]);
     }
 
     $profileName = trim((string) ($data['name'] ?? ($existing['profile_name'] ?? '')));
@@ -672,7 +680,7 @@ function radiusUpsertHotspotProfileCloud($id, $data)
         radiusBeginTransaction();
 
         if ($id !== null && (string) $id !== '') {
-            $stmt = query("UPDATE {$hotspotProfiles} SET profile_name = ?, shared_users = ?, rate_limit = ?, session_timeout = ?, idle_timeout = ?, address_pool = ?, price = ?, selling_price = ?, on_login = ?, comment = ?, updated_at = NOW() WHERE id = ?", [
+            radiusQuery("UPDATE {$hotspotProfiles} SET profile_name = ?, shared_users = ?, rate_limit = ?, session_timeout = ?, idle_timeout = ?, address_pool = ?, price = ?, selling_price = ?, on_login = ?, comment = ?, updated_at = NOW() WHERE id = ?", [
                 $profileName,
                 $sharedUsers,
                 $rateLimit,
@@ -686,7 +694,7 @@ function radiusUpsertHotspotProfileCloud($id, $data)
                 (int) $id,
             ]);
         } else {
-            $stmt = query("INSERT INTO {$hotspotProfiles} (profile_name, shared_users, rate_limit, session_timeout, idle_timeout, address_pool, price, selling_price, on_login, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())", [
+            radiusQuery("INSERT INTO {$hotspotProfiles} (profile_name, shared_users, rate_limit, session_timeout, idle_timeout, address_pool, price, selling_price, on_login, comment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())", [
                 $profileName,
                 $sharedUsers,
                 $rateLimit,
@@ -715,18 +723,18 @@ function radiusUpsertHotspotProfileCloud($id, $data)
         foreach ($replyRows as $attribute => $value) {
             $value = trim((string) $value);
             if ($attribute !== 'Service-Type' && $value === '') {
-                query("DELETE FROM {$groupReplyTable} WHERE groupname = ? AND attribute = ?", [$profileName, $attribute]);
+                radiusQuery("DELETE FROM {$groupReplyTable} WHERE groupname = ? AND attribute = ?", [$profileName, $attribute]);
                 continue;
             }
 
-            query("INSERT INTO {$groupReplyTable} (groupname, attribute, op, value) VALUES (?, ?, '=', ?) ON DUPLICATE KEY UPDATE value = VALUES(value), op = VALUES(op)", [
+            radiusQuery("INSERT INTO {$groupReplyTable} (groupname, attribute, op, value) VALUES (?, ?, '=', ?) ON DUPLICATE KEY UPDATE value = VALUES(value), op = VALUES(op)", [
                 $profileName,
                 $attribute,
                 $value,
             ]);
         }
 
-        query("INSERT INTO {$groupCheckTable} (groupname, attribute, op, value) VALUES (?, 'Simultaneous-Use', '=', ?) ON DUPLICATE KEY UPDATE value = VALUES(value), op = VALUES(op)", [
+        radiusQuery("INSERT INTO {$groupCheckTable} (groupname, attribute, op, value) VALUES (?, 'Simultaneous-Use', '=', ?) ON DUPLICATE KEY UPDATE value = VALUES(value), op = VALUES(op)", [
             $profileName,
             $sharedUsers,
         ]);
@@ -752,7 +760,7 @@ function radiusIsUserExistsByUsername($username)
     }
 
     $radcheck = radiusQualifiedTable('radcheck');
-    $row = fetchOne("SELECT COUNT(*) AS total FROM {$radcheck} WHERE username = ?", [$username]);
+    $row = radiusFetchOne("SELECT COUNT(*) AS total FROM {$radcheck} WHERE username = ?", [$username]);
 
     return (int) ($row['total'] ?? 0) > 0;
 }
@@ -766,14 +774,16 @@ function radiusIsUserExistsByCustomerId($customerId)
     if ($customerId === '') {
         return false;
     }
+    // Tabel customers ada di MAIN DB (ans_radius), tetap pakai fetchOne() global
     $customer_pppoeUsername = "SELECT pppoe_username FROM customers WHERE id = ?";
     $rowCustomer = fetchOne($customer_pppoeUsername, [$customerId]);
     if (!$rowCustomer || empty($rowCustomer['pppoe_username'])) {
         return false;
     }
 
+    // Tabel radcheck ada di RADIUS DB, pakai radiusFetchOne()
     $radcheck = radiusQualifiedTable('radcheck');
-    $row = fetchOne("SELECT COUNT(*) AS total FROM {$radcheck} WHERE username = ?", [$rowCustomer['pppoe_username']]);
+    $row = radiusFetchOne("SELECT COUNT(*) AS total FROM {$radcheck} WHERE username = ?", [$rowCustomer['pppoe_username']]);
 
     return (bool) ($row['total'] ?? 0) > 0;
 }
@@ -792,7 +802,7 @@ function radiusDeleteHotspotProfileCloud($id)
     try {
         radiusBeginTransaction();
 
-        $profileRow = fetchOne("SELECT profile_name FROM " . radiusQualifiedTable('hotspot_profiles') . " WHERE id = ? LIMIT 1", [(int) $id]);
+        $profileRow = radiusFetchOne("SELECT profile_name FROM " . radiusQualifiedTable('hotspot_profiles') . " WHERE id = ? LIMIT 1", [(int) $id]);
         $profileName = trim((string) ($profileRow['profile_name'] ?? ''));
         if ($profileName === '') {
             radiusRollback();
@@ -810,9 +820,9 @@ function radiusDeleteHotspotProfileCloud($id)
         $groupReplyTable = radiusQualifiedTable('radgroupreply');
         $groupCheckTable = radiusQualifiedTable('radgroupcheck');
 
-        query("DELETE FROM {$hotspotProfiles} WHERE profile_name = ?", [$profileName]);
-        query("DELETE FROM {$groupReplyTable} WHERE groupname = ?", [$profileName]);
-        query("DELETE FROM {$groupCheckTable} WHERE groupname = ?", [$profileName]);
+        radiusQuery("DELETE FROM {$hotspotProfiles} WHERE profile_name = ?", [$profileName]);
+        radiusQuery("DELETE FROM {$groupReplyTable} WHERE groupname = ?", [$profileName]);
+        radiusQuery("DELETE FROM {$groupCheckTable} WHERE groupname = ?", [$profileName]);
 
         radiusCommit();
         return true;
@@ -1047,66 +1057,50 @@ function getMainDbConnection()
 
 function calculateSessionTimeoutSeconds($isolationDateInput, DateTime $referenceTime = null)
 {
-    // Validate input
     if (empty($isolationDateInput)) {
         return 0;
     }
 
     try {
-        // Use provided reference time or current time
         $now = $referenceTime instanceof DateTime ? $referenceTime : new DateTime();
 
-        // Parse isolation date - dapat berupa:
-        // - Integer day of month (1-31): "20" atau 20
-        // - DateTime object
-        // - Full date string: "2026-05-20"
         $dayOfMonth = 0;
 
         if ($isolationDateInput instanceof DateTime) {
             $dayOfMonth = (int) $isolationDateInput->format('d');
         } else {
-            // Convert to string for processing
             $input = trim((string) $isolationDateInput);
 
-            // Check if it's just a day number (1-31)
             if (is_numeric($input) && strlen($input) <= 2) {
                 $dayOfMonth = (int) $input;
             } else {
-                // Try to parse as full date
                 $isolationDate = new DateTime($input);
                 $dayOfMonth = (int) $isolationDate->format('d');
             }
         }
 
-        // Validate day is between 1-31
         if ($dayOfMonth < 1 || $dayOfMonth > 31) {
             logDbError('Invalid day of month in isolation_date: ' . $dayOfMonth);
             return 0;
         }
 
-        // Create target date: same day of month at 23:59:59
         $targetDateStr = $now->format('Y-m-') . str_pad($dayOfMonth, 2, '0', STR_PAD_LEFT) . ' 23:59:59';
 
         try {
             $targetDate = new DateTime($targetDateStr);
         } catch (Exception $e) {
-            // Handle invalid dates (e.g., Feb 31, Apr 31)
-            // Move to first day of next month then last day
             $targetDate = new DateTime($now->format('Y-m-01 23:59:59'));
             $targetDate->add(new DateInterval('P1M'));
             $targetDate->modify('last day of this month');
             $targetDate->setTime(23, 59, 59);
         }
 
-        // If target date is in the past (or same day), use next month instead
         if ($targetDate <= $now) {
             $targetDate->add(new DateInterval('P1M'));
         }
 
-        // Calculate difference
         $interval = $now->diff($targetDate);
 
-        // Convert to total seconds
         $totalSeconds = ($interval->days * 86400)
                       + ($interval->h * 3600)
                       + ($interval->i * 60)
@@ -1143,7 +1137,6 @@ function radiusSetSessionTimeoutFromIsolationDate($pppoeUsername)
         $stmt->execute([$pppoeUsername]);
         $customer = $stmt->fetch();
 
-        // Debug log
         logDbError("DEBUG radiusSetSessionTimeoutFromIsolationDate: username={$pppoeUsername}, customer=" . json_encode($customer));
 
         $radiusPdo = radiusDbConnection();
@@ -1301,7 +1294,6 @@ function radiusUpdateAllSessionTimeoutsFromIsolationDates($limit = 0)
             }
         }
 
-        // Add summary
         $result['messages'][] = sprintf(
             'Batch update completed: %d updated, %d failed, %d skipped of %d total',
             $result['updated'],
