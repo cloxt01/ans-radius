@@ -3,23 +3,45 @@
 /**
  * Radius database connection
  */
+
 function radiusDbConnection()
 {
     static $pdo = null;
 
-    if ($pdo === null) {
-        $config = [
-            'host' => defined('RADIUS_DB_HOST') ? RADIUS_DB_HOST : 'localhost',
-            'database' => defined('RADIUS_DB_NAME') ? RADIUS_DB_NAME : 'radius',
-            'username' => defined('RADIUS_DB_USER') ? RADIUS_DB_USER : 'root',
-            'password' => defined('RADIUS_DB_PASS') ? RADIUS_DB_PASS : '',
-        ];
+    // Create logs directory if not exists
+    $logDir = __DIR__ . '/../logs/';
+    if (!is_dir($logDir)) {
+        mkdir($logDir, 0777, true);
+    }
 
-        $dsn = "mysql:host={$config['host']};dbname={$config['database']};charset=utf8mb4";
-        $pdo = new PDO($dsn, $config['username'], $config['password'], [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
+    if ($pdo === null) {
+        try {
+            $config = [
+                'host' => defined('RADIUS_DB_HOST') ? RADIUS_DB_HOST : 'localhost',
+                'database' => defined('RADIUS_DB_NAME') ? RADIUS_DB_NAME : 'radius',
+                'username' => defined('RADIUS_DB_USER') ? RADIUS_DB_USER : 'root',
+                'password' => defined('RADIUS_DB_PASS') ? RADIUS_DB_PASS : '',
+            ];
+
+            $dsn = "mysql:host={$config['host']};dbname={$config['database']};charset=utf8mb4";
+
+            $pdo = new PDO($dsn, $config['username'], $config['password'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false
+            ]);
+
+        } catch (PDOException $e) {
+
+            $logFile = $logDir . 'db_error.log';
+
+            $message = "[" . date('Y-m-d H:i:s') . "] Radius DB Connection Error: "
+                . $e->getMessage() . PHP_EOL;
+
+            file_put_contents($logFile, $message, FILE_APPEND);
+
+            die("Maaf, terjadi kesalahan koneksi database. Silakan coba beberapa saat lagi.");
+        }
     }
 
     return $pdo;
