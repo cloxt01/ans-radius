@@ -462,27 +462,51 @@ if ($customersTableExists) {
     // LEFT JOIN untuk ONU locations
     $joinParts[] = 'LEFT JOIN onu_locations onu ON onu.serial_number = c.pppoe_username';
 
-    // LEFT JOIN untuk RADIUS check (jika RADIUS ready)
-    if (function_exists('radiusUserProvisioningReady') && radiusUserProvisioningReady()) {
-        try {
-            $radiusDb = defined('RADIUS_DB_NAME') ? '`' . trim((string)RADIUS_DB_NAME) . '`' : '';
-            if ($radiusDb) {
-                $joinParts[] = "LEFT JOIN {$radiusDb}.radcheck rc ON rc.username = c.pppoe_username AND rc.attribute IN ('Cleartext-Password', 'User-Password')";
-            }
-        } catch (Exception $e) {
-            // Silent fail, continue without RADIUS JOIN
+// (JOIN radcheck DIHAPUS - tidak bisa cross-server query)
+
+$selectParts = array_filter($selectParts, function ($part) {
+    return strpos($part, 'in_radius') === false;
+});
+// tambahkan placeholder in_radius manual nanti setelah fetch
+
+$customers = fetchAll("
+    SELECT " . implode(', ', $selectParts) . "
+    FROM customers c 
+    " . implode("\n        ", $joinParts) . "
+    $whereSql
+    GROUP BY c.id
+    ORDER BY COALESCE(c.updated_at) DESC, c.id DESC
+    LIMIT $perPage OFFSET $offset
+", $whereParams);
+
+// Cek status RADIUS terpisah, lewat koneksi radius sendiri
+if (function_exists('radiusUserProvisioningReady') && radiusUserProvisioningReady() && !empty($customers)) {
+    $usernames = array_values(array_filter(array_map(function ($c) {
+        return $c['pppoe_username'] ?? null;
+    }, $customers)));
+
+    $radiusUsernameSet = [];
+    if (!empty($usernames)) {
+        $placeholders = implode(',', array_fill(0, count($usernames), '?'));
+        $radiusRows = radiusFetchAll(
+            "SELECT DISTINCT username FROM radcheck WHERE attribute IN ('Cleartext-Password','User-Password') AND username IN ({$placeholders})",
+            $usernames
+        );
+        foreach ($radiusRows as $row) {
+            $radiusUsernameSet[$row['username']] = true;
         }
     }
 
-    $customers = fetchAll("
-        SELECT " . implode(', ', $selectParts) . "
-        FROM customers c 
-        " . implode("\n        ", $joinParts) . "
-        $whereSql
-        GROUP BY c.id
-        ORDER BY COALESCE(c.updated_at) DESC, c.id DESC
-        LIMIT $perPage OFFSET $offset
-    ", $whereParams);
+    foreach ($customers as &$c) {
+        $c['in_radius'] = isset($radiusUsernameSet[$c['pppoe_username']]);
+    }
+    unset($c);
+} else {
+    foreach ($customers as &$c) {
+        $c['in_radius'] = null;
+    }
+    unset($c);
+}
 
 } else {
     $totalCustomers = 0;
