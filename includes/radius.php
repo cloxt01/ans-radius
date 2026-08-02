@@ -4,6 +4,28 @@
  * Radius database connection
  */
 
+/**
+ * Helper terpusat untuk logging error database.
+ * Semua error yang berhubungan dengan koneksi/query DB (main & radius)
+ * konsisten ditulis ke logs/db_error.log, sekaligus tetap memanggil
+ * logError() biasa (jika ada) supaya masuk log umum juga.
+ */
+function logDbError($message)
+{
+    $logDir = __DIR__ . '/../logs/';
+    if (!is_dir($logDir)) {
+        mkdir($logDir, 0777, true);
+    }
+
+    $logFile = $logDir . 'db_error.log';
+    $formatted = "[" . date('Y-m-d H:i:s') . "] " . $message . PHP_EOL;
+    file_put_contents($logFile, $formatted, FILE_APPEND);
+
+    if (function_exists('logError')) {
+        logError($message);
+    }
+}
+
 function radiusDbConnection()
 {
     static $pdo = null;
@@ -32,14 +54,7 @@ function radiusDbConnection()
             ]);
 
         } catch (PDOException $e) {
-
-            $logFile = $logDir . 'db_error.log';
-
-            $message = "[" . date('Y-m-d H:i:s') . "] Radius DB Connection Error: "
-                . $e->getMessage() . PHP_EOL;
-
-            file_put_contents($logFile, $message, FILE_APPEND);
-
+            logDbError('Radius DB Connection Error: ' . $e->getMessage());
             die("Maaf, terjadi kesalahan koneksi database. Silakan coba beberapa saat lagi.");
         }
     }
@@ -79,7 +94,7 @@ function radiusDisplayNas()
         $stmt = $pdo->query('SELECT id, shortname, nasname, secret FROM nas ORDER BY id');
         return $stmt->fetchAll();
     } catch (Exception $e) {
-        logError('Failed to fetch NAS list: ' . $e->getMessage());
+        logDbError('Failed to fetch NAS list: ' . $e->getMessage());
         return [];
     }
 }
@@ -104,7 +119,7 @@ function radiusAddNas($name, $ip, $secret)
         $stmt = $pdo->prepare($sql);
         return $stmt->execute([$ip, $name, $secret]);
     } catch (Exception $e) {
-        logError('Failed to add NAS: ' . $e->getMessage());
+        logDbError('Failed to add NAS: ' . $e->getMessage());
         return false;
     }
 }
@@ -115,7 +130,7 @@ function radiusGetNasById($id) {
         $stmt->execute([$id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
-        logError('getNasById error: ' . $e->getMessage());
+        logDbError('getNasById error: ' . $e->getMessage());
         return null;
     }
 }
@@ -136,7 +151,7 @@ function radiusUpdateNas($id, $name, $ip, $secret)
         $stmt = $pdo->prepare($sql);
         return $stmt->execute([$ip, $name, $secret, $id]);
     } catch (Exception $e) {
-        logError('Failed to update NAS: ' . $e->getMessage());
+        logDbError('Failed to update NAS: ' . $e->getMessage());
         return false;
     }
 }
@@ -153,7 +168,7 @@ function radiusDeleteNas($id)
         $stmt = $pdo->prepare('DELETE FROM nas WHERE id = ?');
         return $stmt->execute([$id]);
     } catch (Exception $e) {
-        logError('Failed to delete NAS: ' . $e->getMessage());
+        logDbError('Failed to delete NAS: ' . $e->getMessage());
         return false;
     }
 }
@@ -231,9 +246,9 @@ function radiusSetUser($username, $password, $profile, $serviceType = 'pppoe', $
 /**
  * Complete RADIUS user provisioning with all attributes
  * Creates user, sets profile, and applies session timeout from customer isolation_date
- * 
+ *
  * This is the recommended entry point for creating new PPPoE/Hotspot users
- * 
+ *
  * @param string $username RADIUS username
  * @param string $password User password
  * @param string $profile Group/profile name
@@ -244,37 +259,37 @@ function radiusProvisionUser($username, $password, $profile, $serviceType = 'Fra
 {
     $username = trim((string) $username);
     if ($username === '') {
-        logError('radiusProvisionUser: Empty username provided');
+        logDbError('radiusProvisionUser: Empty username provided');
         return false;
     }
 
     if (!radiusUserProvisioningReady()) {
-        logError('radiusProvisionUser: RADIUS provisioning not ready');
+        logDbError('radiusProvisionUser: RADIUS provisioning not ready');
         return false;
     }
 
     try {
         if (!radiusSetUser($username, $password, $profile, $serviceType)) {
-            logError("radiusProvisionUser: Failed to create user '{$username}'");
+            logDbError("radiusProvisionUser: Failed to create user '{$username}'");
             return false;
         }
 
         $radcheck = radiusQualifiedTable('radcheck');
         query("DELETE FROM {$radcheck} WHERE username = ? AND attribute = 'Service-Type'", [$username]);
-        
+
         $serviceTypeValue = ($serviceType === 'Framed-User') ? 'Framed-User' : 'Login-User';
-        query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Service-Type', ':=', ?)", 
+        query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Service-Type', ':=', ?)",
               [$username, $serviceTypeValue]);
 
         $timeoutSet = radiusSetSessionTimeoutFromIsolationDate($username);
         if (!$timeoutSet) {
-            logError("radiusProvisionUser: Failed to set Session-Timeout for '{$username}'");
+            logDbError("radiusProvisionUser: Failed to set Session-Timeout for '{$username}'");
         }
 
         logActivity('RADIUS_PROVISION_USER', "Username: {$username}, Profile: {$profile}, Service: {$serviceType}");
         return true;
     } catch (Exception $e) {
-        logError('radiusProvisionUser failed: ' . $e->getMessage());
+        logDbError('radiusProvisionUser failed: ' . $e->getMessage());
         return false;
     }
 }
@@ -284,7 +299,7 @@ function radiusUpdateUserPassword($username, $newPassword)
 {
     $username = trim((string) $username);
     $newPassword = trim((string) $newPassword);
-    
+
     if ($username === '' || $newPassword === '') {
         return false;
     }
@@ -295,16 +310,16 @@ function radiusUpdateUserPassword($username, $newPassword)
 
     try {
         $radcheck = radiusQualifiedTable('radcheck');
-        
-        query("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password')", 
+
+        query("DELETE FROM {$radcheck} WHERE username = ? AND attribute IN ('Cleartext-Password','User-Password')",
               [$username]);
-        query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Cleartext-Password', ':=', ?)", 
+        query("INSERT INTO {$radcheck} (username, attribute, op, value) VALUES (?, 'Cleartext-Password', ':=', ?)",
               [$username, $newPassword]);
-        
+
         logActivity('RADIUS_UPDATE_USER_PASSWORD', "Username: {$username}");
         return true;
     } catch (Exception $e) {
-        logError('radiusUpdateUserPassword failed: ' . $e->getMessage());
+        logDbError('radiusUpdateUserPassword failed: ' . $e->getMessage());
         return false;
     }
 }
@@ -313,7 +328,7 @@ function radiusUpdateUserProfile($username, $newProfile)
 {
     $username = trim((string) $username);
     $newProfile = trim((string) $newProfile);
-    
+
     if ($username === '' || $newProfile === '') {
         return false;
     }
@@ -324,15 +339,15 @@ function radiusUpdateUserProfile($username, $newProfile)
 
     try {
         $radusergroup = radiusQualifiedTable('radusergroup');
-        
+
         query("DELETE FROM {$radusergroup} WHERE username = ?", [$username]);
-        query("INSERT INTO {$radusergroup} (username, groupname, priority) VALUES (?, ?, 1)", 
+        query("INSERT INTO {$radusergroup} (username, groupname, priority) VALUES (?, ?, 1)",
               [$username, $newProfile]);
-        
+
         logActivity('RADIUS_UPDATE_USER_PROFILE', "Username: {$username}, New Profile: {$newProfile}");
         return true;
     } catch (Exception $e) {
-        logError('radiusUpdateUserProfile failed: ' . $e->getMessage());
+        logDbError('radiusUpdateUserProfile failed: ' . $e->getMessage());
         return false;
     }
 }
@@ -609,7 +624,7 @@ function radiusGetHotspotProfilesCloud()
             ];
         }
     } catch (Exception $e) {
-        logError('Failed to fetch hotspot profiles from Radius: ' . $e->getMessage());
+        logDbError('Failed to fetch hotspot profiles from Radius: ' . $e->getMessage());
         return [];
     }
 
@@ -720,7 +735,7 @@ function radiusUpsertHotspotProfileCloud($id, $data)
         return true;
     } catch (Exception $e) {
         radiusRollback();
-        logError('Failed to save hotspot profile to Radius: ' . $e->getMessage());
+        logDbError('Failed to save hotspot profile to Radius: ' . $e->getMessage());
         return false;
     }
 }
@@ -787,7 +802,7 @@ function radiusDeleteHotspotProfileCloud($id)
         $usageCount = radiusHotspotProfileUsageCount($profileName);
         if ($usageCount > 0) {
             radiusRollback();
-            logError("Cannot delete hotspot profile '{$profileName}' - used by {$usageCount} users");
+            logDbError("Cannot delete hotspot profile '{$profileName}' - used by {$usageCount} users");
             return false;
         }
 
@@ -803,7 +818,7 @@ function radiusDeleteHotspotProfileCloud($id)
         return true;
     } catch (Exception $e) {
         radiusRollback();
-        logError('Failed to delete hotspot profile from Radius: ' . $e->getMessage());
+        logDbError('Failed to delete hotspot profile from Radius: ' . $e->getMessage());
         return false;
     }
 }
@@ -852,7 +867,7 @@ function radiusGetPppoeProfiles()
 
         return $profiles;
     } catch (Exception $e) {
-        logError('Failed to fetch PPPoE profiles from Radius: ' . $e->getMessage());
+        logDbError('Failed to fetch PPPoE profiles from Radius: ' . $e->getMessage());
         return [];
     }
 }
@@ -926,7 +941,7 @@ function radiusUpsertPppoeProfile($id, $data)
         return true;
     } catch (Exception $e) {
         radiusRollback();
-        logError('Failed to save PPPoE profile to Radius: ' . $e->getMessage());
+        logDbError('Failed to save PPPoE profile to Radius: ' . $e->getMessage());
         return false;
     }
 }
@@ -948,7 +963,7 @@ function radiusDeletePppoeProfile($id)
 
         if ($usageCount > 0) {
             radiusRollback();
-            logError("Cannot delete PPPoE profile '{$name}' - used by {$usageCount} users");
+            logDbError("Cannot delete PPPoE profile '{$name}' - used by {$usageCount} users");
             return false;
         }
 
@@ -962,7 +977,7 @@ function radiusDeletePppoeProfile($id)
         return true;
     } catch (Exception $e) {
         radiusRollback();
-        logError('Failed to delete PPPoE profile from Radius: ' . $e->getMessage());
+        logDbError('Failed to delete PPPoE profile from Radius: ' . $e->getMessage());
         return false;
     }
 }
@@ -977,6 +992,7 @@ function radiusUserProvisioningReady()
         $hasRadusergroup = $stmt->rowCount() > 0;
         return $hasRadcheck && $hasRadusergroup;
     } catch (Exception $e) {
+        logDbError('radiusUserProvisioningReady check failed: ' . $e->getMessage());
         return false;
     }
 }
@@ -993,13 +1009,13 @@ function getMainDbConnection()
     }
 
     if ($attempts >= $maxAttempts) {
-        logError('Main database connection failed after ' . $maxAttempts . ' attempts');
+        logDbError('Main database connection failed after ' . $maxAttempts . ' attempts');
         return null;
     }
 
     try {
         $attempts++;
-        
+
         $config = [
             'host' => defined('DB_HOST') ? DB_HOST : 'localhost',
             'database' => defined('DB_NAME') ? DB_NAME : 'ans_radius',
@@ -1016,14 +1032,14 @@ function getMainDbConnection()
 
         return $pdo;
     } catch (Exception $e) {
-        logError('Failed to connect to main database: ' . $e->getMessage());
+        logDbError('Failed to connect to main database: ' . $e->getMessage());
         $pdo = null;
-        
+
         if ($attempts < $maxAttempts) {
             usleep(100000);
             return getMainDbConnection();
         }
-        
+
         return null;
     }
 }
@@ -1045,13 +1061,13 @@ function calculateSessionTimeoutSeconds($isolationDateInput, DateTime $reference
         // - DateTime object
         // - Full date string: "2026-05-20"
         $dayOfMonth = 0;
-        
+
         if ($isolationDateInput instanceof DateTime) {
             $dayOfMonth = (int) $isolationDateInput->format('d');
         } else {
             // Convert to string for processing
             $input = trim((string) $isolationDateInput);
-            
+
             // Check if it's just a day number (1-31)
             if (is_numeric($input) && strlen($input) <= 2) {
                 $dayOfMonth = (int) $input;
@@ -1061,16 +1077,16 @@ function calculateSessionTimeoutSeconds($isolationDateInput, DateTime $reference
                 $dayOfMonth = (int) $isolationDate->format('d');
             }
         }
-        
+
         // Validate day is between 1-31
         if ($dayOfMonth < 1 || $dayOfMonth > 31) {
-            logError('Invalid day of month in isolation_date: ' . $dayOfMonth);
+            logDbError('Invalid day of month in isolation_date: ' . $dayOfMonth);
             return 0;
         }
 
         // Create target date: same day of month at 23:59:59
         $targetDateStr = $now->format('Y-m-') . str_pad($dayOfMonth, 2, '0', STR_PAD_LEFT) . ' 23:59:59';
-        
+
         try {
             $targetDate = new DateTime($targetDateStr);
         } catch (Exception $e) {
@@ -1089,16 +1105,16 @@ function calculateSessionTimeoutSeconds($isolationDateInput, DateTime $reference
 
         // Calculate difference
         $interval = $now->diff($targetDate);
-        
+
         // Convert to total seconds
-        $totalSeconds = ($interval->days * 86400) 
-                      + ($interval->h * 3600) 
-                      + ($interval->i * 60) 
+        $totalSeconds = ($interval->days * 86400)
+                      + ($interval->h * 3600)
+                      + ($interval->i * 60)
                       + $interval->s;
 
         return max(0, (int) $totalSeconds);
     } catch (Exception $e) {
-        logError('Failed to calculate session timeout: ' . $e->getMessage());
+        logDbError('Failed to calculate session timeout: ' . $e->getMessage());
         return 0;
     }
 }
@@ -1107,20 +1123,20 @@ function radiusSetSessionTimeoutFromIsolationDate($pppoeUsername)
 {
     $pppoeUsername = trim((string) $pppoeUsername);
     if ($pppoeUsername === '') {
-        logError('radiusSetSessionTimeoutFromIsolationDate: Empty username provided');
+        logDbError('radiusSetSessionTimeoutFromIsolationDate: Empty username provided');
         return false;
     }
 
     try {
         $mainDb = getMainDbConnection();
         if ($mainDb === null) {
-            logError('radiusSetSessionTimeoutFromIsolationDate: Failed to get main DB connection');
+            logDbError('radiusSetSessionTimeoutFromIsolationDate: Failed to get main DB connection');
             return false;
         }
 
         $stmt = $mainDb->prepare("SELECT isolation_date FROM customers WHERE pppoe_username = ? LIMIT 1");
         if ($stmt === false) {
-            logError('radiusSetSessionTimeoutFromIsolationDate: Failed to prepare statement for customer lookup');
+            logDbError('radiusSetSessionTimeoutFromIsolationDate: Failed to prepare statement for customer lookup');
             return false;
         }
 
@@ -1128,32 +1144,32 @@ function radiusSetSessionTimeoutFromIsolationDate($pppoeUsername)
         $customer = $stmt->fetch();
 
         // Debug log
-        logError("DEBUG radiusSetSessionTimeoutFromIsolationDate: username={$pppoeUsername}, customer=" . json_encode($customer));
+        logDbError("DEBUG radiusSetSessionTimeoutFromIsolationDate: username={$pppoeUsername}, customer=" . json_encode($customer));
 
         $radiusPdo = radiusDbConnection();
         if ($radiusPdo === null) {
-            logError('radiusSetSessionTimeoutFromIsolationDate: Failed to get RADIUS database connection');
+            logDbError('radiusSetSessionTimeoutFromIsolationDate: Failed to get RADIUS database connection');
             return false;
         }
 
         if (!$customer || empty($customer['isolation_date'])) {
-            logError("radiusSetSessionTimeoutFromIsolationDate: No customer found or empty isolation_date for {$pppoeUsername}");
+            logDbError("radiusSetSessionTimeoutFromIsolationDate: No customer found or empty isolation_date for {$pppoeUsername}");
             $deleteStmt = $radiusPdo->prepare("DELETE FROM radreply WHERE username = ? AND attribute = 'Session-Timeout'");
             if ($deleteStmt === false) {
-                logError('radiusSetSessionTimeoutFromIsolationDate: Failed to prepare delete statement');
+                logDbError('radiusSetSessionTimeoutFromIsolationDate: Failed to prepare delete statement');
                 return false;
             }
-            
+
             $deleteStmt->execute([$pppoeUsername]);
             return true;
         }
 
         $timeoutSeconds = calculateSessionTimeoutSeconds($customer['isolation_date']);
-        
-        logError("DEBUG: isolation_date={$customer['isolation_date']}, timeoutSeconds={$timeoutSeconds}");
-        
+
+        logDbError("DEBUG: isolation_date={$customer['isolation_date']}, timeoutSeconds={$timeoutSeconds}");
+
         if ($timeoutSeconds === 0) {
-            logError("radiusSetSessionTimeoutFromIsolationDate: Invalid timeout calculated (0) for user '{$pppoeUsername}', isolation_date='{$customer['isolation_date']}'");
+            logDbError("radiusSetSessionTimeoutFromIsolationDate: Invalid timeout calculated (0) for user '{$pppoeUsername}', isolation_date='{$customer['isolation_date']}'");
         }
 
         try {
@@ -1172,15 +1188,15 @@ function radiusSetSessionTimeoutFromIsolationDate($pppoeUsername)
             $insertStmt->execute([$pppoeUsername, (int) $timeoutSeconds]);
 
             radiusCommit();
-            logError("DEBUG: Successfully set timeout for {$pppoeUsername} = {$timeoutSeconds} seconds");
+            logDbError("DEBUG: Successfully set timeout for {$pppoeUsername} = {$timeoutSeconds} seconds");
             return true;
         } catch (Exception $e) {
             radiusRollback();
-            logError("radiusSetSessionTimeoutFromIsolationDate: Transaction failed for user '{$pppoeUsername}': " . $e->getMessage());
+            logDbError("radiusSetSessionTimeoutFromIsolationDate: Transaction failed for user '{$pppoeUsername}': " . $e->getMessage());
             return false;
         }
     } catch (Exception $e) {
-        logError('radiusSetSessionTimeoutFromIsolationDate failed: ' . $e->getMessage());
+        logDbError('radiusSetSessionTimeoutFromIsolationDate failed: ' . $e->getMessage());
         return false;
     }
 }
@@ -1201,18 +1217,20 @@ function radiusUpdateAllSessionTimeoutsFromIsolationDates($limit = 0)
         $mainDb = getMainDbConnection();
         if ($mainDb === null) {
             $result['messages'][] = 'FATAL: Cannot connect to main database';
+            logDbError('radiusUpdateAllSessionTimeoutsFromIsolationDates: Cannot connect to main database');
             return $result;
         }
 
         $radiusPdo = radiusDbConnection();
         if ($radiusPdo === null) {
             $result['messages'][] = 'FATAL: Cannot connect to RADIUS database';
+            logDbError('radiusUpdateAllSessionTimeoutsFromIsolationDates: Cannot connect to RADIUS database');
             return $result;
         }
 
-        $query = "SELECT pppoe_username, isolation_date FROM customers 
+        $query = "SELECT pppoe_username, isolation_date FROM customers
                   WHERE pppoe_username IS NOT NULL AND pppoe_username != ''";
-        
+
         if ($limit > 0) {
             $query .= " LIMIT " . (int) $limit;
         }
@@ -1220,6 +1238,7 @@ function radiusUpdateAllSessionTimeoutsFromIsolationDates($limit = 0)
         $stmt = $mainDb->query($query);
         if ($stmt === false) {
             $result['messages'][] = 'Failed to query customers';
+            logDbError('radiusUpdateAllSessionTimeoutsFromIsolationDates: Failed to query customers');
             return $result;
         }
 
@@ -1233,7 +1252,7 @@ function radiusUpdateAllSessionTimeoutsFromIsolationDates($limit = 0)
 
         foreach ($customers as $customer) {
             $pppoeUsername = trim((string) $customer['pppoe_username']);
-            
+
             if (empty($pppoeUsername)) {
                 $result['skipped']++;
                 continue;
@@ -1245,7 +1264,7 @@ function radiusUpdateAllSessionTimeoutsFromIsolationDates($limit = 0)
                     if ($deleteStmt === false) {
                         throw new Exception('Failed to prepare delete statement');
                     }
-                    
+
                     $deleteStmt->execute([$pppoeUsername]);
                     $result['updated']++;
                     continue;
@@ -1278,7 +1297,7 @@ function radiusUpdateAllSessionTimeoutsFromIsolationDates($limit = 0)
                 $result['failed']++;
                 $errorMsg = "User '{$pppoeUsername}': " . $e->getMessage();
                 $result['messages'][] = $errorMsg;
-                logError('radiusUpdateAllSessionTimeoutsFromIsolationDates - ' . $errorMsg);
+                logDbError('radiusUpdateAllSessionTimeoutsFromIsolationDates - ' . $errorMsg);
             }
         }
 
@@ -1292,7 +1311,7 @@ function radiusUpdateAllSessionTimeoutsFromIsolationDates($limit = 0)
         );
     } catch (Exception $e) {
         $result['messages'][] = 'FATAL: ' . $e->getMessage();
-        logError('radiusUpdateAllSessionTimeoutsFromIsolationDates fatal error: ' . $e->getMessage());
+        logDbError('radiusUpdateAllSessionTimeoutsFromIsolationDates fatal error: ' . $e->getMessage());
     }
 
     $result['runtime_seconds'] = round(microtime(true) - $startTime, 2);
