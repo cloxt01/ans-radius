@@ -797,9 +797,9 @@ function unisolateCustomer($customerId, $options = [])
         mikrotikSetProfile($customer['pppoe_username'], $package['profile_normal'], $customer['router_id']);
         radiusUpdateUserProfile($customer['pppoe_username'], $package['profile_normal']);
         mikrotikRemoveActiveSessionByName($customer['pppoe_username']);
-        if (function_exists('radiusSetSessionTimeoutFromIsolationDate') && radiusUserProvisioningReady()) {
-            radiusSetSessionTimeoutFromIsolationDate($customer['pppoe_username']);
-        }
+        // if (function_exists('radiusSetSessionTimeoutFromIsolationDate') && radiusUserProvisioningReady()) {
+        //     radiusSetSessionTimeoutFromIsolationDate($customer['pppoe_username']);
+        // }
     }
 
     $sendWhatsapp = false;
@@ -973,38 +973,6 @@ function getGenieacsSettings()
     return $settings;
 }
 
-/**
- * Set RADIUS Session-Timeout if username exists in radcheck
- * Called after customer creation/update to sync timeout
- *
- * @param string $pppoeUsername PPPoE username
- * @param int $customerId Customer ID (to fetch isolation_date)
- * @return bool Success status
- */
-function syncRadiusTimeoutForCustomer($pppoeUsername, $customerId)
-{
-    $pppoeUsername = trim((string) $pppoeUsername);
-    if ($pppoeUsername === '') {
-        return false;
-    }
-
-    // Check if function exists (RADIUS not available)
-    if (!function_exists('radiusSetSessionTimeoutFromIsolationDate')) {
-        return false;
-    }
-
-    try {
-        // Langsung set timeout ke radreply tanpa check radcheck
-        // Function radiusSetSessionTimeoutFromIsolationDate akan:
-        // 1. Ambil isolation_date dari customers table
-        // 2. Hitung timeout
-        // 3. Write ke radreply
-        return radiusSetSessionTimeoutFromIsolationDate($pppoeUsername);
-    } catch (Exception $e) {
-        logError('syncRadiusTimeoutForCustomer failed: ' . $e->getMessage());
-        return false;
-    }
-}
 function getOVPNIP()
 {
     $ip = trim(shell_exec(

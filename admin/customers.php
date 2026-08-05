@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     if (!empty($data['pppoe_username'])) {
                         actionLog('SYNC_RADIUS_TIMEOUT', $workdir, "Berhasil menambahkan pelanggan", json_encode(['id' => $customerId, 'username' => $data['pppoe_username']]));
-                        syncRadiusTimeoutForCustomer($data['pppoe_username'], $customerId);
+                        // syncRadiusTimeoutForCustomer($data['pppoe_username'], $customerId);
                     }
 
                     // Sync ONU
@@ -194,12 +194,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (update('customers', $data, 'id = ?', [$customerId])) {
                     actionLog('EDIT_CUSTOMER_SUCCESS', $workdir, "Berhasil mengupdate pelanggan", json_encode(['id' => $customerId, 'data' => $data]));
 
-                    // Sync RADIUS timeout
-                    $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
-                    if ($customer && !empty($customer['pppoe_username'])) {
-                        actionLog('SYNC_RADIUS_TIMEOUT', $workdir, "Berhasil mengupdate pelanggan", json_encode(['id' => $customerId, 'username' => $customer['pppoe_username']]));
-                        syncRadiusTimeoutForCustomer($customer['pppoe_username'], $customerId);
-                    }
 
                     // Update isolation_date berdasarkan status pembayaran
                     if (customerHasPaidInvoice($customerId)) {
