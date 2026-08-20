@@ -107,13 +107,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $nextMonthBase = date('Y-m-01', strtotime('+1 month'));
                         $newDueDate = getCustomerDueDate($customer, $nextMonthBase);
 
-                        $description = $invoice['description'] ?? '';
                         $note = 'Ditunda ke bulan berikutnya dari due date ' . $invoice['due_date'];
-                        $description .= $description ? ' | ' . $note : $note;
 
                         update('invoices', [
                                 'due_date' => $newDueDate,
-                                'description' => $description,
                                 'updated_at' => date('Y-m-d H:i:s')
                         ], 'id = ?', [$invoiceId]);
 
@@ -207,7 +204,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $customerId = (int)$_POST['customer_id'];
                 $amount = (float)$_POST['manual_amount'];
                 $dueDate = sanitize($_POST['manual_due_date']);
-                $description = sanitize($_POST['manual_description'] ?? '');
 
                 $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$customerId]);
                 actionLog('CREATE_MANUAL_INVOICE_ATTEMPT', $workdir, "Mencoba membuat invoice manual", json_encode(['customer_id' => $customerId, 'amount' => $amount, 'due_date' => $dueDate]));
@@ -219,7 +215,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'amount' => $amount,
                             'status' => 'unpaid',
                             'due_date' => $dueDate,
-                            'description' => $description,
                             'created_at' => date('Y-m-d H:i:s')
                     ];
 
@@ -804,10 +799,6 @@ ob_start();
                     <input type="date" name="manual_due_date" class="form-control" required value="<?php echo date('Y-m-d', strtotime('+7 days')); ?>">
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label">Keterangan</label>
-                    <input type="text" name="manual_description" class="form-control" placeholder="Contoh: Tagihan tambahan">
-                </div>
             </div>
             
             <div class="modal-footer">
