@@ -2353,7 +2353,7 @@ function sendInvoicePaidWhatsapp($invoiceNumber, $gateway = '', $paymentData = [
         return true;
     }
 
-    $invoice = fetchOne("SELECT i.*, c.name as customer_name, c.phone as customer_phone, p.name as package_name FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id LEFT JOIN packages p ON i.package_id = p.id WHERE i.invoice_number = ?", [$invoiceNumber]);
+    $invoice = fetchOne("SELECT i.*, c.name as customer_name, c.phone as customer_phone, p.name as package_name FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id LEFT JOIN packages p ON c.package_id = p.id WHERE i.invoice_number = ?", [$invoiceNumber]);
     if (!$invoice) {
         return false;
     }
