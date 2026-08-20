@@ -68,50 +68,82 @@ try {
 
 function handlePaidInvoice($invoiceNumber, $paymentData) {
     $invoice = fetchOne("SELECT * FROM invoices WHERE invoice_number = ?", [$invoiceNumber]);
-    
+
     if (!$invoice) {
         if (markPublicVoucherOrderPaid($invoiceNumber, 'midtrans', $paymentData)) {
             logActivity('PUBLIC_VOUCHER_PAID', "Order: {$invoiceNumber}");
             return;
         }
+
         logError("Invoice/order not found: {$invoiceNumber}");
         return;
     }
-    
+
+    // Get paid time
+    $paidAt = date('Y-m-d H:i:s');
+
+    // Get customer billing day
+    $customer = fetchOne("
+        SELECT billing_day
+        FROM customers
+        WHERE id = ?
+    ", [$invoice['customer_id']]);
+
+    // Calculate next isolation date
+    $isolationDate = null;
+
+    if ($customer && isset($customer['billing_day'])) {
+        $isolationDate = buildIsolationDate((int) $customer['billing_day']);
+    }
+
     // Update invoice status
     update('invoices', [
         'status' => 'paid',
-        'paid_at' => date('Y-m-d H:i:s'),
+        'paid_at' => $paidAt,
         'payment_method' => $paymentData['payment_type'] ?? 'Midtrans',
         'payment_ref' => $paymentData['transaction_id'] ?? ''
     ], 'invoice_number = ?', [$invoiceNumber]);
-    
+
     logActivity('INVOICE_PAID', "Invoice: {$invoiceNumber}");
 
     sendInvoicePaidWhatsapp($invoiceNumber, 'midtrans', $paymentData);
-    
+
     // Check if customer should be unisolated
     $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$invoice['customer_id']]);
-    
+
     if ($customer && $customer['status'] === 'isolated') {
-        // Check if all invoices are paid
+
+        // Check if all overdue invoices are paid
         $unpaidCount = fetchOne("
-            SELECT COUNT(*) as total 
-            FROM invoices 
-            WHERE customer_id = ? 
-            AND status = 'unpaid' 
+            SELECT COUNT(*) as total
+            FROM invoices
+            WHERE customer_id = ?
+            AND status = 'unpaid'
             AND due_date < CURDATE()
         ", [$customer['id']])['total'] ?? 0;
-        
+
         if ($unpaidCount === 0) {
+
             // Unisolate customer
             if (unisolateCustomer($invoice['customer_id'])) {
-                logActivity('AUTO_UNISOLATE', "Customer ID: {$invoice['customer_id']}");
+                logActivity(
+                    'AUTO_UNISOLATE',
+                    "Customer ID: {$invoice['customer_id']}"
+                );
+            }
+
+            // Update isolation date
+            if ($isolationDate !== null) {
+                if (updateIsolationDate($invoice['customer_id'], $isolationDate)) {
+                    logActivity(
+                        'AUTO_UPDATE_ISOLATIONDATE',
+                        "Customer ID: {$invoice['customer_id']}"
+                    );
+                }
             }
         }
     }
 }
-
 function handleFailedInvoice($invoiceNumber, $status) {
     if (markPublicVoucherOrderFailed($invoiceNumber, $status, ['transaction_status' => $status])) {
         logActivity('PUBLIC_VOUCHER_FAILED', "Order: {$invoiceNumber}, Status: {$status}");
