@@ -108,38 +108,26 @@ function handlePaidInvoice($invoiceNumber, $paymentData) {
 
     sendInvoicePaidWhatsapp($invoiceNumber, 'midtrans', $paymentData);
 
-    // Check if customer should be unisolated
+    // Check customer
     $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$invoice['customer_id']]);
 
-    if ($customer && $customer['status'] === 'isolated') {
-
-        // Check if all overdue invoices are paid
-        $unpaidCount = fetchOne("
-            SELECT COUNT(*) as total
-            FROM invoices
-            WHERE customer_id = ?
-            AND status = 'unpaid'
-            AND due_date < CURDATE()
-        ", [$customer['id']])['total'] ?? 0;
-
-        if ($unpaidCount === 0) {
-
-            // Unisolate customer
+    if ($customer) {
+        // Unisolate customer if isolated
+        if($customer['status'] === 'isolated'){
             if (unisolateCustomer($invoice['customer_id'])) {
                 logActivity(
                     'AUTO_UNISOLATE',
                     "Customer ID: {$invoice['customer_id']}"
                 );
             }
-
-            // Update isolation date
-            if ($isolationDate !== null) {
-                if (updateIsolationDate($invoice['customer_id'], $isolationDate)) {
-                    logActivity(
-                        'AUTO_UPDATE_ISOLATIONDATE',
-                        "Customer ID: {$invoice['customer_id']}"
-                    );
-                }
+        }
+        // Update isolation date
+        if ($isolationDate !== null) {
+            if (updateIsolationDate($invoice['customer_id'], $isolationDate)) {
+                logActivity(
+                    'AUTO_UPDATE_ISOLATIONDATE',
+                    "Customer ID: {$invoice['customer_id']}"
+                );
             }
         }
     }
