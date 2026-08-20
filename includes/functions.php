@@ -289,9 +289,9 @@ function getLatestUnpaidInvoiceThisMonth($customerId)
         FROM invoices
         WHERE customer_id = ?
         AND status = 'unpaid'
-        AND created_at >= ?
-        AND created_at < ?
-        ORDER BY created_at DESC, id DESC
+        AND due_date >= ?
+        AND due_date < ?
+        ORDER BY due_date DESC, id DESC
         LIMIT 1
     ", [
         $customerId,
