@@ -278,6 +278,27 @@ function buildIsolationDate(int $billingDay): string
 
     return $date->format('Y-m-d');
 }
+
+function getLatestUnpaidInvoiceThisMonth($customerId)
+{
+    $startOfMonth = date('Y-m-01 00:00:00');
+    $startOfNextMonth = date('Y-m-01 00:00:00', strtotime('+1 month'));
+
+    return fetchOne("
+        SELECT *
+        FROM invoices
+        WHERE customer_id = ?
+        AND status = 'unpaid'
+        AND created_at >= ?
+        AND created_at < ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+    ", [
+        $customerId,
+        $startOfMonth,
+        $startOfNextMonth
+    ]);
+}
 /**
  * Update isolation date based on paid invoices
  * @param int $customerId Customer ID
@@ -2338,6 +2359,7 @@ function ensureInvoiceNotificationTables()
         return false;
     }
 }
+
 
 function sendInvoicePaidWhatsapp($invoiceNumber, $gateway = '', $paymentData = [])
 {

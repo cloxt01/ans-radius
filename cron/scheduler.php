@@ -573,21 +573,33 @@ function sendReminders($pdo)
     echo "Enqueueing payment reminders...\n";
 
     $upcomingInvoices = fetchAll("
-        SELECT c.id, c.name, c.phone, i.invoice_number, i.amount, i.due_date
+        SELECT
+            c.id,
+            c.name,
+            c.phone,
+            i.invoice_number,
+            i.amount,
+            i.due_date
         FROM customers c
         INNER JOIN invoices i ON c.id = i.customer_id
         WHERE i.status = 'unpaid'
-        AND i.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+        AND i.due_date BETWEEN CURDATE()
+            AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
         AND c.status = 'active'
         AND i.due_date = (
-            SELECT MIN(i2.due_date) FROM invoices i2
-            WHERE i2.customer_id = c.id AND i2.status = 'unpaid'
-            AND i2.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+            SELECT MIN(i2.due_date)
+            FROM invoices i2
+            WHERE i2.customer_id = c.id
+            AND i2.status = 'unpaid'
+            AND i2.due_date BETWEEN CURDATE()
+                AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
         )
         AND NOT EXISTS (
-            SELECT 1 FROM whatsapp_queue wq
-            WHERE wq.customer_id = c.id AND wq.context = 'reminder'
-            AND wq.status IN ('pending','sent')
+            SELECT 1
+            FROM whatsapp_queue wq
+            WHERE wq.customer_id = c.id
+            AND wq.context = 'reminder'
+            AND wq.status IN ('pending', 'sent')
             AND DATE(wq.created_at) = CURDATE()
         )
     ");
@@ -597,19 +609,61 @@ function sendReminders($pdo)
     $queuedCount = 0;
 
     foreach ($upcomingInvoices as $invoice) {
-        // Skip fiktif customers — mereka di-handle oleh processFiktifCustomer(), bukan reminder manual
+
+        // Skip fiktif customers
         if (isFiktif($invoice['id'])) {
             continue;
         }
 
-        $daysUntilDue = ceil((strtotime($invoice['due_date']) - time()) / 86400);
+        // Ambil invoice unpaid terakhir bulan berjalan
+        $latestInvoice = getLatestUnpaidInvoiceThisMonth($invoice['id']);
+
+        if (!$latestInvoice) {
+            echo "  ⚠ No unpaid invoice this month: {$invoice['name']}\n";
+            continue;
+        }
+
+        // Generate payment link
+        $gateway = getSetting('DEFAULT_PAYMENT_GATEWAY', 'midtrans');
+        $paymentResult = generatePaymentLink(
+            $latestInvoice['invoice_number'],
+            $latestInvoice['amount'],
+            $invoice['id'],
+            $invoice['name'],
+            $invoice['phone'],
+            $latestInvoice['due_date'],
+            $gateway
+        );
+
+        $paymentLink = '';
+
+        if (is_array($paymentResult)) {
+            $paymentLink = $paymentResult['link'] ?? '';
+        }
+
+        // Days until due
+        $daysUntilDue = ceil(
+            (strtotime($invoice['due_date']) - time()) / 86400
+        );
 
         $message  = "Halo {$invoice['name']},\n\n";
         $message .= "Pengingat: Tagihan internet Anda akan jatuh tempo dalam {$daysUntilDue} hari.\n\n";
-        $message .= "Tagihan: " . formatCurrency($invoice['amount']) . "\n";
-        $message .= "Invoice: {$invoice['invoice_number']}\n";
-        $message .= "Jatuh Tempo: " . formatDate($invoice['due_date']) . "\n\n";
-        $message .= "Mohon lakukan pembayaran sebelum jatuh tempo untuk menghindari isolir.\n\n";
+
+        $message .= "Tagihan: "
+            . formatCurrency($latestInvoice['amount']) . "\n";
+
+        $message .= "Invoice: "
+            . $latestInvoice['invoice_number'] . "\n";
+
+        $message .= "Jatuh Tempo: "
+            . formatDate($latestInvoice['due_date']) . "\n";
+
+        if ($paymentLink !== '') {
+            $message .= "\nBayar tagihan melalui link berikut:\n";
+            $message .= $paymentLink . "\n";
+        }
+
+        $message .= "\nMohon lakukan pembayaran sebelum jatuh tempo untuk menghindari isolir.\n\n";
         $message .= "Terima kasih." . getWhatsAppFooter();
 
         insert('whatsapp_queue', [
@@ -622,6 +676,13 @@ function sendReminders($pdo)
         ]);
 
         echo "  ✓ [A] Queued: {$invoice['name']}\n";
+
+        if ($paymentLink !== '') {
+            echo "    ✓ Payment link generated\n";
+        } else {
+            echo "    ⚠ Payment link failed\n";
+        }
+
         $queuedCount++;
     }
 
