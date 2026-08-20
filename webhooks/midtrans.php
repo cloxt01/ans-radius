@@ -67,11 +67,17 @@ try {
 }
 
 function handlePaidInvoice($invoiceNumber, $paymentData) {
-    $invoice = fetchOne("SELECT * FROM invoices WHERE invoice_number = ?", [$invoiceNumber]);
+    $invoice = fetchOne(
+        "SELECT * FROM invoices WHERE invoice_number = ?",
+        [$invoiceNumber]
+    );
 
     if (!$invoice) {
         if (markPublicVoucherOrderPaid($invoiceNumber, 'midtrans', $paymentData)) {
-            logActivity('PUBLIC_VOUCHER_PAID', "Order: {$invoiceNumber}");
+            logActivity(
+                'PUBLIC_VOUCHER_PAID',
+                "Order: {$invoiceNumber}"
+            );
             return;
         }
 
@@ -93,7 +99,9 @@ function handlePaidInvoice($invoiceNumber, $paymentData) {
     $isolationDate = null;
 
     if ($customer && isset($customer['billing_day'])) {
-        $isolationDate = buildIsolationDate((int) $customer['billing_day']);
+        $isolationDate = buildIsolationDate(
+            (int) $customer['billing_day']
+        );
     }
 
     // Update invoice status
@@ -104,16 +112,27 @@ function handlePaidInvoice($invoiceNumber, $paymentData) {
         'payment_ref' => $paymentData['transaction_id'] ?? ''
     ], 'invoice_number = ?', [$invoiceNumber]);
 
-    logActivity('INVOICE_PAID', "Invoice: {$invoiceNumber}");
+    logActivity(
+        'INVOICE_PAID',
+        "Invoice: {$invoiceNumber}"
+    );
 
-    sendInvoicePaidWhatsapp($invoiceNumber, 'midtrans', $paymentData);
+    sendInvoicePaidWhatsapp(
+        $invoiceNumber,
+        'midtrans',
+        $paymentData
+    );
 
-    // Check customer
-    $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$invoice['customer_id']]);
+    // Refresh customer data
+    $customer = fetchOne(
+        "SELECT * FROM customers WHERE id = ?",
+        [$invoice['customer_id']]
+    );
 
     if ($customer) {
-        // Unisolate customer if isolated
-        if($customer['status'] === 'isolated'){
+
+        // Unisolate customer if currently isolated
+        if ($customer['status'] === 'isolated') {
             if (unisolateCustomer($invoice['customer_id'])) {
                 logActivity(
                     'AUTO_UNISOLATE',
@@ -121,9 +140,15 @@ function handlePaidInvoice($invoiceNumber, $paymentData) {
                 );
             }
         }
-        // Update isolation date
+
+        // Update next isolation date
         if ($isolationDate !== null) {
-            if (updateIsolationDate($invoice['customer_id'], $isolationDate)) {
+            $result = updateCustomerIsolationDateFromPaidInvoices(
+                $invoice['customer_id'],
+                $isolationDate
+            );
+
+            if ($result) {
                 logActivity(
                     'AUTO_UPDATE_ISOLATIONDATE',
                     "Customer ID: {$invoice['customer_id']}"
