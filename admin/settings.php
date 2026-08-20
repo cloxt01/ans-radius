@@ -441,6 +441,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'TRIPAY_PRIVATE_KEY' => sanitize($_POST['tripay_private_key']),
                         'TRIPAY_MERCHANT_CODE' => sanitize($_POST['tripay_merchant_code']),
                         'TRIPAY_MODE' => sanitize($_POST['tripay_mode'] ?? ''),
+                        'MIDTRANS_MODE' => sanitize($_POST['midtrans_mode'] ?? ''),
                         'MIDTRANS_API_KEY' => sanitize($_POST['midtrans_api_key']),
                         'MIDTRANS_MERCHANT_CODE' => sanitize($_POST['midtrans_merchant_code']),
                         'DEFAULT_PAYMENT_GATEWAY' => sanitize($_POST['default_payment_gateway'])
@@ -1664,6 +1665,14 @@ ob_start();
                            value="<?php echo htmlspecialchars($settings['MIDTRANS_MERCHANT_CODE'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                     <small class="form-hint">Client ID / Merchant ID dari Midtrans</small>
                 </div>
+
+                <div class="form-group">
+                    <label class="form-label">Midtrans Mode</label>
+                    <select name="midtrans_mode" class="form-control">
+                        <option value="" <?php echo empty($settings['MIDTRANS_MODE'] ?? '') ? 'selected' : ''; ?>>Production</option>
+                        <option value="sandbox" <?php echo (($settings['MIDTRANS_MODE'] ?? '') === 'sandbox') ? 'selected' : ''; ?>>Sandbox</option>
+                    </select>
+                </div>
             </div>
             
             <h4 class="section-subtitle">Default Gateway</h4>
@@ -1673,6 +1682,8 @@ ob_start();
                     <option value="tripay" <?php echo ($settings['DEFAULT_PAYMENT_GATEWAY'] ?? '') === 'tripay' ? 'selected' : ''; ?>>Tripay</option>
                     <option value="midtrans" <?php echo ($settings['DEFAULT_PAYMENT_GATEWAY'] ?? '') === 'midtrans' ? 'selected' : ''; ?>>Midtrans</option>
                 </select>
+
+                
             </div>
             
             <div class="form-actions">
