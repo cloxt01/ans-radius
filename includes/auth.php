@@ -21,9 +21,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/radius.php';
 require_once __DIR__ . '/functions.php';
 
-if (function_exists('date_default_timezone_set')) {
-    date_default_timezone_set('Asia/Jakarta');  // UTC+7
-}
+date_default_timezone_set(getSetting('timezone', 'Asia/Jakarta'));
 
 // Start session if not started
 if (session_status() === PHP_SESSION_NONE) {
