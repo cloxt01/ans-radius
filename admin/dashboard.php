@@ -9,18 +9,36 @@ requireAdminLogin();
 
 $pageTitle = 'Dashboard';
 
+
+// Current month key
+$currentMonthKey = date('Y-m');
+
 // Get statistics
 $stats = [
-    'totalCustomers' => fetchOne("SELECT COUNT(*) as total FROM customers")['total'] ?? 0,
-    'activeCustomers' => fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'active'")['total'] ?? 0,
-    'isolatedCustomers' => fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'isolated'")['total'] ?? 0,
-    'totalRevenue' => fetchOne("
-        SELECT SUM(amount) as total 
-        FROM invoices 
-        WHERE status = 'paid' 
-        AND due_date IS NOT NULL
-        AND DATE_FORMAT(due_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+    'totalCustomers' => fetchOne("
+        SELECT COUNT(*) as total
+        FROM customers
     ")['total'] ?? 0,
+
+    'activeCustomers' => fetchOne("
+        SELECT COUNT(*) as total
+        FROM customers
+        WHERE status = 'active'
+    ")['total'] ?? 0,
+
+    'isolatedCustomers' => fetchOne("
+        SELECT COUNT(*) as total
+        FROM customers
+        WHERE status = 'isolated'
+    ")['total'] ?? 0,
+
+    'totalRevenue' => fetchOne("
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM invoices
+        WHERE status = 'paid'
+          AND due_date IS NOT NULL
+          AND DATE_FORMAT(due_date, '%Y-%m') = ?
+    ", [$currentMonthKey])['total'] ?? 0,
 ];
 
 // Get recent invoices
@@ -60,7 +78,10 @@ $monthNames = [
     12 => 'Des'
 ];
 
-$current = new DateTime('first day of this month');
+// Gunakan sumber tanggal yang sama dengan Pendapatan Bulan Ini
+$currentMonthKey = date('Y-m');
+
+$current = new DateTime($currentMonthKey . '-01');
 
 for ($i = 5; $i >= 0; $i--) {
 
@@ -74,8 +95,8 @@ for ($i = 5; $i >= 0; $i--) {
         SELECT COALESCE(SUM(amount), 0) as total
         FROM invoices
         WHERE status = 'paid'
-        AND due_date IS NOT NULL
-        AND DATE_FORMAT(due_date, '%Y-%m') = ?
+          AND due_date IS NOT NULL
+          AND DATE_FORMAT(due_date, '%Y-%m') = ?
     ", [$month])['total'] ?? 0;
 
     $count = fetchOne("
@@ -90,6 +111,7 @@ for ($i = 5; $i >= 0; $i--) {
         'count' => (int)$count,
     ];
 }
+
 // Get unpaid invoices
 $overdueInvoices = fetchOne("
     SELECT COUNT(*) as total 
