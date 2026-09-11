@@ -625,6 +625,7 @@ function sendReminders($pdo)
 
         // Generate payment link
         $gateway = getSetting('DEFAULT_PAYMENT_GATEWAY', 'midtrans');
+        require_once __DIR__ . '/../includes/payment.php';
         $paymentResult = generatePaymentLink(
             $latestInvoice['invoice_number'],
             $latestInvoice['amount'],
