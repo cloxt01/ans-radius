@@ -464,7 +464,6 @@ function generateMidtransPaymentLink($invoiceNumber, $amount,$customerId, $custo
     }
     
     $redirectUrl = $json['redirect_url'] ?? '';
-    logError(json_encode($json));
     if ($redirectUrl === '') {
         logError("Midtrans no redirect_url: " . json_encode($json));
         return ['success' => false, 'message' => 'Midtrans error: ' . ($json['status_message'] ?? 'Tidak ada redirect_url'), 'link' => null];
