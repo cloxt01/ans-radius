@@ -144,19 +144,19 @@ function generateInvoiceNumber($customerId)
     // Hasil: INV-20260506162205-123456
     return $prefix . '-' . $timestamp . $paddedId . $random;
 }
-function storeRedirectUrl($orderId, $redirectUrl) {
-    global $pdo; // sesuaikan dengan koneksi PDO lo
-
+function storeRedirectUrl($pdo, $orderId, $redirectUrl) {
     try {
         $stmt = $pdo->prepare("
             INSERT INTO payment_redirects (order_id, redirect_url)
             VALUES (:order_id, :redirect_url)
             ON DUPLICATE KEY UPDATE redirect_url = VALUES(redirect_url)
         ");
+
         $stmt->execute([
-            ':order_id'     => $orderId,
+            ':order_id' => $orderId,
             ':redirect_url' => $redirectUrl,
         ]);
+
         return true;
     } catch (PDOException $e) {
         logError("Failed to store redirect URL for order_id: {$orderId} | " . $e->getMessage());
