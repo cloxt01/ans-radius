@@ -67,7 +67,33 @@ jobs:
           fi
 
           sudo rm -f "$RUNNER_TEMP/ovpn-auth.txt"
-      - name: Diagnose VPN and SSH DNS
+      - name: Diagnose SSH connectivity
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          echo "=== VPN interface ==="
+          ip -brief addr show tun0 || true
+
+          echo ""
+          echo "=== Routing ==="
+          ip route
+
+          echo ""
+          echo "=== DNS configuration ==="
+          cat /etc/resolv.conf
+
+          echo ""
+          echo "=== Resolve SSH domain ==="
+          if getent ahostsv4 "$SSH_HOST"; then
+            echo "DNS resolution OK"
+          else
+            echo "DNS resolution FAILED"
+          fi
+
+          echo ""
+          echo "=== Test SSH port ==="
+          nc -vz -w 5 "$SSH_HOST" "$SSH_PORT"
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
