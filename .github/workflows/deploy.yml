@@ -1,26 +1,119 @@
+
 name: CI/CD
 
 on:
   push:
-    branches: [ "ans" ]
+    branches: ["ans"]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout repository code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            git config --global --add safe.directory ${{vars.WORKDIR}}
-            cd ${{vars.WORKDIR}}
-            git fetch origin ans
-            git reset --hard origin/ans
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openvpn openssh-client netcat-openbsd
+
+      - name: Configure OpenVPN
+        env:
+          OVPN_CONFIG: ${{ secrets.OVPN_CONFIG }}
+        run: |
+          test -n "$OVPN_CONFIG" || {
+            echo "OVPN_CONFIG is empty"
+            exit 1
+          }
+          printf '%s\n' "$OVPN_CONFIG" > "$RUNNER_TEMP/client.ovpn"
+          chmod 600 "$RUNNER_TEMP/client.ovpn"
+
+      - name: Connect to OpenVPN
+        env:
+          OVPN_USERNAME: ${{ secrets.OVPN_USERNAME }}
+          OVPN_PASSWORD: ${{ secrets.OVPN_PASSWORD }}
+        run: |
+          printf '%s\n%s\n' \
+            "$OVPN_USERNAME" "$OVPN_PASSWORD" \
+            > "$RUNNER_TEMP/ovpn-auth.txt"
+          chmod 600 "$RUNNER_TEMP/ovpn-auth.txt"
+
+          sudo openvpn \
+            --config "$RUNNER_TEMP/client.ovpn" \
+            --auth-user-pass "$RUNNER_TEMP/ovpn-auth.txt" \
+            --daemon \
+            --log "$RUNNER_TEMP/openvpn.log"
+
+          connected=false
+
+          for i in $(seq 1 30); do
+            if ip addr show tun0 2>/dev/null | grep -q 'inet '; then
+              connected=true
+              break
+            fi
+
+            if ! sudo kill -0 "$(pgrep -f '^openvpn .*client.ovpn' | head -n1)" 2>/dev/null; then
+              :
+            fi
+
+            sleep 2
+          done
+
+          if [ "$connected" != true ]; then
+            sudo cat "$RUNNER_TEMP/openvpn.log"
+            exit 1
+          fi
+
+          sudo rm -f "$RUNNER_TEMP/ovpn-auth.txt"
+
+      - name: Verify domain and SSH connectivity
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set -e
+
+          echo "Resolving SSH domain..."
+          getent hosts "$SSH_HOST"
+
+          echo "Checking SSH port..."
+          nc -vz -w 5 "$SSH_HOST" "$SSH_PORT"
+
+      - name: Deploy via private SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          WORKDIR: ${{ vars.WORKDIR }}
+        run: |
+          set -e
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          test -n "$SSH_KNOWN_HOSTS"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/deploy_key \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o BatchMode=yes \
+            -p "$SSH_PORT" \
+            "$SSH_USER@$SSH_HOST" \
+            "cd '$WORKDIR' &&
+             git fetch origin ans &&
+             git reset --hard origin/ans"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          sudo pkill openvpn || true
+          rm -f "$RUNNER_TEMP/client.ovpn"
+          rm -f "$RUNNER_TEMP/ovpn-auth.txt"
+          rm -f ~/.ssh/deploy_key
