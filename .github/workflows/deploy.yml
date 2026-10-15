@@ -67,7 +67,34 @@ jobs:
           fi
 
           sudo rm -f "$RUNNER_TEMP/ovpn-auth.txt"
+      - name: Diagnose VPN and SSH DNS
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set +e
 
+          echo "=== VPN interface ==="
+          ip -brief addr show tun0
+          echo "tun0 exit code: $?"
+
+          echo ""
+          echo "=== Routing table ==="
+          ip route
+
+          echo ""
+          echo "=== DNS configuration ==="
+          cat /etc/resolv.conf
+
+          echo ""
+          echo "=== Resolve SSH hostname ==="
+          getent ahostsv4 "$SSH_HOST"
+          echo "DNS exit code: $?"
+
+          echo ""
+          echo "=== Test SSH port ==="
+          nc -vz -w 5 "$SSH_HOST" "$SSH_PORT"
+          echo "TCP exit code: $?"
       - name: Verify domain and SSH connectivity
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
